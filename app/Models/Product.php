@@ -52,4 +52,11 @@ class Product extends Model
     return [];
 }
 
+
+
+public function rentals()
+{
+    return $this->hasMany(Rental::class);
+}
+
 }

@@ -22,7 +22,7 @@ return new class extends Migration
         $table->string('image')->nullable();
 
         // for better control and future flexibility
-        $table->enum('status', ['pending', 'approved', 'rejected', 'sold', 'rented'])->default('pending');
+        $table->enum('status', ['pending', 'swapped', 'sold', 'rented'])->default('pending');
         $table->integer('rent_duration')->nullable(); // For rentals
         $table->string('location')->nullable(); // Optional
 

@@ -47,4 +47,19 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
+
+//listing routes
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
+    Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+    Route::get('/my-listings', [ProductController::class, 'myListings'])->name('products.myListings');
+    Route::patch('/products/{id}/status', [ProductController::class, 'updateStatus'])->name('products.updateStatus');
+    Route::delete('/products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
+
+});
+
+
+
+
 require __DIR__.'/auth.php';

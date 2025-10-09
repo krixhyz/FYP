@@ -11,7 +11,14 @@
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     {{ __("You're logged in!") }}
                 </div>
+
+                <a href="{{ route('products.create') }}" class="bg-green-600 text-white px-4 py-2 rounded">+ Add Listing</a>
+<a href="{{ route('products.myListings') }}" class="bg-gray-600 text-white px-4 py-2 rounded">My Listings</a>
             </div>
         </div>
     </div>
+
+
+
 </x-app-layout>
+
