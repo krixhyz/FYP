@@ -61,4 +61,16 @@ public function rentedItems()
     return $this->hasMany(Rental::class, 'renter_id');
 }
 
+public function products()
+{
+    return $this->hasMany(\App\Models\Product::class, 'user_id');
+}
+
+// In User.php
+public function orders()
+{
+    return $this->hasMany(\App\Models\Order::class, 'buyer_id'); 
+}
+
+
 }

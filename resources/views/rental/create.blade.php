@@ -24,13 +24,17 @@
 
                 @php
                     $rental = $product->rentals()->first();
+                    $ownerEndDate = $rental && $rental->start_date && $rental->duration 
+                        ? $rental->start_date->addDays($rental->duration - 1)->format('Y-m-d')
+                        : ($rental && $rental->end_date ? $rental->end_date->format('Y-m-d') : null);
                 @endphp
 
                 @if($rental)
-                    <p class="text-xs mb-1"><strong>Rent Type:</strong> {{ ucfirst($rental->rent_type) }}</p>
-                    <p class="text-xs mb-1"><strong>Rent Fare:</strong> Rs. {{ $rental->rent_fare }} per {{ $rental->rent_type }}</p>
+                    <p class="text-xs mb-1"><strong>Rent Fare:</strong> Rs. {{ $rental->rent_fare }} per day</p>
                     <p class="text-xs mb-1"><strong>Deposit:</strong> Rs. {{ $rental->rent_deposit }}</p>
-                    <p class="text-xs mb-1"><strong>Available Duration:</strong> {{ $rental->duration }} {{ $rental->rent_type }}(s)</p>
+                    <p class="text-xs mb-1"><strong>Available Duration:</strong> {{ $rental->duration }} day(s)</p>
+                    <p class="text-xs mb-1"><strong>Available From:</strong> {{ $rental->start_date ? $rental->start_date->format('Y-m-d') : 'Not set' }}</p>
+                    <p class="text-xs mb-1"><strong>Available Until:</strong> {{ $ownerEndDate ?? 'Not set' }}</p>
                 @else
                     <p class="text-xs text-red-500 mb-1">Rental information unavailable</p>
                 @endif
@@ -39,7 +43,8 @@
                       data-rent-fare="{{ $rental ? $rental->rent_fare : 0 }}"
                       data-rent-deposit="{{ $rental ? $rental->rent_deposit : 0 }}"
                       data-max-duration="{{ $rental ? $rental->duration : 100 }}"
-                      data-rent-type="{{ $rental ? $rental->rent_type : 'daily' }}">
+                      data-owner-start-date="{{ $rental && $rental->start_date ? $rental->start_date->format('Y-m-d') : '' }}"
+                      data-owner-end-date="{{ $ownerEndDate }}">
                     @csrf
 
                     <div class="mb-2">
@@ -57,80 +62,91 @@
                         <p id="totalAmount" class="text-sm text-blue-600">Rs. 0</p>
                     </div>
 
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs w-full">Proceed to Checkout</button>
+                    {{-- Hidden Inputs to Send Data --}}
+                    <input type="hidden" name="rent_fare" id="rentFare" value="{{ $rental ? $rental->rent_fare : 0 }}">
+<input type="hidden" name="rent_deposit" id="rentDeposit" value="{{ $rental ? $rental->rent_deposit : 0 }}">
+<input type="hidden" name="duration" id="duration" value="0">
+<input type="hidden" name="total_amount" id="totalAmountInput" value="0">
+
+
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs w-full">Request Rent</button>
                 </form>
             </div>
         </div>
     </div>
 
     <script>
-    const form = document.getElementById('rentalForm');
-    const startInput = document.getElementById('startDate');
-    const endInput = document.getElementById('endDate');
-    const totalAmount = document.getElementById('totalAmount');
+const form = document.getElementById('rentalForm');
+const startInput = document.getElementById('startDate');
+const endInput = document.getElementById('endDate');
+const totalAmountDisplay = document.getElementById('totalAmount');
 
-    if (form && startInput && endInput && totalAmount) {
-        const rentFare = parseFloat(form.dataset.rentFare) || 0;
-        const rentDeposit = parseFloat(form.dataset.rentDeposit) || 0;
-        const maxDuration = parseInt(form.dataset.maxDuration) || 1;
-        const rentType = form.dataset.rentType || 'daily';
+const rentFareInput = document.getElementById('rentFare');
+const rentDepositInput = document.getElementById('rentDeposit');
+const durationInput = document.getElementById('duration');
+const totalAmountInput = document.getElementById('totalAmountInput');
 
-        const today = new Date().toISOString().split('T')[0];
-        startInput.setAttribute('min', today);
+if (form && startInput && endInput && totalAmountDisplay) {
+    const rentFare = parseFloat(form.dataset.rentFare) || 0;
+    const rentDeposit = parseFloat(form.dataset.rentDeposit) || 0;
+    const maxDuration = parseInt(form.dataset.maxDuration) || 100;
+    const ownerStartDate = form.dataset.ownerStartDate || '';
+    const ownerEndDate = form.dataset.ownerEndDate || '';
 
-        function updateEndDateConstraints() {
-            if (!startInput.value) return;
+    // Set constraints on start date
+    const today = new Date().toISOString().split('T')[0];
+    startInput.setAttribute('min', ownerStartDate || today);
+    startInput.setAttribute('max', ownerEndDate);
 
-            const startDate = new Date(startInput.value);
-            let maxEndDate = new Date(startDate);
-
-            if (rentType === 'daily') {
-                maxEndDate.setDate(startDate.getDate() + maxDuration - 1);
-            } else {
-                // For hourly, still keep day-level constraint for date picker
-                maxEndDate.setDate(startDate.getDate() + Math.ceil(maxDuration / 24) - 1);
-            }
-
-            const yyyy = maxEndDate.getFullYear();
-            const mm = String(maxEndDate.getMonth() + 1).padStart(2, '0');
-            const dd = String(maxEndDate.getDate()).padStart(2, '0');
-
-            endInput.setAttribute('min', startInput.value);
-            endInput.setAttribute('max', `${yyyy}-${mm}-${dd}`);
-
-            if (endInput.value) {
-                const selected = new Date(endInput.value);
-                if (selected > maxEndDate) {
-                    endInput.value = `${yyyy}-${mm}-${dd}`;
-                }
-            }
+    // Function to calculate total and update hidden inputs
+    function updateTotal() {
+        if (!startInput.value || !endInput.value) {
+            totalAmountDisplay.textContent = 'Rs. 0';
+            durationInput.value = 0;
+            totalAmountInput.value = 0;
+            return;
         }
 
-        function updateTotal() {
-            if (!startInput.value || !endInput.value) {
-                totalAmount.textContent = 'Rs. 0';
-                return;
-            }
+        let start = new Date(startInput.value);
+        let end = new Date(endInput.value);
+        const maxEnd = new Date(ownerEndDate);
 
-            const start = new Date(startInput.value);
-            const end = new Date(endInput.value);
-            let diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        if (end > maxEnd) end = maxEnd;
 
-            if (diffDays > maxDuration) diffDays = maxDuration;
+        let diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        if (diffDays > maxDuration) diffDays = maxDuration;
 
-            totalAmount.textContent = `Rs. ${(rentFare * diffDays + rentDeposit).toFixed(2)}`;
-        }
+        const total = (rentFare * diffDays + rentDeposit).toFixed(2);
 
-        startInput.addEventListener('change', () => {
-            updateEndDateConstraints();
-            updateTotal();
-        });
-
-        endInput.addEventListener('change', updateTotal);
-
-        // initialize constraints on page load
-        if (startInput.value) updateEndDateConstraints();
+        totalAmountDisplay.textContent = `Rs. ${total}`;
+        durationInput.value = diffDays;
+        rentFareInput.value = rentFare;
+        rentDepositInput.value = rentDeposit;
+        totalAmountInput.value = total;
     }
+
+    // Update end date constraints when start changes
+    startInput.addEventListener('change', () => {
+        endInput.min = startInput.value;
+        if (endInput.value > ownerEndDate) endInput.value = ownerEndDate;
+        updateTotal();
+    });
+
+    endInput.addEventListener('change', updateTotal);
+
+    // Update hidden inputs on submit and disable button
+    form.addEventListener('submit', (e) => {
+        updateTotal();
+        const submitButton = form.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        submitButton.textContent = 'Submitting...';
+    });
+
+    // Initialize total on page load if dates pre-filled
+    if (startInput.value && endInput.value) {
+        updateTotal();
+    }
+}
 </script>
 
 </x-app-layout>

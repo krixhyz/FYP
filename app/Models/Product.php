@@ -17,6 +17,7 @@ class Product extends Model
         'type',
         'category',
         'image',
+        'status', 
     ];
 
     protected $casts = [
@@ -53,10 +54,24 @@ class Product extends Model
 }
 
 
+public function owner()
+{
+    return $this->belongsTo(User::class, 'user_id');
+}
+
 
 public function rentals()
 {
     return $this->hasMany(Rental::class);
 }
+
+    /** 
+     * Get the user that owns the product.
+     */
+    public function user()
+{
+    return $this->belongsTo(\App\Models\User::class, 'user_id');
+}
+
 
 }

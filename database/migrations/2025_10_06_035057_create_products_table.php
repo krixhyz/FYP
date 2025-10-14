@@ -20,6 +20,7 @@ return new class extends Migration
         $table->json('type')->nullable(); // store as ["sell", "rent", "swap"]
         $table->string('category')->nullable();
         $table->string('image')->nullable();
+       // $table->integer('quantity')->default(1); // For sale items
 
         // for better control and future flexibility
         $table->enum('status', ['pending', 'swapped', 'sold', 'rented'])->default('pending');

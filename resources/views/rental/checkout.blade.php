@@ -6,7 +6,7 @@
             <table class="table table-bordered">
                 <tr>
                     <th>Product</th>
-                    <td>{{ $rental->product->title }}</td>
+                    <td>{{ $rentalRequest->product->title }}</td>
                 </tr>
                 <tr>
                     <th>Rent Type</th>
@@ -14,7 +14,7 @@
                 </tr>
                 <tr>
                     <th>Duration</th>
-                    <td>{{ $rental->duration }} {{ $rental->rent_type == 'hourly' ? 'hours' : 'days' }}</td>
+                    <td>{{ $rentalRequest->duration }} {{ $rental->rent_type == 'hourly' ? 'hours' : 'days' }}</td>
                 </tr>
                 <tr>
                     <th>Fare</th>
@@ -26,7 +26,7 @@
                 </tr>
                 <tr class="table-info">
                     <th>Total Amount</th>
-                    <td><strong>Rs. {{ $rental->total_amount + $rental->rent_deposit }}</strong></td>
+                    <td><strong>Rs. {{ $rentalRequest->total_amount + $rental->rent_deposit }}</strong></td>
                 </tr>
             </table>
 
@@ -34,7 +34,7 @@
                 <strong>Note:</strong> Payment integration is coming soon. Your request has been sent to the owner for approval.
             </div>
 
-            <a href="{{ url('/products') }}" class="btn btn-success w-100 mt-3">Back to Products</a>
+            <a href="{{ route('index') }}" class="btn btn-success w-100 mt-3">Back to Products</a>
         </div>
     </div>
 </x-app-layout>

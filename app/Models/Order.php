@@ -14,9 +14,9 @@ class Order extends Model
         'product_id',
         'transaction_type',
         'status',
-        'rent_duration',
     ];
 
+    // Relationships
     public function buyer()
     {
         return $this->belongsTo(User::class, 'buyer_id');

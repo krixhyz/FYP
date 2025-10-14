@@ -16,13 +16,33 @@
                                 <p class="text-xs text-gray-400 capitalize">Type: {{ $item->type }}</p>
                             </div>
                         </div>
-                        <form action="{{ route('cart.destroy', $item->id) }}" method="POST">
-                            @csrf
-                            @method('DELETE')
-                            <button class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">Remove</button>
-                        </form>
+
+                        <div class="flex items-center space-x-2">
+                            <!-- <form action="{{ route('cart.update', $item->id) }}" method="POST" class="flex items-center space-x-1">
+                                @csrf
+                                @method('PATCH')
+                                <input type="number" name="quantity" value="{{ $item->quantity }}" min="1"
+                                       class="border rounded w-16 text-center">
+                                <button class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-sm">Update</button>
+                            </form> -->
+
+                            <form action="{{ route('cart.destroy', $item->id) }}" method="POST">
+                                @csrf
+                                @method('DELETE')
+                                <button class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">Remove</button>
+                            </form>
+                        </div>
                     </div>
                 @endforeach
+            </div>
+
+            <div class="mt-6 border-t pt-4 text-right">
+                <h3 class="text-lg font-semibold">Total: Rs. {{ number_format($total, 2) }}</h3>
+
+                <a href="{{ route('cart.checkout') }}" 
+                   class="mt-4 inline-block bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg">
+                    Proceed to Checkout
+                </a>
             </div>
         @endif
     </div>

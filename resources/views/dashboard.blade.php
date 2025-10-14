@@ -14,9 +14,26 @@
 
                 <a href="{{ route('products.create') }}" class="bg-green-600 text-white px-4 py-2 rounded">+ Add Listing</a>
 <a href="{{ route('products.myListings') }}" class="bg-gray-600 text-white px-4 py-2 rounded">My Listings</a>
+<a href="{{ route('products.myPurchases') }}" class="bg-gray-600 text-white px-4 py-2 rounded">My Purchases</a>
             </div>
         </div>
     </div>
+
+    
+    @if(auth()->user()->notifications->count())
+    <div class="bg-white p-4 rounded shadow mt-4">
+        <h3 class="font-semibold mb-2">Rental Notifications</h3>
+        @foreach(auth()->user()->unreadNotifications as $notification)
+            <div class="border-b border-gray-200 py-2">
+                <p class="text-sm">{{ $notification->data['message'] }}</p>
+                <a href="{{ route('rental.review', $notification->data['rental_request_id']) }}"
+                   class="text-blue-600 text-xs">View Request</a>
+            </div>
+        @endforeach
+    </div>
+@else
+    <p class="text-gray-500 text-sm mt-4">No new notifications.</p>
+@endif
 
 
 
