@@ -13,6 +13,11 @@ class RentedRentals extends Model
         'start_date','end_date','total_amount','payment_status','payment_reference','status'
     ];
 
+    protected $casts = [
+    'start_date' => 'datetime',
+    'end_date' => 'datetime',
+];
+
     public function rental() { return $this->belongsTo(Rental::class); }
     public function product() { return $this->belongsTo(Product::class); }
     public function owner() { return $this->belongsTo(User::class,'owner_id'); }

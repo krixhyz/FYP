@@ -23,7 +23,7 @@ return new class extends Migration
        // $table->integer('quantity')->default(1); // For sale items
 
         // for better control and future flexibility
-        $table->enum('status', ['pending', 'swapped', 'sold', 'rented'])->default('pending');
+        $table->enum('status', ['available', 'swapped', 'sold', 'rented'])->default('available');
         $table->integer('rent_duration')->nullable(); // For rentals
         $table->string('location')->nullable(); // Optional
 

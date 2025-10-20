@@ -9,10 +9,13 @@ use App\Http\Controllers\ProductController;
 //     return view('welcome');
 // });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+use App\Http\Controllers\DashboardController;
 
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth'])
+    ->name('dashboard');
+
+    
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -28,7 +31,8 @@ Route::get('/order/{order}/checkout', [OrderController::class, 'checkout'])->nam
 
 
 
-Route::get('/', [ProductController::class, 'index'])->name('index');
+Route::get('/', [ProductController::class, 'index'])->name('products.index');
+
 
 // Protect buy/rent/swap routes:
 Route::middleware(['auth'])->group(function () {
@@ -51,15 +55,17 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
-//listing routes
-
+// Listing routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
     Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+
+    Route::get('/products/{id}/edit', [ProductController::class, 'edit'])->name('products.edit');
+    Route::put('/products/{id}', [ProductController::class, 'update'])->name('products.update');
+
     Route::get('/my-listings', [ProductController::class, 'myListings'])->name('products.myListings');
     Route::patch('/products/{id}/status', [ProductController::class, 'updateStatus'])->name('products.updateStatus');
     Route::delete('/products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
-
 });
 
 
@@ -84,6 +90,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/my-purchases', [ProductController::class, 'myPurchases'])->name('products.myPurchases');
 });
 
+use App\Http\Controllers\NotificationController;
+Route::post('/notifications/mark-read', [NotificationController::class, 'markRead'])->name('notifications.markRead')->middleware('auth');
 
 
 require __DIR__.'/auth.php';

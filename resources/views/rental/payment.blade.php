@@ -15,7 +15,7 @@
                 <strong>Request Approved!</strong> Please complete payment to start your rental.
             </div>
 
-            <a href="{{ route('index') }}" class="btn btn-primary w-100 mt-3">Proceed to Payment (Coming Soon)</a>
+            <a href="{{ route('products.index') }}" class="btn btn-primary w-100 mt-3">Proceed to Payment (Coming Soon)</a>
         </div>
     </div>
 </x-app-layout>

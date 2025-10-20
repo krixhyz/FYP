@@ -56,10 +56,7 @@ class User extends Authenticatable
     return $this->hasMany(Rental::class, 'owner_id');
 }
 
-public function rentedItems()
-{
-    return $this->hasMany(Rental::class, 'renter_id');
-}
+
 
 public function products()
 {
@@ -71,6 +68,36 @@ public function orders()
 {
     return $this->hasMany(\App\Models\Order::class, 'buyer_id'); 
 }
+// All listings created by user as owner
+public function rentalListings()
+{
+    return $this->hasMany(\App\Models\Rental::class, 'owner_id');
+}
+
+// All rentals that the user has rented (approved/completed rentals)
+public function rentedItems()
+{
+    return $this->hasMany(\App\Models\RentedRentals::class, 'renter_id');
+}
+
+// All requests made by the user
+public function rentalRequests()
+{
+    return $this->hasMany(\App\Models\RentalRequest::class, 'renter_id');
+}
+
+// Requests user received as owner (incoming requests)
+public function incomingRentalRequests()
+{
+    return $this->hasMany(\App\Models\RentalRequest::class, 'owner_id');
+}
+
+// Final rentals approved where user is the owner (earned revenue)
+public function approvedRentalsAsOwner()
+{
+    return $this->hasMany(\App\Models\RentedRentals::class, 'owner_id');
+}
+
 
 
 }

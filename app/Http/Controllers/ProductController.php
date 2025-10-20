@@ -8,8 +8,8 @@ use App\Models\RentedRentals;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use App\Models\User;
-use App\Models\Order;
+use App\Models\RentalRequest;
+
 
 
 class ProductController extends Controller
@@ -17,13 +17,18 @@ class ProductController extends Controller
     public function index()
     {
         $products = Product::latest()->get();
-        return view('index', compact('products'));
+    
+        return view('products.index', compact('products'));
     }
 
     public function create()
-    {
-        return view('products.create');
-    }
+{
+    $action = route('products.store'); // form submission URL
+    $method = 'POST';                  // HTTP method
+
+    return view('products.create', compact('action', 'method'));
+}
+
 
     public function store(Request $request)
     {
@@ -63,7 +68,7 @@ class ProductController extends Controller
             'price' => $request->price,
             'type' => $request->listing_type,
             'image' => $imagePath,
-            'status' => 'pending',
+            'status' => 'available',
         ]);
 
         // If rent selected, create a rental record
@@ -73,6 +78,7 @@ class ProductController extends Controller
     'owner_id'=>Auth::id(),
     'rent_fare'=>$request->rent_fare,
     'rent_deposit'=>$request->rent_deposit,
+    'available_from'=>$request->available_from,
     
     'available_duration'=>$request->rent_duration,
     'status'=>'available'
@@ -82,27 +88,111 @@ class ProductController extends Controller
         return redirect()->route('dashboard')->with('success', 'Listing added successfully!');
     }
 
+
+
+
+  public function edit($id)
+{
+    $product = Product::where('user_id', Auth::id())->with('rentals')->findOrFail($id);
+    $action = route('products.update', $product->id); // form submission URL
+    $method = 'PUT';                                 // HTTP method
+
+    return view('products.edit', compact('product', 'action', 'method'));
+}
+
+
+public function update(Request $request, $id)
+{
+    $product = Product::where('user_id', Auth::id())->findOrFail($id);
+
+    $request->validate([
+        'title' => 'required|string|max:255',
+        'description' => 'required|string',
+        'category' => 'required|string|in:electronics,clothing,furniture,general',
+        'price' => 'nullable|numeric|min:0',
+        'listing_type' => 'required|array|min:1',
+        'listing_type.*' => 'in:sell,rent,swap',
+        'image' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:4096',
+        'rent_deposit' => 'required_if:listing_type.*,rent|nullable|numeric|min:0',
+        'rent_fare' => 'required_if:listing_type.*,rent|nullable|numeric|min:0',
+        'start_date' => 'required_if:listing_type.*,rent|nullable|date|after_or_equal:today',
+        'end_date' => 'required_if:listing_type.*,rent|nullable|date|after_or_equal:start_date',
+        'rent_duration' => 'required_if:listing_type.*,rent|nullable|integer|min:1',
+    ]);
+
+    // Handle image replacement (optional)
+    if ($request->hasFile('image')) {
+        if ($product->image && Storage::disk('public')->exists($product->image)) {
+            Storage::disk('public')->delete($product->image);
+        }
+        $filename = time() . '_' . uniqid() . '.' . $request->file('image')->getClientOriginalExtension();
+        $imagePath = $request->file('image')->storeAs('uploads/products', $filename, 'public');
+        $product->image = $imagePath;
+    }
+
+    // Update product
+    $product->update([
+        'title' => $request->title,
+        'description' => $request->description,
+        'category' => $request->category,
+        'price' => $request->price,
+        'type' => $request->listing_type,
+    ]);
+
+    // Handle rent details
+    if (in_array('rent', $request->listing_type)) {
+        $rentals = Rental::updateOrCreate(
+            ['product_id' => $product->id],
+            [
+                'owner_id' => Auth::id(),
+                'rent_fare' => $request->rent_fare,
+                'rent_deposit' => $request->rent_deposit,
+                'available_duration' => $request->rent_duration,
+                'status' => 'available',
+            ]
+        );
+    } else {
+        // If rent was removed, delete its rental record if it exists
+        Rental::where('product_id', $product->id)->delete();
+    }
+
+    return redirect()->route('products.myListings')->with('success', 'Listing updated successfully!');
+}
+
+
    public function myListings()
 {
-    /** @var \App\Models\User $user */
     $user = Auth::user();
 
     // All products owned by this user
     $products = $user->products()->get();
 
-    // Only rentals that have been requested (exclude null or deleted)
-    $rentals = Rental::with(['product', 'renter'])
-        ->whereHas('product', fn($q) => $q->where('user_id', $user->id))
-        ->whereIn('status', ['available','rented','disabled'])
-        ->orderByDesc('created_at')
+    // Fetch pending rental requests from rental_requests table where the logged-in user is the owner
+    $pendingRequests = RentalRequest::with(['product', 'renter'])
+        ->where('owner_id', $user->id)
+        ->where('status', 'requested')
+        ->latest()
         ->get();
 
+    // Active rentals (from rented_rentals table)
+    $activeRentals = RentedRentals::with(['product', 'renter'])
+        ->where('owner_id', $user->id)
+        ->where('status', 'active')
+        ->latest()
+        ->get();
 
     // Sold products
     $soldProducts = $user->products()->where('status', 'sold')->get();
 
-    return view('products.my_listings', compact('products', 'rentals', 'soldProducts'));
+    return view('products.my_listings', compact(
+        'products',
+        'pendingRequests',
+        'activeRentals',
+        'soldProducts'
+    ));
 }
+
+
 
     public function updateStatus(Request $request, $id)
     {

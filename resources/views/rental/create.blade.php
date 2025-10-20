@@ -22,19 +22,32 @@
                 <p class="text-gray-600 text-xs mt-1">{{ Str::limit($product->description, 100) }}</p>
                 <p class="text-xs mb-1"><strong>Category:</strong> {{ $product->category ?? 'General' }}</p>
 
-                @php
-                    $rental = $product->rentals()->first();
-                    $ownerEndDate = $rental && $rental->start_date && $rental->duration 
-                        ? $rental->start_date->addDays($rental->duration - 1)->format('Y-m-d')
-                        : ($rental && $rental->end_date ? $rental->end_date->format('Y-m-d') : null);
-                @endphp
+               @php
+    $rental = $product->rentals()->first();
+
+    $ownerEndDate = null;
+    if ($rental && $rental->available_from && $rental->available_duration) {
+        $start = \Carbon\Carbon::parse($rental->available_from);
+        $ownerEndDate = $start->copy()->addDays($rental->available_duration - 1)->format('Y-m-d');
+    }
+@endphp
+
 
                 @if($rental)
                     <p class="text-xs mb-1"><strong>Rent Fare:</strong> Rs. {{ $rental->rent_fare }} per day</p>
                     <p class="text-xs mb-1"><strong>Deposit:</strong> Rs. {{ $rental->rent_deposit }}</p>
-                    <p class="text-xs mb-1"><strong>Available Duration:</strong> {{ $rental->duration }} day(s)</p>
-                    <p class="text-xs mb-1"><strong>Available From:</strong> {{ $rental->start_date ? $rental->start_date->format('Y-m-d') : 'Not set' }}</p>
-                    <p class="text-xs mb-1"><strong>Available Until:</strong> {{ $ownerEndDate ?? 'Not set' }}</p>
+                    <p class="text-xs mb-1"><strong>Available Duration:</strong> 
+    {{ $rental && $rental->available_duration ? $rental->available_duration . ' day(s)' : 'Not set' }}
+</p>
+
+<p class="text-xs mb-1"><strong>Available From:</strong> 
+    {{ $rental && $rental->available_from ? \Carbon\Carbon::parse($rental->available_from)->format('Y-m-d') : 'Not set' }}
+</p>
+
+<p class="text-xs mb-1"><strong>Available Until:</strong> 
+    {{ $ownerEndDate ?? 'Not set' }}
+</p>
+
                 @else
                     <p class="text-xs text-red-500 mb-1">Rental information unavailable</p>
                 @endif
@@ -43,8 +56,9 @@
                       data-rent-fare="{{ $rental ? $rental->rent_fare : 0 }}"
                       data-rent-deposit="{{ $rental ? $rental->rent_deposit : 0 }}"
                       data-max-duration="{{ $rental ? $rental->duration : 100 }}"
-                      data-owner-start-date="{{ $rental && $rental->start_date ? $rental->start_date->format('Y-m-d') : '' }}"
-                      data-owner-end-date="{{ $ownerEndDate }}">
+                      data-owner-start-date="{{ $rental && $rental->available_from ? \Carbon\Carbon::parse($rental->available_from)->format('Y-m-d') : '' }}"
+data-owner-end-date="{{ $ownerEndDate }}">
+
                     @csrf
 
                     <div class="mb-2">
@@ -63,6 +77,7 @@
                     </div>
 
                     {{-- Hidden Inputs to Send Data --}}
+                    <input type="hidden" name="product_id" value="{{ $product->id }}">
                     <input type="hidden" name="rent_fare" id="rentFare" value="{{ $rental ? $rental->rent_fare : 0 }}">
 <input type="hidden" name="rent_deposit" id="rentDeposit" value="{{ $rental ? $rental->rent_deposit : 0 }}">
 <input type="hidden" name="duration" id="duration" value="0">
@@ -127,10 +142,24 @@ if (form && startInput && endInput && totalAmountDisplay) {
 
     // Update end date constraints when start changes
     startInput.addEventListener('change', () => {
-        endInput.min = startInput.value;
-        if (endInput.value > ownerEndDate) endInput.value = ownerEndDate;
-        updateTotal();
-    });
+    const start = new Date(startInput.value);
+    const maxEnd = new Date(start);
+    maxEnd.setDate(maxEnd.getDate() + parseInt(maxDuration) - 1);
+
+    // Pick the earlier of maxEnd and ownerEndDate
+    const ownerEnd = new Date(ownerEndDate);
+    const finalMax = maxEnd < ownerEnd ? maxEnd : ownerEnd;
+
+    endInput.min = startInput.value;
+    endInput.max = finalMax.toISOString().split('T')[0];
+
+    const currentEnd = new Date(endInput.value);
+    if (currentEnd > finalMax) {
+        endInput.value = endInput.max;
+    }
+
+    updateTotal();
+});
 
     endInput.addEventListener('change', updateTotal);
 

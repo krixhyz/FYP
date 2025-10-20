@@ -55,7 +55,7 @@ class RentalController extends Controller
 
     // 4. Create rental request
     $rentalRequest = RentalRequest::create([
-        'rental_id' => $product->rental->id ?? null,
+        'rental_id' => optional($product->rentals()->first())->id,
         'product_id' => $product->id,
         'owner_id' => $product->user_id,
         'renter_id' => Auth::id(),
@@ -118,6 +118,7 @@ class RentalController extends Controller
     /**
      * Approve rental request → move to rented_rentals.
      */
+
     public function approveRequest($requestId)
 {
     $req = RentalRequest::with('product', 'rental')->findOrFail($requestId);

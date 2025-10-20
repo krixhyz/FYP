@@ -10,8 +10,13 @@ class Rental extends Model
     use HasFactory;
 
     protected $fillable = [
-        'product_id','owner_id','rent_fare','rent_deposit','rent_type','available_duration','status'
+        'product_id','owner_id','rent_fare','rent_deposit','rent_type','available_from','available_duration','status'
     ];
+
+    protected $casts = [
+
+    'available_from' => 'datetime',
+];
 
 
 

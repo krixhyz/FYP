@@ -20,6 +20,7 @@ return new class extends Migration {
             // Owner-set rental configuration
             $table->decimal('rent_fare', 10, 2)->nullable();
             $table->decimal('rent_deposit', 10, 2)->nullable();
+            $table->dateTime('available_from')->nullable();
             
             $table->integer('available_duration')->nullable()->comment('Max duration owner allows (in units of rent_type)');
 

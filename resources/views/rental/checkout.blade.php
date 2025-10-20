@@ -34,7 +34,7 @@
                 <strong>Note:</strong> Payment integration is coming soon. Your request has been sent to the owner for approval.
             </div>
 
-            <a href="{{ route('index') }}" class="btn btn-success w-100 mt-3">Back to Products</a>
+            <a href="{{ route('products.index') }}" class="btn btn-success w-100 mt-3">Back to Products</a>
         </div>
     </div>
 </x-app-layout>

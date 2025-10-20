@@ -6,7 +6,7 @@
 
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             @forelse ($products as $product)
-                @if ($product->status === 'pending' && Auth::id() !== $product->user_id)
+                @if ($product->status === 'available' && Auth::id() !== $product->user_id)
                     <div class="bg-white shadow-md hover:shadow-lg rounded-lg overflow-hidden border border-gray-100 transition-transform transform hover:scale-105 duration-200">
                         
                         {{-- Product Image --}}

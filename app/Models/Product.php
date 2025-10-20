@@ -62,7 +62,7 @@ public function owner()
 
 public function rentals()
 {
-    return $this->hasMany(Rental::class);
+    return $this->hasOne(Rental::class);
 }
 
     /** 
