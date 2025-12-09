@@ -23,7 +23,7 @@ class SwapRequestController extends Controller
     // ================================
     // 1️⃣ Show Swap Request Form
     // ================================
-    public function showRequestForm(Product $product)
+    public function showRequestForm(\App\Models\Product $product)
     {
         if ($product->user_id === Auth::id()) {
             return redirect()->back()->withErrors('You cannot request your own product.');
@@ -38,32 +38,30 @@ class SwapRequestController extends Controller
     // ================================
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'product_id' => 'required|exists:products,id',
-            'offered_product_id' => 'nullable|exists:products,id',
-            'offered_amount' => 'nullable|numeric|min:0',
-            'message' => 'nullable|string|max:2000',
+        $request->validate([
+            'product_id' => 'required|integer|exists:products,id',
+            'cash_adjustment_paisa' => 'nullable|integer|min:0',
         ]);
 
-        $product = Product::findOrFail($data['product_id']);
+        $swap = \App\Models\SwapRequest::create([
+            'requester_id' => auth()->id(),
+            'product_id' => $request->product_id,
+            'cash_adjustment_paisa' => (int) ($request->cash_adjustment_paisa ?? 0),
+            'status' => 'pending',
+        ]);
 
-        if ($product->user_id === Auth::id()) {
-            return back()->withErrors('You cannot request your own product.');
+        if ($swap->cash_adjustment_paisa > 0) {
+            $order = \App\Models\Order::create([
+                'user_id' => auth()->id(),
+                'status' => 'pending',
+                'context' => 'swap',
+                'amount' => (int) $swap->cash_adjustment_paisa,
+                'meta' => json_encode(['swap_request_id' => $swap->id]),
+            ]);
+            return redirect()->route('order.checkout', $order->id);
         }
 
-        $swapRequest = SwapRequest::create([
-            'product_id' => $data['product_id'],
-            'offered_product_id' => $data['offered_product_id'] ?? null,
-            'owner_id' => $product->user_id,
-            'requester_id' => Auth::id(),
-            'offered_amount' => $data['offered_amount'] ?? null,
-            'message' => $data['message'] ?? null,
-        ]);
-
-        // Notify product owner
-        $product->user->notify(new SwapRequested($swapRequest));
-
-        return redirect()->route('swap.request.incoming')->with('success', 'Swap request sent!');
+        return redirect()->route('swap.request.show', $swap->id)->with('success', 'Swap requested');
     }
 
 

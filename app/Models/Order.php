@@ -17,6 +17,8 @@ class Order extends Model
         'unit_price',    // NEW
         'total_price',    // NEW
         'status',
+        'context',
+        'meta',
     ];
 
     protected $casts = [

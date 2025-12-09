@@ -1,45 +1,90 @@
 <x-app-layout>
-    <div class="max-w-xl mx-auto py-8 px-6">
-        <h2 class="text-2xl font-semibold mb-6">Checkout</h2>
+    {{-- Optional header slot --}}
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            Checkout
+        </h2>
+    </x-slot>
 
-        @php
-            $unit = $order->unit_price ?? ($order->product?->price ?? 0);
-            $qty  = $order->quantity ?? 1;
-            $total = $unit * $qty;
-        @endphp
+    <div class="py-8">
+        <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg border border-gray-200">
+                <div class="p-6 space-y-3">
+                    <div class="text-sm text-gray-600">Order #{{ $order->id }}</div>
+                    <div class="text-sm text-gray-600">
+                        Amount: NPR {{ number_format(((int)($amount ?? 0)) / 100, 2) }}
+                    </div>
 
-        <div class="bg-white shadow rounded-lg p-6 space-y-5">
-            <div class="flex items-center gap-4">
-                @if($order->product?->image)
-                    <img src="{{ asset('storage/'.$order->product->image) }}" class="w-20 h-20 object-cover rounded" alt="">
-                @endif
-                <div>
-                    <h3 class="text-lg font-medium">{{ $order->product?->title ?? 'Product' }}</h3>
-                    <p class="text-xs text-gray-600">
-                        {{ \Illuminate\Support\Str::limit($order->product?->description ?? '', 100) }}
-                    </p>
+                    <button id="khaltiBtn"
+                            class="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">
+                        Pay with Khalti
+                    </button>
+
+                    <div id="khaltiStatus" class="text-sm mt-3"></div>
                 </div>
             </div>
-
-            <div class="text-sm space-y-1">
-                <p><strong>Unit Price:</strong> Rs. {{ number_format($unit,2) }}</p>
-                <p><strong>Quantity:</strong> {{ $qty }}</p>
-                <p><strong>Total:</strong> <span class="text-green-600 font-semibold">Rs. {{ number_format($total,2) }}</span></p>
-                <p><strong>Status:</strong> {{ ucfirst($order->status) }}</p>
-            </div>
-
-            <form method="POST" action="{{ route('order.confirm', $order->id) }}" class="space-y-3">
-                @csrf
-                <button type="submit"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 rounded transition">
-                    Confirm Purchase
-                </button>
-            </form>
-
-            <a href="{{ route('products.index') }}"
-               class="text-xs text-gray-500 hover:text-gray-700 inline-block">
-                ← Continue Browsing
-            </a>
         </div>
     </div>
+
+    {{-- Khalti Widget --}}
+    <script src="https://khalti.com/static/khalti-checkout.js"></script>
+
+    <script>
+        const amountPaisa = {{ (int) ($amount ?? 0) }};
+        const orderId = {{ (int) $order->id }};
+
+        const config = {
+            publicKey: "{{ config('payments.khalti.public_key') }}",
+            productIdentity: "ORDER-{{ $order->id }}",
+            productName: "Order #{{ $order->id }}",
+            productUrl: "{{ route('order.checkout', $order->id) }}",
+            eventHandler: {
+                onSuccess: function (payload) {
+                    const statusEl = document.getElementById('khaltiStatus');
+                    statusEl.innerText = 'Verifying payment...';
+
+                    fetch("{{ route('payments.khalti.verify') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': "{{ csrf_token() }}",
+                        },
+                        body: JSON.stringify({
+                            token: payload.token,
+                            amount: amountPaisa,
+                            order_id: orderId
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.ok) {
+                            statusEl.innerText = 'Payment successful ✅';
+                            // Optional redirect:
+                            // window.location.href = "{{ route('order.confirm', $order->id) }}";
+                        } else {
+                            statusEl.innerText = 'Verification failed ❌';
+                            console.error(data.error);
+                        }
+                    })
+                    .catch(err => {
+                        statusEl.innerText = 'Network error ❌';
+                        console.error(err);
+                    });
+                },
+                onError: function (error) {
+                    document.getElementById('khaltiStatus').innerText = 'Error: ' + JSON.stringify(error);
+                },
+                onClose: function () {}
+            }
+        };
+
+        const checkout = new KhaltiCheckout(config);
+        document.getElementById("khaltiBtn").onclick = function () {
+            if (amountPaisa <= 0) {
+                document.getElementById('khaltiStatus').innerText = 'Invalid amount ❌';
+                return;
+            }
+            checkout.show({ amount: amountPaisa });
+        }
+    </script>
 </x-app-layout>

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
+use App\Services\KhaltiPayment;
 
 class OrderController extends Controller
 {
@@ -47,6 +48,10 @@ class OrderController extends Controller
                 'unit_price' => $unitPrice,
                 'total_price' => $totalPrice,
                 'status' => 'pending',
+                // set checkout fields used by orders.checkout
+                'context' => 'buy',
+                'amount' => (int) round($totalPrice * 100), // NPR → paisa
+                'meta' => null,
             ]);
 
             // Adjust product quantity
@@ -73,32 +78,54 @@ class OrderController extends Controller
 
     public function checkout($orderId)
     {
-        $order = Order::with('product')->findOrFail($orderId);
+        $order = \App\Models\Order::findOrFail($orderId);
+        $amount = (int) ($order->amount ?? 0);
 
-        if ($order->buyer_id !== Auth::id()) {
-            abort(403, 'Unauthorized');
+        if ($amount <= 0) {
+            $amount = (int) round(($order->total_price ?? 0) * 100);
+            if ((int) ($order->amount ?? 0) !== $amount) {
+                $order->amount = $amount;
+                $order->save();
+            }
         }
 
-        return view('orders.checkout', compact('order'));
+        return view('orders.checkout', [
+            'order' => $order,
+            'amount' => $amount,
+            'khaltiPublicKey' => config('services.khalti.public'),
+        ]);
     }
 
     public function confirm(Request $request, $orderId)
     {
-        $order = Order::with('product')->where('id', $orderId)->where('buyer_id', Auth::id())->firstOrFail();
+        $order = Order::with('product')
+            ->where('id', $orderId)
+            ->where('buyer_id', Auth::id())
+            ->firstOrFail();
 
         if ($order->status !== 'pending') {
             return redirect()->route('products.myPurchases')->with('info', 'Order already processed.');
         }
 
-        // Recalculate in case product price changed (keep original if stored)
-        $unit = $order->unit_price ?? ($order->product->price ?? 0);
-        $qty  = $order->quantity ?? 1;
+        $validated = $request->validate([
+            'token' => 'required|string',
+            'amount' => 'required|integer|min:1', // paisa
+        ]);
+
+        $verify = KhaltiPayment::verify($validated['token'], (int) $validated['amount']);
+        if (!($verify['ok'] ?? false)) {
+            return back()->with('error', 'Payment verification failed.');
+        }
+
+        $unit  = $order->unit_price ?? ($order->product->price ?? 0);
+        $qty   = $order->quantity ?? 1;
         $total = $unit * $qty;
 
-        // Persist if columns exist
-        $order->unit_price = $unit;
+        $order->unit_price  = $unit;
         $order->total_price = $total;
-        $order->status = 'completed';
+        $order->amount      = (int) round($total * 100);
+        $order->status      = 'completed';
+        $order->meta        = json_encode(['khalti' => $verify['data'] ?? []]);
         $order->save();
 
         return redirect()->route('products.myPurchases')

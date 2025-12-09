@@ -79,11 +79,20 @@ class CartController extends Controller
 
     public function checkout()
     {
-        $cartItems = Auth::user()->cartItems()->with('product')->get();
-        if ($cartItems->isEmpty()) {
-            return redirect()->route('cart.index')->with('error', 'Cart is empty.');
-        }
-        return view('cart.checkout', compact('cartItems'));
+        $user = Auth::user();
+        $items = $user->cartItems()->with('product')->get(); // adjust relation name
+        $amountPaisa = (int) $items->sum(function ($item) {
+            $price = (int) ($item->product->price_paisa ?? 0);
+            $qty = (int) ($item->quantity ?? 1);
+            return $price * $qty;
+        });
+
+        $order = \App\Models\Order::updateOrCreate(
+            ['user_id' => $user->id, 'status' => 'pending', 'context' => 'cart'],
+            ['amount' => $amountPaisa]
+        );
+
+        return redirect()->route('order.checkout', $order->id);
     }
 
     public function placeFromCart(Request $request)

@@ -98,13 +98,19 @@ class RentalController extends Controller
      */
     public function checkout($requestId)
     {
-        $requestData = RentalRequest::with('product')->findOrFail($requestId);
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $rentalRequest = \App\Models\RentalRequest::with('product')->findOrFail($requestId);
+        $amountPaisa = (int) ($rentalRequest->price_paisa ?? $rentalRequest->product->rent_price_paisa ?? 0);
 
-        if ($requestData->renter_id != Auth::id()) {
-            abort(403);
-        }
+        $order = \App\Models\Order::create([
+            'user_id' => $user->id,
+            'status' => 'pending',
+            'context' => 'rental',
+            'amount' => $amountPaisa,
+            'meta' => json_encode(['rental_request_id' => $rentalRequest->id]),
+        ]);
 
-        return view('rental.checkout', compact('requestData'));
+        return redirect()->route('order.checkout', $order->id);
     }
 
     /**

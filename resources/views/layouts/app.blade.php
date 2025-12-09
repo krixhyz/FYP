@@ -29,7 +29,7 @@
 
             <!-- Page Content -->
             <main>
-                {{ $slot }}
+                {{ $slot }} {{-- keep component slot for user views --}}
             </main>
         </div>
 
