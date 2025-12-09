@@ -1,6 +1,6 @@
-<x-app-layout>
+@extends('layouts.app')
 
-
+@section('content')
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Hero -->
         <div class="bg-gradient-to-r from-green-600 to-emerald-500 rounded-xl p-8 mb-8 text-white shadow-md">
@@ -302,4 +302,4 @@
     }
 }
     </script>
-</x-app-layout>
+@endsection

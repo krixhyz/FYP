@@ -160,4 +160,34 @@ class SwapRequestController extends Controller
         $swapRequest->delete();
         return redirect()->route('dashboard')->with('info', 'Swap rejected.');
     }
+    public function myHistory()
+{
+    $user = Auth::id();
+
+    $swaps = \App\Models\Swap::with([
+        'requestedProduct',
+        'offeredProduct',
+        'ownerA',
+        'ownerB'
+    ])
+    ->where(function ($q) use ($user) {
+        $q->where('owner_a_id', $user)
+          ->orWhere('owner_b_id', $user);
+    })
+    ->latest()
+    ->get();
+
+    $orders = \App\Models\Order::with('product')
+        ->where('user_id', $user)
+        ->latest()
+        ->get();
+
+    $rentedRentals = \App\Models\Rental::with(['product', 'owner'])
+        ->where('renter_id', $user)
+        ->latest()
+        ->get();
+
+    return view('profile.my-history', compact('orders', 'rentedRentals', 'swaps'));
+}
+
 }
