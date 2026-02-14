@@ -51,10 +51,11 @@ Route::middleware('auth')->group(function () {
 
 //order routes
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PaymentController;
 
 Route::post('/order/{product}', [OrderController::class, 'store'])->name('order.store');
 Route::get('/order/{order}/checkout', [OrderController::class, 'checkout'])->name('order.checkout');
-Route::post('/order/{order}/confirm', [OrderController::class, 'confirm'])->name('order.confirm'); // NEW
+Route::post('/order/{order}/confirm', [PaymentController::class, 'createOrderPayment'])->name('order.confirm');
 
 
 
@@ -93,9 +94,12 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/cart/{id}', [CartController::class, 'update'])->name('cart.update');
     Route::delete('/cart/{id}', [CartController::class, 'destroy'])->name('cart.destroy');
     Route::get('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
-    Route::post('/cart/place-order', [CartController::class, 'placeFromCart'])->name('orders.placeFromCart');
+    Route::post('/cart/place-order', [PaymentController::class, 'createCartPayment'])->name('orders.placeFromCart');
 
 });
+
+Route::get('/payment/esewa/success', [PaymentController::class, 'esewaSuccess'])->name('payments.esewa.success');
+Route::get('/payment/esewa/failure', [PaymentController::class, 'esewaFailure'])->name('payments.esewa.failure');
 
 
 // Rental routes
@@ -105,12 +109,14 @@ Route::middleware(['auth'])->group(function () {
     // renter side
     Route::get('/rent/{product}', [RentalController::class, 'create'])->name('rental.create');
     Route::post('/rental/request/{product}', [RentalController::class, 'store'])->name('rental.store');
-    Route::get('/rental/checkout/{request}', [RentalController::class, 'checkout'])->name('rental.checkout');
+    Route::get('/rental/checkout/{rentalRequest}', [RentalController::class, 'checkout'])->name('rental.checkout');
+    Route::get('/rental/payment/{rentalRequest}', [RentalController::class, 'payment'])->name('rental.payment');
+    Route::post('/rental/{rentalRequest}/pay', [PaymentController::class, 'createRentalPayment'])->name('rental.pay');
 
     // owner side (reviewing rental requests)
-    Route::get('/rental/request/{request}/review', [RentalController::class, 'review'])->name('rental.review');
-    Route::patch('/rental/request/{request}/approve', [RentalController::class, 'approveRequest'])->name('rental.approve');
-    Route::patch('/rental/request/{request}/reject', [RentalController::class, 'reject'])->name('rental.reject');
+    Route::get('/rental/request/{rentalRequest}/review', [RentalController::class, 'review'])->name('rental.review');
+    Route::patch('/rental/request/{rentalRequest}/approve', [RentalController::class, 'approveRequest'])->name('rental.approve');
+    Route::patch('/rental/request/{rentalRequest}/reject', [RentalController::class, 'reject'])->name('rental.reject');
 
 
     Route::patch('/rental/{rentedRental}/return', [RentalController::class, 'returnRental'])->name('rental.return'); // NEW
@@ -157,6 +163,19 @@ Route::middleware(['auth'])->group(function () {
     // Reject swap request
     Route::post('/swap/{swapRequest}/reject', [SwapRequestController::class, 'reject'])
         ->name('swap.request.reject');
+
+    Route::get('/swap/checkout/{swapRequest}', [SwapRequestController::class, 'checkout'])
+        ->name('swap.checkout');
+    Route::post('/swap/{swapRequest}/pay', [PaymentController::class, 'createSwapPayment'])
+        ->name('swap.pay');
+
+    // Counter offer flow
+    Route::post('/swap/{swapRequest}/counter', [SwapRequestController::class, 'counterOffer'])
+        ->name('swap.request.counter');
+    Route::post('/swap/{swapRequest}/counter/accept', [SwapRequestController::class, 'acceptCounter'])
+        ->name('swap.request.counter.accept');
+    Route::post('/swap/{swapRequest}/counter/reject', [SwapRequestController::class, 'rejectCounter'])
+        ->name('swap.request.counter.reject');
 });
 
 

@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Notifications\SwapRequested;
 use App\Notifications\SwapRejected;
 use App\Notifications\SwapAccepted;
+use App\Notifications\SwapCountered;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -106,45 +107,34 @@ class SwapRequestController extends Controller
             return redirect()->route('dashboard')->with('error', 'Swap already processed.');
         }
 
-        DB::transaction(function () use ($swapRequest) {
-            // Decrement quantities (swap is 1 unit each)
-            $reqProduct = Product::lockForUpdate()->find($swapRequest->product_id);
-            $offProduct = Product::lockForUpdate()->find($swapRequest->offered_product_id);
+        $finalAmount = (float) ($swapRequest->offered_amount ?? 0);
+        $finalNotes = $swapRequest->message;
 
-            if ($reqProduct && $reqProduct->quantity > 0) {
-                $reqProduct->quantity -= 1;
-                if ($reqProduct->quantity <= 0) {
-                    $reqProduct->quantity = 0;
-                    $reqProduct->status = 'swapped';
-                }
-                $reqProduct->save();
+        if ($finalAmount > 0) {
+            $result = $this->reserveSwapItems($swapRequest);
+            if ($result !== true) {
+                return redirect()->route('dashboard')->with('error', $result);
             }
 
-            if ($offProduct && $offProduct->quantity > 0) {
-                $offProduct->quantity -= 1;
-                if ($offProduct->quantity <= 0) {
-                    $offProduct->quantity = 0;
-                    $offProduct->status = 'swapped';
-                }
-                $offProduct->save();
-            }
-
-            // Update swap request status
-            $swapRequest->status = 'accepted';
+            $swapRequest->status = 'awaiting_payment';
+            $swapRequest->reserved_until = now()->addMinutes(config('esewa.reservation_minutes'));
             $swapRequest->save();
 
-            // Create swap record
-            \App\Models\Swap::create([
-                'swap_request_id' => $swapRequest->id,
-                'product_a_id' => $swapRequest->product_id,
-                'product_b_id' => $swapRequest->offered_product_id,
-                'owner_a_id' => $swapRequest->owner_id,
-                'owner_b_id' => $swapRequest->requester_id,
-                'offered_amount' => $swapRequest->offered_amount,
-                'notes' => $swapRequest->message,
-                'status' => 'completed',
-            ]);
-        });
+            $swapRequest->requester->notify(new SwapAccepted($swapRequest));
+
+            return redirect()->route('dashboard')->with('success', 'Swap accepted. Requester must complete payment.');
+        }
+
+        $result = $this->finalizeSwap(
+            $swapRequest,
+            $swapRequest->offered_product_id,
+            $finalAmount,
+            $finalNotes
+        );
+
+        if ($result !== true) {
+            return redirect()->route('dashboard')->with('error', $result);
+        }
 
         // Notify the requester that their swap was accepted
         $swapRequest->requester->notify(new SwapAccepted($swapRequest));
@@ -175,6 +165,222 @@ class SwapRequestController extends Controller
         $swapRequest->requester->notify(new SwapRejected($swapRequest));
 
         return redirect()->route('dashboard')->with('info', 'Swap rejected.');
+    }
+
+    public function counterOffer(Request $request, SwapRequest $swapRequest)
+    {
+        if ($swapRequest->owner_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($swapRequest->status !== 'requested') {
+            return back()->with('error', 'Swap already processed.');
+        }
+
+        $data = $request->validate([
+            'counter_amount' => 'nullable|numeric|min:0',
+            'counter_message' => 'nullable|string|max:2000',
+        ]);
+
+        if (empty($data['counter_amount']) && empty($data['counter_message'])) {
+            return back()->with('error', 'Add a counter amount or message to proceed.');
+        }
+
+        $swapRequest->counter_amount = $data['counter_amount'] ?? null;
+        $swapRequest->counter_message = $data['counter_message'] ?? null;
+        $swapRequest->countered_at = now();
+        $swapRequest->status = 'countered';
+        $swapRequest->save();
+
+        $swapRequest->requester->notify(new SwapCountered($swapRequest));
+
+        return redirect()->route('swap.request.show', $swapRequest)->with('success', 'Counter offer sent.');
+    }
+
+    public function acceptCounter(SwapRequest $swapRequest)
+    {
+        if ($swapRequest->requester_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($swapRequest->status !== 'countered') {
+            return back()->with('error', 'No counter offer to accept.');
+        }
+
+        $finalAmount = (float) ($swapRequest->counter_amount ?? $swapRequest->offered_amount ?? 0);
+        $finalNotes = $swapRequest->counter_message ?? $swapRequest->message;
+
+        $swapRequest->offered_amount = $finalAmount;
+        $swapRequest->message = $finalNotes;
+
+        if ($finalAmount > 0) {
+            $result = $this->reserveSwapItems($swapRequest);
+            if ($result !== true) {
+                return back()->with('error', $result);
+            }
+
+            $swapRequest->status = 'awaiting_payment';
+            $swapRequest->reserved_until = now()->addMinutes(config('esewa.reservation_minutes'));
+            $swapRequest->save();
+
+            return redirect()->route('swap.checkout', $swapRequest)->with('success', 'Counter accepted. Please complete payment.');
+        }
+
+        $result = $this->finalizeSwap(
+            $swapRequest,
+            $swapRequest->offered_product_id,
+            $finalAmount,
+            $finalNotes
+        );
+
+        if ($result !== true) {
+            return back()->with('error', $result);
+        }
+
+        return redirect()->route('dashboard')->with('success', 'Counter offer accepted successfully.');
+    }
+
+    public function rejectCounter(SwapRequest $swapRequest)
+    {
+        if ($swapRequest->requester_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($swapRequest->status !== 'countered') {
+            return back()->with('error', 'No counter offer to reject.');
+        }
+
+        $swapRequest->status = 'rejected';
+        $swapRequest->save();
+
+        $swapRequest->owner->notify(new SwapRejected($swapRequest));
+
+        return redirect()->route('dashboard')->with('info', 'Counter offer rejected.');
+    }
+
+    public function checkout(SwapRequest $swapRequest)
+    {
+        if ($swapRequest->requester_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($swapRequest->status !== 'awaiting_payment') {
+            return redirect()->route('dashboard')->with('error', 'Swap is not awaiting payment.');
+        }
+
+        if ($swapRequest->reserved_until && $swapRequest->reserved_until->isPast()) {
+            $this->releaseSwapReservation($swapRequest);
+            return redirect()->route('dashboard')->with('error', 'Swap reservation expired.');
+        }
+
+        return view('swaps.checkout', compact('swapRequest'));
+    }
+
+    private function finalizeSwap(SwapRequest $swapRequest, $offeredProductId, $offeredAmount, $notes)
+    {
+        if (!$offeredProductId) {
+            return 'An offered product is required to complete a swap.';
+        }
+
+        try {
+            DB::transaction(function () use ($swapRequest, $offeredProductId, $offeredAmount, $notes) {
+                $reqProduct = Product::lockForUpdate()->find($swapRequest->product_id);
+                $offProduct = Product::lockForUpdate()->find($offeredProductId);
+
+                if (!$reqProduct || !$offProduct) {
+                    throw new \RuntimeException('Swap products are not available.');
+                }
+
+                if ($reqProduct->quantity < 1 || $offProduct->quantity < 1) {
+                    throw new \RuntimeException('Insufficient stock for swap.');
+                }
+
+                $reqProduct->quantity -= 1;
+                if ($reqProduct->quantity <= 0) {
+                    $reqProduct->quantity = 0;
+                    $reqProduct->status = 'swapped';
+                }
+                $reqProduct->save();
+
+                $offProduct->quantity -= 1;
+                if ($offProduct->quantity <= 0) {
+                    $offProduct->quantity = 0;
+                    $offProduct->status = 'swapped';
+                }
+                $offProduct->save();
+
+                $swapRequest->status = 'accepted';
+                $swapRequest->offered_amount = $offeredAmount;
+                $swapRequest->message = $notes;
+                $swapRequest->reserved_until = null;
+                $swapRequest->save();
+
+                Swap::create([
+                    'swap_request_id' => $swapRequest->id,
+                    'product_a_id' => $swapRequest->product_id,
+                    'product_b_id' => $offeredProductId,
+                    'owner_a_id' => $swapRequest->owner_id,
+                    'owner_b_id' => $swapRequest->requester_id,
+                    'offered_amount' => $offeredAmount,
+                    'notes' => $notes,
+                    'status' => 'completed',
+                ]);
+            });
+        } catch (\RuntimeException $e) {
+            return $e->getMessage();
+        }
+
+        return true;
+    }
+
+    private function reserveSwapItems(SwapRequest $swapRequest)
+    {
+        try {
+            DB::transaction(function () use ($swapRequest) {
+                $reqProduct = Product::lockForUpdate()->find($swapRequest->product_id);
+                $offProduct = Product::lockForUpdate()->find($swapRequest->offered_product_id);
+
+                if (!$reqProduct || !$offProduct) {
+                    throw new \RuntimeException('Swap products are not available.');
+                }
+
+                if ($reqProduct->quantity < 1 || $offProduct->quantity < 1) {
+                    throw new \RuntimeException('Insufficient stock for swap.');
+                }
+
+                $reqProduct->quantity -= 1;
+                $reqProduct->save();
+
+                $offProduct->quantity -= 1;
+                $offProduct->save();
+            });
+        } catch (\RuntimeException $e) {
+            return $e->getMessage();
+        }
+
+        return true;
+    }
+
+    private function releaseSwapReservation(SwapRequest $swapRequest)
+    {
+        DB::transaction(function () use ($swapRequest) {
+            $reqProduct = Product::lockForUpdate()->find($swapRequest->product_id);
+            $offProduct = Product::lockForUpdate()->find($swapRequest->offered_product_id);
+
+            if ($reqProduct) {
+                $reqProduct->quantity += 1;
+                $reqProduct->save();
+            }
+
+            if ($offProduct) {
+                $offProduct->quantity += 1;
+                $offProduct->save();
+            }
+
+            $swapRequest->status = 'cancelled';
+            $swapRequest->reserved_until = null;
+            $swapRequest->save();
+        });
     }
     public function myHistory()
 {

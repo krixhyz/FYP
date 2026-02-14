@@ -34,7 +34,7 @@
             @csrf
             <button type="submit"
                     class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 rounded transition">
-                Confirm Purchase
+                Pay with eSewa
             </button>
         </form>
 

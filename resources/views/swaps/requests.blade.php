@@ -68,7 +68,11 @@
                                     @endif
                                 </div>
 
-                                <div class="flex gap-3 mt-4">
+                                <div class="flex gap-3 mt-4 flex-wrap">
+                                    <a href="{{ route('swap.request.show', $req) }}"
+                                       class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition">
+                                        View / Counter
+                                    </a>
                                     <form action="{{ route('swap.request.accept', $req) }}" method="POST">
                                         @csrf
                                         <button

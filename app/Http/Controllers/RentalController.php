@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
-use App\Models\Rental;
 use App\Models\RentalRequest;
 use App\Models\RentedRentals;
 use Illuminate\Http\Request;
@@ -96,15 +95,33 @@ class RentalController extends Controller
     /**
      * Checkout screen for renter.
      */
-    public function checkout($requestId)
+    public function checkout(RentalRequest $rentalRequest)
     {
-        $requestData = RentalRequest::with('product')->findOrFail($requestId);
-
-        if ($requestData->renter_id != Auth::id()) {
+        if ($rentalRequest->renter_id != Auth::id()) {
             abort(403);
         }
 
-        return view('rental.checkout', compact('requestData'));
+        if ($rentalRequest->status !== 'approved') {
+            return redirect()->route('products.index')->with('error', 'Rental request is not approved yet.');
+        }
+
+        return view('rental.checkout', compact('rentalRequest'));
+    }
+
+    /**
+     * Payment page for approved rental.
+     */
+    public function payment(RentalRequest $rentalRequest)
+    {
+        if ($rentalRequest->renter_id != Auth::id()) {
+            abort(403);
+        }
+
+        if ($rentalRequest->status !== 'approved') {
+            return redirect()->route('products.index')->with('error', 'Rental request is not approved yet.');
+        }
+
+        return view('rental.payment', compact('rentalRequest'));
     }
 
     /**
@@ -135,87 +152,41 @@ class RentalController extends Controller
      * Approve rental request → move to rented_rentals.
      */
 
-    public function approveRequest($requestId)
+    public function approveRequest(RentalRequest $rentalRequest)
     {
-        $req = RentalRequest::with('product', 'rental')->findOrFail($requestId);
-
         // Ensure only owner can approve
-        if ($req->owner_id != Auth::id()) {
+        if ($rentalRequest->owner_id != Auth::id()) {
             abort(403, 'Unauthorized');
         }
 
         // Prevent double approval
-        if ($req->status !== 'requested') {
+        if ($rentalRequest->status !== 'requested') {
             return back()->with('error', 'This request has already been processed.');
         }
 
-        DB::transaction(function () use ($req) {
-            // Get rental listing
-            $rental = $req->rental;
+        $rentalRequest->status = 'approved';
+        $rentalRequest->save();
 
-            // If rental listing exists, use it, else create one from product
-            if (!$rental) {
-                $rental = Rental::create([
-                    'product_id' => $req->product_id,
-                    'owner_id' => $req->owner_id,
-                    'rent_fare' => $req->product->rent_fare ?? 0,
-                    'rent_deposit' => $req->rent_deposit ?? 0,
-                    'status' => 'rented',
-                ]);
-            }
+        $rentalRequest->renter->notify(new RentalApprovedNotification($rentalRequest));
 
-            // Create record in rented_rentals
-            RentedRentals::create([
-                'rental_id' => $rental->id,
-                'product_id' => $req->product_id,
-                'owner_id' => $req->owner_id,
-                'renter_id' => $req->renter_id,
-                'rent_fare' => $rental->rent_fare ?? 0,
-                'rent_deposit' => $req->rent_deposit ?? 0,
-                'rent_type' => $rental->rent_type ?? 'daily',
-                'duration' => $req->duration,
-                'start_date' => $req->start_date,
-                'end_date' => $req->end_date,
-                'total_amount' => $req->total_amount,
-                'payment_status' => 'pending',
-                'status' => 'active',
-            ]);
-
-            // Decrement product quantity for an approved rental (single unit)
-            if ($req->product->quantity > 0) {
-                $req->product->quantity -= 1;
-            }
-            // Update product status depending on remaining quantity
-            $req->product->status = $req->product->quantity > 0 ? 'available' : 'rented';
-            $req->product->save();
-
-
-            $req->renter->notify(new RentalApprovedNotification($req));
-
-            // Delete the rental request
-            $req->delete();
-        });
-
-        return redirect()->route('dashboard') // ENSURE route
-                     ->with('success', 'Rental approved and moved to rented items.');
+        return redirect()->route('dashboard')
+            ->with('success', 'Rental approved. The renter can now proceed to payment.');
     }
 
     /**
      * Reject a rental request.
      */
-    public function reject($requestId)
+    public function reject(RentalRequest $rentalRequest)
     {
-        $req = RentalRequest::findOrFail($requestId);
-
-        if ($req->owner_id != Auth::id()) {
+        if ($rentalRequest->owner_id != Auth::id()) {
             abort(403, 'Unauthorized');
         }
 
         // Notify renter
-        $req->renter->notify(new RentalRejectedNotification($req));
+        $rentalRequest->renter->notify(new RentalRejectedNotification($rentalRequest));
 
         // Delete the rental request
-        $req->delete();
+        $rentalRequest->delete();
 
         return redirect()->route('dashboard') // ENSURE route
                          ->with('info', 'Rental request rejected and removed.');

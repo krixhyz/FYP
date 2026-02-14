@@ -12,8 +12,17 @@ class SwapRequest extends Model
         'owner_id',
         'requester_id',
         'offered_amount',
+        'counter_amount',
         'message',
+        'counter_message',
+        'countered_at',
+        'reserved_until',
         'status',
+    ];
+
+    protected $casts = [
+        'countered_at' => 'datetime',
+        'reserved_until' => 'datetime',
     ];
 
     // relationships

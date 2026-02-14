@@ -31,7 +31,18 @@ class OrderController extends Controller
                 return back()->with('error', 'This product is already sold.');
             }
 
-            if ($product->quantity < $requestedQty) {
+            if ($product->quantity < 1) {
+                return back()->with('error', 'No available stock.');
+            }
+
+            $reservedQty = Order::where('product_id', $product->id)
+                ->where('status', 'pending')
+                ->where('reserved_until', '>', now())
+                ->sum('quantity');
+
+            $availableQty = $product->quantity - $reservedQty;
+
+            if ($availableQty < $requestedQty) {
                 return back()->with('error', 'Requested quantity exceeds available stock.');
             }
 
@@ -47,23 +58,8 @@ class OrderController extends Controller
                 'unit_price' => $unitPrice,
                 'total_price' => $totalPrice,
                 'status' => 'pending',
+                'reserved_until' => now()->addMinutes(config('esewa.reservation_minutes')),
             ]);
-
-            // Adjust product quantity
-            $product->quantity -= $requestedQty;
-
-            // Only mark sold if no units remain
-            if ($product->quantity <= 0) {
-                $product->quantity = 0;
-                $product->status = 'sold';
-            } else {
-                // Keep available if still stock
-                if ($product->status === 'sold') {
-                    $product->status = 'available';
-                }
-            }
-
-            $product->save();
 
             return redirect()
                 ->route('order.checkout', $order->id)

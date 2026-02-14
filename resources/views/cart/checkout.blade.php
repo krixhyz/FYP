@@ -27,7 +27,7 @@
         <form action="{{ route('orders.placeFromCart') }}" method="POST">
             @csrf
             <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded mt-4">
-                Confirm & Place Orders
+                Pay with eSewa
             </button>
         </form>
     </div>

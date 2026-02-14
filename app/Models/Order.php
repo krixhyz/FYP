@@ -12,15 +12,18 @@ class Order extends Model
     protected $fillable = [
         'buyer_id',
         'product_id',
+        'payment_id',
         'transaction_type',
         'quantity',
         'unit_price',    // NEW
         'total_price',    // NEW
         'status',
+        'reserved_until',
     ];
 
     protected $casts = [
         'quantity' => 'integer', // NEW
+        'reserved_until' => 'datetime',
     ];
 
     // Relationships
@@ -32,5 +35,10 @@ class Order extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function payment()
+    {
+        return $this->belongsTo(Payment::class);
     }
 }

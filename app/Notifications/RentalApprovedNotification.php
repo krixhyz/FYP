@@ -29,8 +29,8 @@ class RentalApprovedNotification extends Notification
         return (new MailMessage)
             ->subject('Your Rental Request Has Been Approved!')
             ->greeting('Hi ' . $notifiable->name . ',')
-            ->line('Your rental request for "' . $this->rentalRequest->product->name . '" has been approved by the owner.')
-            ->action('View Rental Details', route('rental.checkout', $this->rentalRequest->id))
+            ->line('Your rental request for "' . $this->rentalRequest->product->title . '" has been approved by the owner.')
+            ->action('Pay Rental', route('rental.payment', $this->rentalRequest->id))
             ->line('Thank you for using our platform!');
     }
 
@@ -38,8 +38,8 @@ class RentalApprovedNotification extends Notification
     {
         return [
             'type' => 'rentalAccept',
-            'rental_id' => $this->rentalRequest->id,
-            'product_name' => $this->rentalRequest->product->name,
+            'rental_request_id' => $this->rentalRequest->id,
+            'product_title' => $this->rentalRequest->product->title,
             'message' => 'Your rental request has been approved by the owner.',
         ];
     }

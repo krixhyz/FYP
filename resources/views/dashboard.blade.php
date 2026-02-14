@@ -79,9 +79,9 @@
                 foreach (auth()->user()->unreadNotifications as $notification) {
                     $type = $notification->data['type'] ?? 'unknown';
                     $group = match(true) {
-                        in_array($type, ['rental', 'swap']) => 'requests',
-                        in_array($type, ['rentalAccept', 'swapAccept']) => 'accepted',
-                        in_array($type, ['rentalReject', 'swapReject']) => 'rejected',
+                            in_array($type, ['rental', 'swap', 'swapCounter']) => 'requests',
+                            in_array($type, ['rentalAccept', 'swapAccept']) => 'accepted',
+                            in_array($type, ['rentalReject', 'swapReject']) => 'rejected',
                         default => null,
                     };
                     if ($group) $grouped[$group][] = $notification;
@@ -103,15 +103,18 @@
                                         'rentalReject' => 'Your rental request has been rejected.',
                                         'swapAccept' => 'Your swap request has been accepted.',
                                         'swapReject' => 'Your swap request has been rejected.',
+                                        'swapCounter' => 'You received a counter offer for your swap.',
                                         'rental' => 'You have a new rental request.',
                                         'swap' => 'You have a new swap request.',
                                         default => $notification->data['message'] ?? 'You have a new notification.',
                                     };
 
                                     $readUrl = match(true) {
-                                        $type === 'rental' => route('rental.review', ['request' => $notification->data['rental_request_id'] ?? 0]),
-                                        $type === 'swap' => route('swap.request.incoming', $notification->data['swap_request_id'] ?? 0),
-                                        in_array($type, ['rentalAccept', 'swapAccept']) => route('products.myPurchases'),
+                                        $type === 'rental' => route('rental.review', ['rentalRequest' => $notification->data['rental_request_id'] ?? 0]),
+                                        $type === 'swap' => route('swap.request.incoming'),
+                                        $type === 'swapCounter' => route('swap.request.show', $notification->data['swap_request_id'] ?? 0),
+                                        $type === 'swapAccept' => route('swap.request.show', $notification->data['swap_request_id'] ?? 0),
+                                            $type === 'rentalAccept' => route('rental.payment', ['rentalRequest' => $notification->data['rental_request_id'] ?? 0]),
                                         default => request()->url(),
                                     };
                                 @endphp
@@ -133,9 +136,19 @@
 
                                         @if ($key === 'accepted')
                                             <div class="mt-2">
-                                                <a href="{{ route('products.myPurchases') }}" class="text-blue-600 dark:text-blue-400 text-xs font-medium hover:underline">
-                                                    {{ $type === 'rentalAccept' ? 'View Rental →' : 'View Swap →' }}
-                                                </a>
+                                                @if ($type === 'swapAccept')
+                                                    <a href="{{ route('swap.request.show', $notification->data['swap_request_id'] ?? 0) }}" class="text-blue-600 dark:text-blue-400 text-xs font-medium hover:underline">
+                                                        View Swap →
+                                                    </a>
+                                                    @elseif ($type === 'rentalAccept')
+                                                        <a href="{{ route('rental.payment', ['rentalRequest' => $notification->data['rental_request_id'] ?? 0]) }}" class="text-blue-600 dark:text-blue-400 text-xs font-medium hover:underline">
+                                                            Pay Rental →
+                                                        </a>
+                                                @else
+                                                    <a href="{{ route('products.myPurchases') }}" class="text-blue-600 dark:text-blue-400 text-xs font-medium hover:underline">
+                                                        View Rental →
+                                                    </a>
+                                                @endif
                                             </div>
                                         @elseif ($key === 'requests')
                                             <div class="mt-2">

@@ -29,7 +29,14 @@ class CartController extends Controller
             return back()->with('error', 'Cannot add your own product to cart.');
         }
 
-        if ($product->quantity < $validated['quantity']) {
+        $reservedQty = Order::where('product_id', $product->id)
+            ->where('status', 'pending')
+            ->where('reserved_until', '>', now())
+            ->sum('quantity');
+
+        $availableQty = $product->quantity - $reservedQty;
+
+        if ($availableQty < $validated['quantity']) {
             return back()->with('error', 'Insufficient stock.');
         }
 
@@ -37,7 +44,7 @@ class CartController extends Controller
         $existing = Auth::user()->cartItems()->where('product_id', $productId)->first();
         if ($existing) {
             $newQty = $existing->quantity + $validated['quantity'];
-            if ($newQty > $product->quantity) {
+            if ($newQty > $availableQty) {
                 return back()->with('error', 'Exceeds available stock.');
             }
             $existing->quantity = $newQty;
@@ -61,7 +68,15 @@ class CartController extends Controller
 
         $cartItem = Auth::user()->cartItems()->findOrFail($id);
 
-        if ($cartItem->product->quantity < $validated['quantity']) {
+        $product = $cartItem->product;
+        $reservedQty = Order::where('product_id', $product->id)
+            ->where('status', 'pending')
+            ->where('reserved_until', '>', now())
+            ->sum('quantity');
+
+        $availableQty = $product->quantity - $reservedQty;
+
+        if ($availableQty < $validated['quantity']) {
             return back()->with('error', 'Insufficient stock.');
         }
 

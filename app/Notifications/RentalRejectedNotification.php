@@ -29,7 +29,7 @@ class RentalRejectedNotification extends Notification
         return (new MailMessage)
             ->subject('Your Rental Request Has Been Rejected')
             ->greeting('Hi ' . $notifiable->name . ',')
-            ->line('Unfortunately, your rental request for "' . $this->rentalRequest->product->name . '" has been declined by the owner.')
+            ->line('Unfortunately, your rental request for "' . $this->rentalRequest->product->title . '" has been declined by the owner.')
             ->line('The item is still available for other rentals or purchases.')
             ->action('Browse More Items', route('products.index'))
             ->line('Thank you for understanding.');
@@ -39,8 +39,8 @@ class RentalRejectedNotification extends Notification
     {
         return [
             'type' => 'rentalReject',
-            'rental_id' => $this->rentalRequest->id,
-            'product_name' => $this->rentalRequest->product->name,
+            'rental_request_id' => $this->rentalRequest->id,
+            'product_title' => $this->rentalRequest->product->title,
             'message' => 'Your rental request has been rejected by the owner.',
         ];
     }
