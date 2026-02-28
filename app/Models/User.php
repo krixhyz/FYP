@@ -22,6 +22,11 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'default_location_text',
+        'default_city',
+        'default_latitude',
+        'default_longitude',
+        'default_place_id',
     ];
 
     /**
@@ -44,6 +49,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'default_latitude' => 'float',
+            'default_longitude' => 'float',
         ];
     }
     public function cartItems()

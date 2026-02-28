@@ -47,6 +47,23 @@
             @endif
         </div>
 
+        @include('partials.location-picker', [
+            'pickerId' => 'profileDefaultLocationPicker',
+            'label' => 'Default Location',
+            'textName' => 'default_location_text',
+            'textValue' => old('default_location_text', $user->default_location_text),
+            'cityName' => 'default_city',
+            'cityValue' => old('default_city', $user->default_city),
+            'latName' => 'default_latitude',
+            'latValue' => old('default_latitude', $user->default_latitude),
+            'lngName' => 'default_longitude',
+            'lngValue' => old('default_longitude', $user->default_longitude),
+            'placeIdName' => 'default_place_id',
+            'placeIdValue' => old('default_place_id', $user->default_place_id),
+            'required' => false,
+            'helpText' => 'Used as the default listing and delivery location. You can still change location per listing.',
+        ])
+
         <div class="flex items-center gap-4">
             <x-primary-button>{{ __('Save') }}</x-primary-button>
 

@@ -1,4 +1,13 @@
 <div class="bg-white shadow-lg rounded-2xl p-6 border border-gray-100">
+    @php
+        $product = $product ?? null;
+        $authUser = auth()->user();
+        $listingLocationText = old('location_text', $product->location_text ?? $product->location ?? $authUser->default_location_text ?? '');
+        $listingCity = old('city', $product->city ?? $authUser->default_city ?? '');
+        $listingLat = old('latitude', $product->latitude ?? $authUser->default_latitude ?? '');
+        $listingLng = old('longitude', $product->longitude ?? $authUser->default_longitude ?? '');
+        $listingPlaceId = old('place_id', $product->place_id ?? $authUser->default_place_id ?? '');
+    @endphp
     <form action="{{ $action }}" method="POST" enctype="multipart/form-data" class="space-y-5">
         @csrf
         @if ($method === 'PUT')
@@ -33,6 +42,26 @@
                 @endforeach
             </select>
         </div>
+
+        @include('partials.location-picker', [
+            'pickerId' => 'productLocationPicker',
+            'label' => 'Listing Location',
+            'textName' => 'location_text',
+            'textValue' => $listingLocationText,
+            'cityName' => 'city',
+            'cityValue' => $listingCity,
+            'latName' => 'latitude',
+            'latValue' => $listingLat,
+            'lngName' => 'longitude',
+            'lngValue' => $listingLng,
+            'placeIdName' => 'place_id',
+            'placeIdValue' => $listingPlaceId,
+            'precisionName' => 'location_precision',
+            'precisionValue' => old('location_precision', $product->location_precision ?? 'approx'),
+            'showPrecision' => true,
+            'required' => true,
+            'helpText' => 'You can pin on the map or search by text. This location is used in city/location search results.',
+        ])
 
         {{-- Listing Type --}}
         @php
@@ -78,14 +107,14 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700">Rent Deposit</label>
                 <input type="number" step="0.01" name="rent_deposit"
-                       value="{{ old('rent_deposit', $product->rentals->rent_deposit ?? '') }}"
+                       value="{{ old('rent_deposit', $product?->rentals?->rent_deposit ?? '') }}"
                        class="w-full border-gray-300 rounded-lg text-sm p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
             </div>
 
             <div>
                 <label class="block text-sm font-medium text-gray-700">Rent Fare</label>
                 <input type="number" step="0.01" name="rent_fare"
-                       value="{{ old('rent_fare', $product->rentals->rent_fare ?? '') }}"
+                       value="{{ old('rent_fare', $product?->rentals?->rent_fare ?? '') }}"
                        class="w-full border-gray-300 rounded-lg text-sm p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
             </div>
 
@@ -93,22 +122,22 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Start Date</label>
                     <input type="date" name="available_from" id="startDate"
-                           value="{{ old('start_date', $product->rentals->start_date ?? '') }}"
+                           value="{{ old('start_date', $product?->rentals?->start_date ?? '') }}"
                            class="w-full border-gray-300 rounded-lg text-sm p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700">End Date</label>
                     <input type="date" name="end_date" id="endDate"
-                           value="{{ old('end_date', $product->rentals->end_date ?? '') }}"
+                           value="{{ old('end_date', $product?->rentals?->end_date ?? '') }}"
                            class="w-full border-gray-300 rounded-lg text-sm p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 </div>
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700">Available Duration (days)</label>
-                <input type="number" name="rent_duration" id="rentDuration"
-                       value="{{ old('rent_duration', $product->rentals->available_duration ?? '') }}"
+                    <label class="block text-sm font-medium text-gray-700">Available Duration (days)</label>
+                    <input type="number" name="rent_duration" id="rentDuration"
+                       value="{{ old('rent_duration', $product?->rentals?->available_duration ?? '') }}"
                        class="w-full border-gray-300 rounded-lg text-sm p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" readonly>
             </div>
         </div>
@@ -116,7 +145,7 @@
         {{-- Image --}}
         <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1">Product Image</label>
-            @if(!empty($product->image))
+            @if(!empty($product?->image))
                 <img src="{{ asset('storage/'.$product->image) }}" alt="Product image" class="w-24 h-24 mb-2 rounded-lg object-cover">
             @endif
             <input type="file" name="image"

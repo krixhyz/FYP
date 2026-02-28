@@ -43,9 +43,32 @@
                    class="block w-full rounded border-gray-300 focus:border-gray-900 focus:ring-gray-900">
         </div>
 
+        @include('partials.location-picker', [
+            'pickerId' => 'registerDefaultLocationPicker',
+            'label' => 'Default Location',
+            'textName' => 'default_location_text',
+            'textValue' => old('default_location_text'),
+            'cityName' => 'default_city',
+            'cityValue' => old('default_city'),
+            'latName' => 'default_latitude',
+            'latValue' => old('default_latitude'),
+            'lngName' => 'default_longitude',
+            'lngValue' => old('default_longitude'),
+            'placeIdName' => 'default_place_id',
+            'placeIdValue' => old('default_place_id'),
+            'required' => true,
+            'helpText' => 'Set your default location for listings and future delivery details.',
+        ])
+
         <button type="submit"
                 class="w-full rounded bg-gray-900 text-white py-2 hover:bg-gray-800">
             Register
         </button>
     </form>
+
+    <p class="mt-4 text-sm text-gray-600">
+        Already have an account?
+        <a href="{{ route('login') }}" class="text-gray-900 hover:underline">Log in</a>
+
+
 @endsection

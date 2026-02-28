@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Rental;
 use App\Models\RentedRentals;
+use App\Services\LocationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -14,11 +15,58 @@ use App\Models\RentalRequest;
 
 class ProductController extends Controller
 {
+    public function __construct(private readonly LocationService $locationService)
+    {
+    }
+
     public function index()
     {
-        $products = Product::latest()->get();
-    
-        return view('products.index', compact('products'));
+        $city = trim((string) request('city', ''));
+        $locationQuery = trim((string) request('location', ''));
+        $radiusKm = (float) request('radius_km', 0);
+        $lat = request()->filled('lat') ? (float) request('lat') : null;
+        $lng = request()->filled('lng') ? (float) request('lng') : null;
+
+        $productsQuery = Product::query()
+            ->where('status', 'available');
+
+        if (Auth::check()) {
+            $productsQuery->where('user_id', '!=', Auth::id());
+        }
+
+        if ($city !== '') {
+            $productsQuery->where('city', 'like', '%'.$city.'%');
+        }
+
+        if ($locationQuery !== '') {
+            $productsQuery->where(function ($query) use ($locationQuery) {
+                $query->where('location_text', 'like', '%'.$locationQuery.'%')
+                    ->orWhere('city', 'like', '%'.$locationQuery.'%');
+            });
+        }
+
+        if ($lat !== null && $lng !== null && $radiusKm > 0) {
+            $latDelta = $radiusKm / 111.045;
+            $lngDelta = $radiusKm / (111.045 * max(cos(deg2rad($lat)), 0.01));
+
+            $productsQuery
+                ->whereNotNull('latitude')
+                ->whereNotNull('longitude')
+                ->whereBetween('latitude', [$lat - $latDelta, $lat + $latDelta])
+                ->whereBetween('longitude', [$lng - $lngDelta, $lng + $lngDelta])
+                ->selectRaw(
+                    'products.*, (6371 * ACOS(COS(RADIANS(?)) * COS(RADIANS(latitude)) * COS(RADIANS(longitude) - RADIANS(?)) + SIN(RADIANS(?)) * SIN(RADIANS(latitude)))) AS distance_km',
+                    [$lat, $lng, $lat]
+                )
+                ->having('distance_km', '<=', $radiusKm)
+                ->orderBy('distance_km');
+        } else {
+            $productsQuery->latest();
+        }
+
+        $products = $productsQuery->paginate(20)->withQueryString();
+
+        return view('products.index', compact('products', 'city', 'locationQuery', 'radiusKm', 'lat', 'lng'));
     }
 
     public function create()
@@ -47,7 +95,15 @@ class ProductController extends Controller
             'end_date' => 'required_if:listing_type.*,rent|nullable|date|after_or_equal:start_date',
             'rent_duration' => 'required_if:listing_type.*,rent|nullable|integer|min:1',
             'quantity' => 'required|integer|min:1', // NEW
+            'location_text' => 'required|string|max:255',
+            'city' => 'nullable|string|max:120',
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+            'place_id' => 'nullable|string|max:100',
+            'location_precision' => 'required|in:approx,exact',
         ]);
+
+        $locationData = $this->resolveLocationData($request);
 
         // Handle image upload
         $imagePath = null;
@@ -71,6 +127,13 @@ class ProductController extends Controller
             'type' => $request->listing_type,
             'image' => $imagePath,
             'status' => 'available',
+            'location' => $locationData['location_text'],
+            'location_text' => $locationData['location_text'],
+            'city' => $locationData['city'],
+            'latitude' => $locationData['latitude'],
+            'longitude' => $locationData['longitude'],
+            'place_id' => $locationData['place_id'],
+            'location_precision' => $locationData['location_precision'],
         ]);
 
         // If rent selected, create a rental record
@@ -122,7 +185,15 @@ public function update(Request $request, $id)
         'end_date' => 'required_if:listing_type.*,rent|nullable|date|after_or_equal:start_date',
         'rent_duration' => 'required_if:listing_type.*,rent|nullable|integer|min:1',
         'quantity' => 'required|integer|min:1', // NEW
+        'location_text' => 'required|string|max:255',
+        'city' => 'nullable|string|max:120',
+        'latitude' => 'required|numeric|between:-90,90',
+        'longitude' => 'required|numeric|between:-180,180',
+        'place_id' => 'nullable|string|max:100',
+        'location_precision' => 'required|in:approx,exact',
     ]);
+
+    $locationData = $this->resolveLocationData($request);
 
     // Handle image replacement (optional)
     if ($request->hasFile('image')) {
@@ -142,6 +213,13 @@ public function update(Request $request, $id)
         'price' => $request->price,
         'quantity' => $request->quantity, // NEW
         'type' => $request->listing_type,
+        'location' => $locationData['location_text'],
+        'location_text' => $locationData['location_text'],
+        'city' => $locationData['city'],
+        'latitude' => $locationData['latitude'],
+        'longitude' => $locationData['longitude'],
+        'place_id' => $locationData['place_id'],
+        'location_precision' => $locationData['location_precision'],
     ]);
 
     // Handle rent details
@@ -285,6 +363,43 @@ public function show($id)
 {
     $product = Product::with(['user', 'rentals'])->findOrFail($id);
     return view('products.show', compact('product'));
+}
+
+private function resolveLocationData(Request $request): array
+{
+    $locationText = trim((string) $request->input('location_text', ''));
+    $city = trim((string) $request->input('city', ''));
+    $latitude = (float) $request->input('latitude');
+    $longitude = (float) $request->input('longitude');
+    $placeId = trim((string) $request->input('place_id', ''));
+
+    if ($city === '' || $locationText === '') {
+        $resolved = $this->locationService->reverse($latitude, $longitude);
+        if (is_array($resolved)) {
+            if ($locationText === '' && ! empty($resolved['location_text'])) {
+                $locationText = (string) $resolved['location_text'];
+            }
+            if ($city === '' && ! empty($resolved['city'])) {
+                $city = (string) $resolved['city'];
+            }
+            if ($placeId === '' && ! empty($resolved['place_id'])) {
+                $placeId = (string) $resolved['place_id'];
+            }
+        }
+    }
+
+    if ($city === '' && $locationText !== '') {
+        $city = trim((string) explode(',', $locationText)[0]);
+    }
+
+    return [
+        'location_text' => $locationText,
+        'city' => $city,
+        'latitude' => $latitude,
+        'longitude' => $longitude,
+        'place_id' => $placeId !== '' ? $placeId : null,
+        'location_precision' => $request->input('location_precision', 'approx'),
+    ];
 }
 
 }

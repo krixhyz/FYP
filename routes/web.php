@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\LocationController;
 
 
 // Route::get('/', function () {
@@ -60,6 +61,12 @@ Route::post('/order/{order}/confirm', [PaymentController::class, 'createOrderPay
 
 
 Route::get('/', [ProductController::class, 'index'])->name('products.index');
+
+Route::middleware('throttle:30,1')->group(function () {
+    Route::get('/locations/search', [LocationController::class, 'search'])->name('locations.search');
+    Route::get('/locations/reverse', [LocationController::class, 'reverse'])->name('locations.reverse');
+    Route::get('/geocode/search', [LocationController::class, 'search'])->name('geocode.search');
+});
 
 
 // Listing routes (must be before {id} route to avoid conflict)

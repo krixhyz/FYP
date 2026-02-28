@@ -20,13 +20,22 @@ class Product extends Model
         'type',
         'category',
         'image',
-        'status', 
+        'status',
+        'location',
+        'location_text',
+        'city',
+        'latitude',
+        'longitude',
+        'place_id',
+        'location_precision',
     ];
 
     protected $casts = [
         'type' => 'array', // important for multi-type support
         'quantity' => 'integer', // NEW
         'flagged' => 'boolean',
+        'latitude' => 'float',
+        'longitude' => 'float',
     ];
 
 

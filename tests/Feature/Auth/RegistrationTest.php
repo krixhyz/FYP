@@ -23,6 +23,10 @@ class RegistrationTest extends TestCase
             'email' => 'test@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
+            'default_location_text' => 'Baneshwor, Kathmandu, Nepal',
+            'default_city' => 'Kathmandu',
+            'default_latitude' => '27.6944',
+            'default_longitude' => '85.3420',
         ]);
 
         $this->assertAuthenticated();

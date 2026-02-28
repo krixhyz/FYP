@@ -73,12 +73,38 @@
                             <span class="text-gray-600">Listed:</span>
                             <span class="font-semibold">{{ $product->created_at->diffForHumans() }}</span>
                         </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Location:</span>
+                            <span class="font-semibold text-right">{{ $product->city ?: ($product->location_text ?: 'Not specified') }}</span>
+                        </div>
                     </div>
 
                     <div>
                         <h3 class="font-semibold text-gray-900 mb-2">Description</h3>
                         <p class="text-gray-700 leading-relaxed">{{ $product->description }}</p>
                     </div>
+
+                    @if(!is_null($product->latitude) && !is_null($product->longitude))
+                        @php
+                            $mapLat = $product->location_precision === 'approx' ? round((float) $product->latitude, 2) : (float) $product->latitude;
+                            $mapLng = $product->location_precision === 'approx' ? round((float) $product->longitude, 2) : (float) $product->longitude;
+                        @endphp
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">Map Location</h3>
+                            @if($product->location_text)
+                                <p class="text-sm text-gray-600 mb-2">{{ $product->location_text }}</p>
+                            @endif
+                            <div id="productLocationMap" class="w-full h-64 rounded-xl border border-gray-200"></div>
+                            <a
+                                href="https://www.openstreetmap.org/?mlat={{ $mapLat }}&mlon={{ $mapLng }}#map=15/{{ $mapLat }}/{{ $mapLng }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex mt-2 text-sm text-blue-600 hover:text-blue-800"
+                            >
+                                Open in Map
+                            </a>
+                        </div>
+                    @endif
 
                     @auth
                         @if(Auth::id() !== $product->user_id && $product->status === 'available')
@@ -144,3 +170,39 @@
     </div>
 </div>
 @endsection
+
+@if(!is_null($product->latitude) && !is_null($product->longitude))
+    @push('styles')
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    @endpush
+    @push('scripts')
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+        <script>
+            (() => {
+                const init = () => {
+                    const el = document.getElementById('productLocationMap');
+                    if (!el || !window.L) {
+                        return;
+                    }
+
+                    const lat = {{ $product->location_precision === 'approx' ? round((float) $product->latitude, 2) : (float) $product->latitude }};
+                    const lng = {{ $product->location_precision === 'approx' ? round((float) $product->longitude, 2) : (float) $product->longitude }};
+                    const map = L.map(el).setView([lat, lng], 14);
+
+                    L.tileLayer(@json(config('services.maps.tile_url') ?: config('services.maps.fallback_tile_url')), {
+                        attribution: @json(config('services.maps.tile_attribution') ?: config('services.maps.fallback_tile_attribution')),
+                        maxZoom: 19,
+                    }).addTo(map);
+
+                    L.marker([lat, lng]).addTo(map);
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', init, { once: true });
+                } else {
+                    init();
+                }
+            })();
+        </script>
+    @endpush
+@endif
