@@ -78,6 +78,22 @@ class OrderController extends Controller
         return view('orders.checkout', compact('order'));
     }
 
+    public function cancel(Order $order)
+    {
+        if ($order->buyer_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($order->status !== 'pending') {
+            return back()->with('error', 'Only pending orders can be cancelled.');
+        }
+
+        $order->status = 'cancelled';
+        $order->save();
+
+        return back()->with('success', 'Order cancelled successfully.');
+    }
+
     public function confirm(Request $request, $orderId)
     {
         $order = Order::with('product')->where('id', $orderId)->where('buyer_id', Auth::id())->firstOrFail();

@@ -108,6 +108,23 @@ public function swapRequestsReceived()
     return $this->hasMany(SwapRequest::class, 'owner_id');
 }
 
+public function wishlist()
+{
+    return $this->hasMany(\App\Models\Wishlist::class, 'user_id');
+}
+
+public function wishlistedProducts()
+{
+    return $this->belongsToMany(\App\Models\Product::class, 'wishlists', 'user_id', 'product_id')
+        ->withTimestamps();
+}
+
+public function recentlyViewed()
+{
+    return $this->hasMany(\App\Models\RecentlyViewed::class, 'user_id')
+        ->orderByDesc('viewed_at');
+}
+
 public function isAdmin(): bool
 {
     // Adjust this condition to match how "admin" is stored in your DB

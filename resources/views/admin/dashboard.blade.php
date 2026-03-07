@@ -5,7 +5,7 @@
 @section('content')
 <h1 class="text-2xl font-semibold mb-4">Dashboard</h1>
 
-<div class="grid gap-6 md:grid-cols-4">
+<div class="grid gap-6 md:grid-cols-4 lg:grid-cols-6">
     <div class="rounded-xl bg-white shadow-sm border border-gray-200 p-5">
         <div class="text-sm text-gray-500">Total Users</div>
         <div class="mt-2 text-3xl font-bold">{{ $totalUsers }}</div>
@@ -21,6 +21,18 @@
     <div class="rounded-xl bg-white shadow-sm border border-gray-200 p-5">
         <div class="text-sm text-gray-500">Flagged Products</div>
         <div class="mt-2 text-3xl font-bold text-red-600">{{ $flaggedProducts }}</div>
+    </div>
+    <div class="rounded-xl bg-white shadow-sm border border-red-100 p-5">
+        <div class="text-sm text-gray-500">Open Disputes</div>
+        <a href="{{ route('admin.disputes') }}?status=open">
+            <div class="mt-2 text-3xl font-bold text-red-600">{{ $openDisputes }}</div>
+        </a>
+    </div>
+    <div class="rounded-xl bg-white shadow-sm border border-gray-200 p-5">
+        <div class="text-sm text-gray-500">Total Reviews</div>
+        <a href="{{ route('admin.reviews') }}">
+            <div class="mt-2 text-3xl font-bold text-yellow-500">{{ $totalReviews }}</div>
+        </a>
     </div>
 </div>
 

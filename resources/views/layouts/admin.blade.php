@@ -27,6 +27,14 @@
                class="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 {{ request()->routeIs('admin.products*') ? 'bg-gray-100 font-medium' : '' }}">
                 <span class="i"></span> <span>Products</span>
             </a>
+            <a href="{{ route('admin.disputes') }}"
+               class="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 {{ request()->routeIs('admin.disputes*') ? 'bg-gray-100 font-medium' : '' }}">
+                <span class="i"></span> <span>Disputes</span>
+            </a>
+            <a href="{{ route('admin.reviews') }}"
+               class="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 {{ request()->routeIs('admin.reviews*') ? 'bg-gray-100 font-medium' : '' }}">
+                <span class="i"></span> <span>Reviews</span>
+            </a>
         </nav>
     </aside>
 

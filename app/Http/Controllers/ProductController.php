@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Rental;
 use App\Models\RentedRentals;
+use App\Models\Wishlist;
+use App\Models\RecentlyViewed;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -17,8 +19,23 @@ class ProductController extends Controller
     public function index()
     {
         $products = Product::latest()->get();
-    
-        return view('products.index', compact('products'));
+
+        $wishlistedIds = Auth::check()
+            ? Wishlist::where('user_id', Auth::id())->pluck('product_id')->toArray()
+            : [];
+
+        $recentlyViewed = collect();
+        if (Auth::check()) {
+            $recentlyViewed = RecentlyViewed::where('user_id', Auth::id())
+                ->with('product.user')
+                ->orderByDesc('viewed_at')
+                ->limit(6)
+                ->get()
+                ->filter(fn($r) => $r->product && $r->product->status === 'available' && $r->product->user_id !== Auth::id())
+                ->values();
+        }
+
+        return view('products.index', compact('products', 'wishlistedIds', 'recentlyViewed'));
     }
 
     public function create()
@@ -39,7 +56,8 @@ class ProductController extends Controller
             'price' => 'nullable|numeric|min:0',
             'listing_type' => 'required|array|min:1',
             'listing_type.*' => 'in:sell,rent,swap',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:4096',
+            'images' => 'nullable|array|max:6',
+            'images.*' => 'image|mimes:jpg,jpeg,png,gif,webp|max:4096',
             'rent_deposit' => 'required_if:listing_type.*,rent|nullable|numeric|min:0',
             'rent_fare' => 'required_if:listing_type.*,rent|nullable|numeric|min:0',
             'rent_type' => 'required_if:listing_type.*,rent|nullable|in:hourly,daily',
@@ -49,16 +67,19 @@ class ProductController extends Controller
             'quantity' => 'required|integer|min:1', // NEW
         ]);
 
-        // Handle image upload
-        $imagePath = null;
-        if ($request->hasFile('image')) {
-            try {
-                $filename = time() . '_' . uniqid() . '.' . $request->file('image')->getClientOriginalExtension();
-                $imagePath = $request->file('image')->storeAs('uploads/products', $filename, 'public');
-            } catch (\Exception $e) {
-                return redirect()->back()->withErrors(['image' => 'Failed to upload image: ' . $e->getMessage()]);
+        // Handle multiple image uploads
+        $imagePaths = [];
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $file) {
+                try {
+                    $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $imagePaths[] = $file->storeAs('uploads/products', $filename, 'public');
+                } catch (\Exception $e) {
+                    return redirect()->back()->withErrors(['images' => 'Failed to upload image: ' . $e->getMessage()]);
+                }
             }
         }
+        $coverImage = $imagePaths[0] ?? null;
 
         // Create product entry
         $product = Product::create([
@@ -69,7 +90,8 @@ class ProductController extends Controller
             'price' => $request->price,
             'quantity' => $request->quantity, // NEW
             'type' => $request->listing_type,
-            'image' => $imagePath,
+            'image' => $coverImage,
+            'images' => $imagePaths ?: null,
             'status' => 'available',
         ]);
 
@@ -115,7 +137,10 @@ public function update(Request $request, $id)
         'price' => 'nullable|numeric|min:0',
         'listing_type' => 'required|array|min:1',
         'listing_type.*' => 'in:sell,rent,swap',
-        'image' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:4096',
+        'images' => 'nullable|array|max:6',
+        'images.*' => 'image|mimes:jpg,jpeg,png,gif,webp|max:4096',
+        'remove_images' => 'nullable|array',
+        'remove_images.*' => 'string',
         'rent_deposit' => 'required_if:listing_type.*,rent|nullable|numeric|min:0',
         'rent_fare' => 'required_if:listing_type.*,rent|nullable|numeric|min:0',
         'start_date' => 'required_if:listing_type.*,rent|nullable|date|after_or_equal:today',
@@ -124,15 +149,22 @@ public function update(Request $request, $id)
         'quantity' => 'required|integer|min:1', // NEW
     ]);
 
-    // Handle image replacement (optional)
-    if ($request->hasFile('image')) {
-        if ($product->image && Storage::disk('public')->exists($product->image)) {
-            Storage::disk('public')->delete($product->image);
-        }
-        $filename = time() . '_' . uniqid() . '.' . $request->file('image')->getClientOriginalExtension();
-        $imagePath = $request->file('image')->storeAs('uploads/products', $filename, 'public');
-        $product->image = $imagePath;
+    // Build existing images list, removing any checked for deletion
+    $existingImages = $product->images ?? [];
+    $removeImages = $request->input('remove_images', []);
+    foreach ($removeImages as $removePath) {
+        Storage::disk('public')->delete($removePath);
+        $existingImages = array_values(array_filter($existingImages, fn($p) => $p !== $removePath));
     }
+
+    // Handle new image uploads
+    if ($request->hasFile('images')) {
+        foreach ($request->file('images') as $file) {
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $existingImages[] = $file->storeAs('uploads/products', $filename, 'public');
+        }
+    }
+    $coverImage = $existingImages[0] ?? $product->image;
 
     // Update product
     $product->update([
@@ -142,6 +174,8 @@ public function update(Request $request, $id)
         'price' => $request->price,
         'quantity' => $request->quantity, // NEW
         'type' => $request->listing_type,
+        'image' => $coverImage,
+        'images' => $existingImages ?: null,
     ]);
 
     // Handle rent details
@@ -245,8 +279,15 @@ public function update(Request $request, $id)
     {
         $product = Product::where('user_id', Auth::id())->findOrFail($id);
 
-        if ($product->image && Storage::disk('public')->exists($product->image)) {
-            Storage::disk('public')->delete($product->image);
+        // Delete all associated images from storage
+        $allImages = array_filter(array_merge(
+            $product->images ?? [],
+            $product->image ? [$product->image] : []
+        ));
+        foreach (array_unique($allImages) as $path) {
+            if (Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
         }
 
         $product->delete();
@@ -257,6 +298,20 @@ public function update(Request $request, $id)
 public function myPurchases()
 {
     $user = Auth::user();
+
+    // Pending rental requests made by this user (not yet approved/paid)
+    $pendingRentalRequests = RentalRequest::with(['product', 'owner'])
+        ->where('renter_id', $user->id)
+        ->where('status', 'requested')
+        ->latest()
+        ->get();
+
+    // Approved rental requests awaiting payment
+    $approvedRentalRequests = RentalRequest::with(['product', 'owner'])
+        ->where('renter_id', $user->id)
+        ->where('status', 'approved')
+        ->latest()
+        ->get();
 
     // Rented items (approved rentals)
     $rentedRentals = RentedRentals::with('product', 'owner')
@@ -278,13 +333,49 @@ public function myPurchases()
         ->latest()
         ->get();
 
-    return view('products.my_purchases', compact('rentedRentals', 'orders', 'swaps'));
+    // Active (pending/countered) swap requests made by this user
+    $pendingSwapRequests = \App\Models\SwapRequest::with(['product', 'offeredProduct', 'owner'])
+        ->where('requester_id', $user->id)
+        ->whereIn('status', ['requested', 'countered'])
+        ->latest()
+        ->get();
+
+    return view('products.my_purchases', compact(
+        'rentedRentals',
+        'pendingRentalRequests',
+        'approvedRentalRequests',
+        'orders',
+        'swaps',
+        'pendingSwapRequests'
+    ));
 }
 
 public function show($id)
 {
     $product = Product::with(['user', 'rentals'])->findOrFail($id);
-    return view('products.show', compact('product'));
+
+    // Track recently viewed for authenticated users (not the owner)
+    if (Auth::check() && $product->user_id !== Auth::id()) {
+        RecentlyViewed::updateOrCreate(
+            ['user_id' => Auth::id(), 'product_id' => $product->id],
+            ['viewed_at' => now()]
+        );
+
+        // Keep only the 10 most recent per user
+        $idsToKeep = RecentlyViewed::where('user_id', Auth::id())
+            ->orderByDesc('viewed_at')
+            ->limit(10)
+            ->pluck('id');
+        RecentlyViewed::where('user_id', Auth::id())
+            ->whereNotIn('id', $idsToKeep)
+            ->delete();
+    }
+
+    $isWishlisted = Auth::check()
+        ? Wishlist::where('user_id', Auth::id())->where('product_id', $product->id)->exists()
+        : false;
+
+    return view('products.show', compact('product', 'isWishlisted'));
 }
 
 }

@@ -7,6 +7,14 @@
     <title>{{ $title ?? config('app.name', 'Laravel') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    @auth
+    <script>
+        window.Laravel = {
+            userId: {{ auth()->id() }},
+            csrfToken: '{{ csrf_token() }}'
+        };
+    </script>
+    @endauth
 </head>
 <body class="min-h-screen bg-gray-50 text-gray-900 antialiased">
     {{-- Navbar --}}
@@ -15,6 +23,9 @@
     <main class="max-w-7xl mx-auto p-6">
         @yield('content')
     </main>
+
+    {{-- Toast container is injected dynamically by echo.js --}}
+    @stack('scripts')
 </body>
 
 </html>

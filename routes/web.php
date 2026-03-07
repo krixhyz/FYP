@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\UserProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProductController;
 
@@ -126,12 +127,31 @@ Route::middleware(['auth'])->group(function () {
 //my purchases route
 Route::middleware('auth')->group(function () {
     Route::get('/my-purchases', [ProductController::class, 'myPurchases'])->name('products.myPurchases');
+    Route::post('/order/{order}/cancel', [OrderController::class, 'cancel'])->name('order.cancel');
+});
+
+// Cancellation routes for rental requests and swap requests
+Route::middleware('auth')->group(function () {
+    Route::delete('/rental/request/{rentalRequest}/cancel', [RentalController::class, 'cancelRequest'])->name('rental.cancel');
+    Route::post('/swap/{swapRequest}/cancel', [SwapRequestController::class, 'cancel'])->name('swap.request.cancel');
 });
 
 
 
 use App\Http\Controllers\NotificationController;
-Route::post('/notifications/mark-read', [NotificationController::class, 'markRead'])->name('notifications.markRead')->middleware('auth');
+Route::middleware('auth')->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/latest', [NotificationController::class, 'latest'])->name('notifications.latest');
+    Route::post('/notifications/mark-read', [NotificationController::class, 'markRead'])->name('notifications.markRead');
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.markAllRead');
+});
+
+// Wishlist routes
+use App\Http\Controllers\WishlistController;
+Route::middleware('auth')->group(function () {
+    Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
+    Route::post('/wishlist/{product}/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
+});
 
 
 
@@ -190,9 +210,34 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::delete('/users/{user}', [AdminController::class, 'userDelete'])->name('users.delete');
 
     Route::get('/products', [AdminController::class, 'products'])->name('products');
-    Route::patch('/products/{product}/flag', [AdminController::class, 'productFlag'])->name('products.flag');     // PATCH
-    Route::patch('/products/{product}/unflag', [AdminController::class, 'productUnflag'])->name('products.unflag'); // optional
+    Route::patch('/products/{product}/flag', [AdminController::class, 'productFlag'])->name('products.flag');
+    Route::patch('/products/{product}/unflag', [AdminController::class, 'productUnflag'])->name('products.unflag');
     Route::delete('/products/{product}', [AdminController::class, 'productDelete'])->name('products.delete');
+
+    // Disputes
+    Route::get('/disputes', [AdminController::class, 'disputes'])->name('disputes');
+    Route::get('/disputes/{dispute}', [AdminController::class, 'disputeShow'])->name('disputes.show');
+    Route::patch('/disputes/{dispute}/resolve', [AdminController::class, 'disputeResolve'])->name('disputes.resolve');
+
+    // Reviews (read-only)
+    Route::get('/reviews', [AdminController::class, 'reviews'])->name('reviews');
+});
+
+// Reviews
+use App\Http\Controllers\ReviewController;
+Route::middleware('auth')->group(function () {
+    Route::get('/review/create', [ReviewController::class, 'create'])->name('review.create');
+    Route::post('/review', [ReviewController::class, 'store'])->name('review.store');
+});
+Route::get('/users/{user}', [UserProfileController::class, 'show'])->name('users.show');
+Route::get('/user/{user}/reviews', [ReviewController::class, 'userReviews'])->name('user.reviews');
+
+// Disputes
+use App\Http\Controllers\DisputeController;
+Route::middleware('auth')->group(function () {
+    Route::get('/dispute/create', [DisputeController::class, 'create'])->name('dispute.create');
+    Route::post('/dispute', [DisputeController::class, 'store'])->name('dispute.store');
+    Route::get('/my-disputes', [DisputeController::class, 'myDisputes'])->name('dispute.my');
 });
 
 

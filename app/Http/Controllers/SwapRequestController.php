@@ -382,6 +382,25 @@ class SwapRequestController extends Controller
             $swapRequest->save();
         });
     }
+    /**
+     * Requester cancels their own swap request (only while requested or countered).
+     */
+    public function cancel(SwapRequest $swapRequest)
+    {
+        if ($swapRequest->requester_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if (!in_array($swapRequest->status, ['requested', 'countered'])) {
+            return back()->with('error', 'This swap request cannot be cancelled at this stage.');
+        }
+
+        $swapRequest->status = 'cancelled';
+        $swapRequest->save();
+
+        return redirect()->route('products.myPurchases')->with('success', 'Swap request cancelled.');
+    }
+
     public function myHistory()
 {
     $user = Auth::id();

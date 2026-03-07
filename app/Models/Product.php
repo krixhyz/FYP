@@ -20,6 +20,7 @@ class Product extends Model
         'type',
         'category',
         'image',
+        'images',
         'status', 
     ];
 
@@ -27,6 +28,7 @@ class Product extends Model
         'type' => 'array', // important for multi-type support
         'quantity' => 'integer', // NEW
         'flagged' => 'boolean',
+        'images' => 'array',
     ];
 
 

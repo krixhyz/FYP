@@ -113,14 +113,37 @@
             </div>
         </div>
 
-        {{-- Image --}}
+        {{-- Product Images --}}
         <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-1">Product Image</label>
-            @if(!empty($product->image))
-                <img src="{{ asset('storage/'.$product->image) }}" alt="Product image" class="w-24 h-24 mb-2 rounded-lg object-cover">
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Product Images <span class="text-gray-400 font-normal">(up to 6)</span></label>
+
+            {{-- Existing images (edit mode) --}}
+            @if(!empty($product->images))
+                <p class="text-xs text-gray-500 mb-2">Current images &mdash; check to remove:</p>
+                <div class="flex flex-wrap gap-3 mb-3">
+                    @foreach($product->images as $imgPath)
+                        <label class="relative cursor-pointer group">
+                            <input type="checkbox" name="remove_images[]" value="{{ $imgPath }}"
+                                   class="absolute top-1 left-1 z-10 accent-red-500">
+                            <img src="{{ asset('storage/'.$imgPath) }}"
+                                 class="w-24 h-24 object-cover rounded-lg border border-gray-200 group-hover:opacity-75 transition">
+                            <span class="absolute bottom-1 right-1 bg-red-500 text-white text-xs px-1 rounded hidden group-hover:block">Remove</span>
+                        </label>
+                    @endforeach
+                </div>
+            @elseif(!empty($product->image))
+                <div class="flex flex-wrap gap-3 mb-3">
+                    <img src="{{ asset('storage/'.$product->image) }}" class="w-24 h-24 object-cover rounded-lg border border-gray-200">
+                </div>
             @endif
-            <input type="file" name="image"
+
+            <input type="file" name="images[]" multiple accept="image/*"
+                   id="imageUploader"
                    class="w-full text-sm file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer">
+            <p class="text-xs text-gray-400 mt-1">JPEG, PNG, GIF or WebP &bull; max 4 MB each &bull; up to 6 images</p>
+
+            {{-- New image previews --}}
+            <div id="newImagePreviews" class="flex flex-wrap gap-3 mt-3"></div>
         </div>
 
         {{-- Submit --}}
@@ -150,6 +173,71 @@
     const rentDuration = document.getElementById('rentDuration');
     const swapCheckbox = document.querySelector('input[value="swap"]');
 
+
+    // ── Image accumulator ─────────────────────────────────────────────────────
+    const imageUploader = document.getElementById('imageUploader');
+    const newImagePreviews = document.getElementById('newImagePreviews');
+    const MAX_IMAGES = 6;
+
+    // DataTransfer accumulates files across multiple open-dialog calls
+    let dt = new DataTransfer();
+
+    imageUploader?.addEventListener('change', function () {
+        const incoming = Array.from(this.files);
+
+        incoming.forEach(file => {
+            // Skip duplicates (same name + size)
+            const isDuplicate = Array.from(dt.files).some(
+                f => f.name === file.name && f.size === file.size
+            );
+            if (!isDuplicate && dt.files.length < MAX_IMAGES) {
+                dt.items.add(file);
+            }
+        });
+
+        // Push accumulated list back to the input
+        this.files = dt.files;
+
+        renderPreviews();
+    });
+
+    function renderPreviews() {
+        newImagePreviews.innerHTML = '';
+
+        Array.from(dt.files).forEach((file, index) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'relative group';
+
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.className = 'w-24 h-24 object-cover rounded-lg border border-blue-200';
+                wrapper.appendChild(img);
+
+                // Remove button
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition';
+                btn.innerHTML = '×';
+                btn.addEventListener('click', () => removeFile(index));
+                wrapper.appendChild(btn);
+
+                newImagePreviews.appendChild(wrapper);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function removeFile(index) {
+        const newDt = new DataTransfer();
+        Array.from(dt.files).forEach((file, i) => {
+            if (i !== index) newDt.items.add(file);
+        });
+        dt = newDt;
+        imageUploader.files = dt.files;
+        renderPreviews();
+    }
 
     // Set min dates to today
     const today = new Date().toISOString().split('T')[0];

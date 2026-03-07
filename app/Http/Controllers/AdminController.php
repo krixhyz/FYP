@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Product;
+use App\Models\Dispute;
+use App\Models\Review;
+use App\Notifications\DisputeStatusUpdated;
 use Illuminate\Http\Request;
 
 class AdminController extends Controller
@@ -26,14 +29,18 @@ class AdminController extends Controller
         $totalProducts = Product::count();
         $totalAdmins = User::where('role', 'admin')->count();
         $flaggedProducts = Product::where('flagged', true)->count();
+        $openDisputes = Dispute::where('status', 'open')->count();
+        $totalReviews = Review::count();
 
         return view('admin.dashboard', [
-            'users' => $users,
-            'products' => $products,
-            'totalUsers' => $totalUsers,
-            'totalProducts' => $totalProducts,
-            'totalAdmins' => $totalAdmins,
-            'flaggedProducts' => $flaggedProducts,
+            'users'          => $users,
+            'products'       => $products,
+            'totalUsers'     => $totalUsers,
+            'totalProducts'  => $totalProducts,
+            'totalAdmins'    => $totalAdmins,
+            'flaggedProducts'=> $flaggedProducts,
+            'openDisputes'   => $openDisputes,
+            'totalReviews'   => $totalReviews,
         ]);
     }
 
@@ -114,5 +121,58 @@ class AdminController extends Controller
         $product = Product::findOrFail($id);
         $product->delete();
         return redirect()->route('admin.products')->with('success', 'Product deleted successfully');
+    }
+
+    // ─── Disputes ─────────────────────────────────────────────────────────────
+
+    public function disputes(Request $request)
+    {
+        $query = Dispute::with('reporter')->latest();
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $disputes = $query->paginate(20)->withQueryString();
+
+        return view('admin.disputes.index', compact('disputes'));
+    }
+
+    public function disputeShow(Dispute $dispute)
+    {
+        $dispute->load(['reporter', 'resolver', 'order.product', 'rentalRequest.product', 'swap']);
+        return view('admin.disputes.show', compact('dispute'));
+    }
+
+    public function disputeResolve(Request $request, Dispute $dispute)
+    {
+        $request->validate([
+            'status'      => 'required|in:in_review,resolved,dismissed',
+            'admin_notes' => 'nullable|string|max:1000',
+        ]);
+
+        $oldStatus = $dispute->status;
+
+        $dispute->update([
+            'status'      => $request->status,
+            'admin_notes' => $request->admin_notes,
+            'resolved_by' => in_array($request->status, ['resolved','dismissed']) ? auth()->id() : $dispute->resolved_by,
+            'resolved_at' => in_array($request->status, ['resolved','dismissed']) ? now() : $dispute->resolved_at,
+        ]);
+
+        // Notify reporter only when status actually changed
+        if ($oldStatus !== $request->status) {
+            $dispute->reporter->notify(new DisputeStatusUpdated($dispute));
+        }
+
+        return redirect()->route('admin.disputes.show', $dispute)->with('success', 'Dispute updated.');
+    }
+
+    // ─── Reviews (admin read-only) ─────────────────────────────────────────────
+
+    public function reviews()
+    {
+        $reviews = Review::with(['reviewer', 'reviewee'])->latest()->paginate(20);
+        return view('admin.reviews.index', compact('reviews'));
     }
 }

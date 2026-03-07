@@ -144,7 +144,8 @@ class RentalController extends Controller
             ->update(['read_at' => now()]);
 
         // Return the view with a variable name matching your Blade file
-        return view('rental.review', compact('rental'));
+        $rentalRequest = $rental;
+        return view('rental.review', compact('rentalRequest'));
     }
 
 
@@ -182,14 +183,37 @@ class RentalController extends Controller
             abort(403, 'Unauthorized');
         }
 
+        if ($rentalRequest->status !== 'requested') {
+            return back()->with('error', 'This request has already been processed.');
+        }
+
         // Notify renter
         $rentalRequest->renter->notify(new RentalRejectedNotification($rentalRequest));
 
-        // Delete the rental request
-        $rentalRequest->delete();
+        // Keep record for history / notification resolution
+        $rentalRequest->status = 'rejected';
+        $rentalRequest->save();
 
         return redirect()->route('dashboard') // ENSURE route
-                         ->with('info', 'Rental request rejected and removed.');
+                         ->with('info', 'Rental request rejected.');
+    }
+
+    /**
+     * Renter cancels their own pending rental request.
+     */
+    public function cancelRequest(RentalRequest $rentalRequest)
+    {
+        if ($rentalRequest->renter_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($rentalRequest->status !== 'requested') {
+            return back()->with('error', 'Only pending rental requests can be cancelled.');
+        }
+
+        $rentalRequest->delete();
+
+        return redirect()->route('products.myPurchases')->with('success', 'Rental request cancelled.');
     }
 
     public function returnRental(RentedRentals $rentedRental)

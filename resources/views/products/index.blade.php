@@ -11,8 +11,9 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             @forelse ($products as $product)
                 @if ($product->status === 'available' && Auth::id() !== $product->user_id)
-                    <a href="{{ route('products.show', $product->id) }}" 
-                       class="group bg-white rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden transform hover:-translate-y-2">
+                    <div class="relative">
+                        <a href="{{ route('products.show', $product->id) }}" 
+                           class="block group bg-white rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden transform hover:-translate-y-2">
                         
                         {{-- Product Image --}}
                         <div class="relative h-56 bg-gray-100 overflow-hidden">
@@ -79,6 +80,28 @@
                             </div>
                         </div>
                     </a>
+
+                        @auth
+                            <div class="absolute top-3 right-3 z-10">
+                                <form action="{{ route('wishlist.toggle', $product->id) }}" method="POST">
+                                    @csrf
+                                    <button type="submit"
+                                            title="{{ in_array($product->id, $wishlistedIds) ? 'Remove from wishlist' : 'Save to wishlist' }}"
+                                            class="w-8 h-8 flex items-center justify-center rounded-full shadow-md transition
+                                                {{ in_array($product->id, $wishlistedIds)
+                                                    ? 'bg-red-500 hover:bg-red-600'
+                                                    : 'bg-white hover:bg-red-50' }}">
+                                        <svg class="w-4 h-4 {{ in_array($product->id, $wishlistedIds) ? 'text-white' : 'text-gray-400' }}"
+                                             fill="{{ in_array($product->id, $wishlistedIds) ? 'currentColor' : 'none' }}"
+                                             stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                        </svg>
+                                    </button>
+                                </form>
+                            </div>
+                        @endauth
+                    </div>
                 @endif
             @empty
                 <div class="col-span-full text-center py-20">
@@ -96,6 +119,49 @@
                 </div>
             @endforelse
         </div>
+
+        {{-- ==================== Recently Viewed ==================== --}}
+        @auth
+            @if($recentlyViewed->count() > 0)
+                <div class="mt-14">
+                    <div class="flex items-center gap-3 mb-6">
+                        <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h2 class="text-2xl font-bold text-gray-800">Recently Viewed</h2>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        @foreach ($recentlyViewed as $rv)
+                            <a href="{{ route('products.show', $rv->product->id) }}"
+                               class="group bg-white rounded-xl shadow hover:shadow-md transition-all duration-200 overflow-hidden">
+                                <div class="h-32 bg-gray-100 overflow-hidden">
+                                    @if($rv->product->image)
+                                        <img src="{{ asset('storage/' . $rv->product->image) }}"
+                                             alt="{{ $rv->product->title }}"
+                                             class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
+                                    @else
+                                        <div class="flex items-center justify-center h-full text-gray-300">
+                                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="p-2">
+                                    <p class="text-xs font-semibold text-gray-900 truncate">{{ $rv->product->title }}</p>
+                                    @if(in_array('sell', $rv->product->type ?? []))
+                                        <p class="text-xs text-blue-600 font-bold">Rs. {{ number_format($rv->product->price, 2) }}</p>
+                                    @endif
+                                    <p class="text-xs text-gray-400 mt-0.5">{{ $rv->viewed_at->diffForHumans() }}</p>
+                                </div>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        @endauth
     </div>
 </div>
 @endsection

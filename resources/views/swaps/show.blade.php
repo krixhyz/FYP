@@ -33,6 +33,18 @@
 
         @if(auth()->id() === $swapRequest->owner_id && $swapRequest->status === 'requested')
             <div class="bg-gray-800 p-6 rounded-xl shadow mt-6">
+                <h3 class="text-lg font-semibold mb-4">Respond to Request</h3>
+                <div class="flex gap-3 mb-6">
+                    <form method="POST" action="{{ route('swap.request.accept', $swapRequest) }}">
+                        @csrf
+                        <button type="submit" class="bg-green-500 hover:bg-green-400 text-gray-900 px-4 py-2 rounded">Accept Offer</button>
+                    </form>
+                    <form method="POST" action="{{ route('swap.request.reject', $swapRequest) }}">
+                        @csrf
+                        <button type="submit" class="bg-red-500 hover:bg-red-400 text-gray-900 px-4 py-2 rounded">Reject Offer</button>
+                    </form>
+                </div>
+
                 <h3 class="text-lg font-semibold mb-4">Send Counter Offer</h3>
                 <form method="POST" action="{{ route('swap.request.counter', $swapRequest) }}" class="space-y-4">
                     @csrf
