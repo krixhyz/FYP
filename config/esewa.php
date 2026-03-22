@@ -2,7 +2,7 @@
 
 return [
     'product_code' => env('ESEWA_PRODUCT_CODE', 'EPAYTEST'),
-    'secret_key' => env('ESEWA_SECRET_KEY', '8gBm/:&EnhH.1/q'),
+    'secret_key' => env('ESEWA_SECRET_KEY'),
     'form_url' => env('ESEWA_FORM_URL', 'https://rc-epay.esewa.com.np/api/epay/main/v2/form'),
     'status_url' => env('ESEWA_STATUS_URL', 'https://rc.esewa.com.np/api/epay/transaction/status/'),
     'success_url' => env('ESEWA_SUCCESS_URL', rtrim(env('APP_URL', 'http://localhost'), '/') . '/payment/esewa/success'),

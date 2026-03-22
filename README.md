@@ -41,6 +41,9 @@ This project features a cohesive, minimalistic design with a green and white col
 npm install
 composer install
 
+# Create local environment
+cp .env.example .env
+
 # Run development server
 npm run dev
 php artisan serve
@@ -51,7 +54,15 @@ php artisan serve
 - **Framework**: Laravel + Vite
 - **Styling**: Tailwind CSS (custom configuration)
 - **JavaScript**: Alpine.js for interactivity
-- **Icons**: Heroicons (recommended)
+- **Realtime**: Laravel Echo + Pusher
+- **Payments**: eSewa
+
+## 🔐 Production Configuration
+
+- Keep real secrets out of source control. Only commit [.env.example](d:/Projects%20Y3/FYP/.env.example) with placeholder values.
+- Provide `APP_KEY`, database credentials, Pusher keys, and eSewa credentials through your deployment environment or secret manager.
+- Use Redis for `QUEUE_CONNECTION` and `CACHE_STORE` in production.
+- Keep [.env](d:/Projects%20Y3/FYP/.env) local only. It is already ignored by [.gitignore](d:/Projects%20Y3/FYP/.gitignore).
 
 ## 🎯 Usage
 

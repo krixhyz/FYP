@@ -469,6 +469,13 @@ class PaymentController extends Controller
         $totalAmount = $this->formatAmount($payment->total_amount);
         $transactionUuid = $payment->transaction_uuid;
         $secretKey = config('esewa.secret_key');
+        $formUrl = config('esewa.form_url');
+
+        if (blank($productCode) || blank($secretKey) || blank($formUrl)) {
+            return redirect()
+                ->route('products.index')
+                ->with('error', 'eSewa payment is not configured. Please set ESEWA_PRODUCT_CODE, ESEWA_SECRET_KEY and ESEWA_FORM_URL.');
+        }
 
         $signature = $esewaService->buildSignature(
             $totalAmount,
@@ -495,7 +502,7 @@ class PaymentController extends Controller
         $payment->save();
 
         return view('payments.esewa_form', [
-            'formUrl' => config('esewa.form_url'),
+            'formUrl' => $formUrl,
             'payload' => $payload,
         ]);
     }

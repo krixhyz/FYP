@@ -6,6 +6,8 @@
  *  - Increments the bell badge
  *  - Prepends the notification into the dropdown list (no page refresh)
  */
+let pollingIntervalId = null;
+
 if (window.Laravel && window.Laravel.userId) {
     const channelName = `App.Models.User.${window.Laravel.userId}`;
     console.debug('[Echo] Subscribing to private channel:', channelName);
@@ -13,9 +15,11 @@ if (window.Laravel && window.Laravel.userId) {
     const channel = window.Echo.private(channelName)
         .subscribed(() => {
             console.debug('[Echo] Subscribed successfully:', channelName);
+            stopPollingFallback();
         })
         .error((error) => {
             console.error('[Echo] Subscription/auth error:', error);
+            startPollingFallback();
         })
         .notification((notification) => {
 
@@ -63,18 +67,40 @@ if (window.Laravel && window.Laravel.userId) {
     if (connectorChannel && typeof connectorChannel.bind === 'function') {
         connectorChannel.bind('pusher:subscription_succeeded', () => {
             console.debug('[Echo] pusher:subscription_succeeded:', channelName);
+            stopPollingFallback();
         });
         connectorChannel.bind('pusher:subscription_error', (status) => {
             console.error('[Echo] pusher:subscription_error:', status);
+            startPollingFallback();
         });
     }
 
-    // Polling fallback: catches missed websocket events without manual refresh.
-    setInterval(syncNotificationsFallback, 6000);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            syncNotificationsFallback();
+        }
+    });
+
+    window.addEventListener('online', () => {
+        syncNotificationsFallback();
+    });
+
     setTimeout(syncNotificationsFallback, 1200);
 
 } else {
     console.debug('[Echo] Live notifications not initialized (missing window.Laravel.userId).');
+}
+
+function startPollingFallback() {
+    if (pollingIntervalId !== null) return;
+    pollingIntervalId = window.setInterval(syncNotificationsFallback, 15000);
+    syncNotificationsFallback();
+}
+
+function stopPollingFallback() {
+    if (pollingIntervalId === null) return;
+    window.clearInterval(pollingIntervalId);
+    pollingIntervalId = null;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

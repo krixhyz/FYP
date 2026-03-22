@@ -20,7 +20,7 @@ class OrderController extends Controller
 
         $requestedQty = (int) $validated['quantity'];
 
-        return DB::transaction(function () use ($productId, $requestedQty) {
+        return DB::transaction(function () use ($productId, $requestedQty, $inventory) {
             // Lock row for update to avoid race conditions
             $product = Product::where('id', $productId)->lockForUpdate()->firstOrFail();
 
