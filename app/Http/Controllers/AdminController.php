@@ -8,8 +8,10 @@ use App\Models\Payment;
 use App\Models\PlatformSetting;
 use App\Models\Product;
 use App\Models\RentedRentals;
+use App\Models\RentalRequest;
 use App\Models\Review;
 use App\Models\Swap;
+use App\Models\SwapRequest;
 use App\Models\User;
 use App\Notifications\DisputeStatusUpdated;
 use Illuminate\Http\Request;
@@ -233,6 +235,57 @@ class AdminController extends Controller
     {
         $products = Product::with('user')->latest()->paginate(15);
         return view('admin.products.index', compact('products'));
+    }
+
+    public function productShow(Product $product)
+    {
+        $product->load(['user', 'rentals', 'orders' => function ($q) {
+            $q->where('transaction_type', 'buy');
+        }]);
+
+        $reviews = Review::with(['reviewer', 'order', 'rentedRental', 'swap'])
+            ->where(function ($q) use ($product) {
+                $q->whereHas('order', function ($orderQ) use ($product) {
+                    $orderQ->where('product_id', $product->id);
+                })
+                ->orWhereHas('rentedRental', function ($rentalQ) use ($product) {
+                    $rentalQ->where('product_id', $product->id);
+                })
+                ->orWhereHas('swap', function ($swapQ) use ($product) {
+                    $swapQ->where('product_a_id', $product->id)
+                        ->orWhere('product_b_id', $product->id);
+                });
+            })
+            ->latest()
+            ->get();
+
+        $disputes = Dispute::with(['reporter', 'order.product', 'rentalRequest.product', 'swap.requestedProduct', 'swap.offeredProduct'])
+            ->where(function ($q) use ($product) {
+                $q->whereHas('order', function ($orderQ) use ($product) {
+                    $orderQ->where('product_id', $product->id);
+                })
+                ->orWhereHas('rentalRequest', function ($rentalRequestQ) use ($product) {
+                    $rentalRequestQ->where('product_id', $product->id);
+                })
+                ->orWhereHas('swap', function ($swapQ) use ($product) {
+                    $swapQ->where('product_a_id', $product->id)
+                        ->orWhere('product_b_id', $product->id);
+                });
+            })
+            ->latest()
+            ->get();
+
+        $rentalRequests = RentalRequest::with(['renter', 'owner'])
+            ->where('product_id', $product->id)
+            ->latest()
+            ->get();
+
+        $swapRequests = SwapRequest::with(['requester', 'owner', 'offeredProduct'])
+            ->where('product_id', $product->id)
+            ->latest()
+            ->get();
+
+        return view('admin.products.show', compact('product', 'reviews', 'disputes', 'rentalRequests', 'swapRequests'));
     }
 
     public function productFlag(Product $product)

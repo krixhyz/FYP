@@ -1,18 +1,19 @@
 @extends('layouts.app')
 @section('content')
 <div class="mx-auto max-w-2xl space-y-6">
-    <a href="{{ route('products.myPurchases') }}" class="inline-flex items-center text-sm font-semibold text-teal-700 hover:text-teal-800">Back to My Purchases</a>
+    <a href="{{ route('products.myPurchases') }}" class="btn-pill btn-pill-soft">Back to My Purchases</a>
 
     <div class="surface-card-strong p-6 sm:p-8">
-        <h1 class="text-3xl font-extrabold text-slate-900">Leave a Review</h1>
-        <p class="mt-2 text-sm text-slate-600">Reviewing <span class="font-semibold">{{ $reviewee?->name ?? 'Unknown' }}</span> for {{ ucfirst($type) }} transaction.</p>
+        <p class="section-kicker">Feedback</p>
+        <h1 class="section-title mt-1">Leave a Review</h1>
+        <p class="meta-text mt-2">Reviewing <span class="font-semibold">{{ $reviewee?->name ?? 'Unknown' }}</span> for {{ ucfirst($type) }} transaction.</p>
 
         @if($existingReview)
-            <div class="mt-5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">You already submitted a review for this transaction. Submitting again will update it.</div>
+            <div class="mt-5 status-chip status-info !inline-flex">You already submitted a review for this transaction. Submitting again will update it.</div>
         @endif
 
         @if($errors->any())
-            <div class="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div class="mt-5 border border-[var(--reloop-danger)] bg-red-50 px-4 py-3 text-sm text-red-800">
                 <ul class="list-inside list-disc">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
             </div>
         @endif
@@ -37,7 +38,7 @@
 
             <div>
                 <label for="body" class="field-label">Review (optional)</label>
-                <textarea id="body" name="body" rows="4" placeholder="Share your experience..." class="field-input">{{ old('body', $existingReview?->body) }}</textarea>
+                <textarea id="body" name="body" rows="4" placeholder="Share your experience..." class="input-field">{{ old('body', $existingReview?->body) }}</textarea>
                 @error('body')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
             </div>
 

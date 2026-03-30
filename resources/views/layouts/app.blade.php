@@ -15,15 +15,15 @@
     </script>
     @endauth
 </head>
-<body class="min-h-screen bg-gray-50 text-gray-900 antialiased">
-    {{-- Navbar --}}
+<body class="min-h-screen bg-neutral-100 text-neutral-900 antialiased">
     @include('layouts.navigation')
 
-    <main class="max-w-7xl mx-auto p-6">
-        @yield('content')
+    <main class="mx-auto mt-8 w-full max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+        <div class="surface-card p-4 sm:p-6 lg:p-8">
+            @yield('content')
+        </div>
     </main>
 
-    {{-- Toast container is injected dynamically by echo.js --}}
     @stack('scripts')
 </body>
 

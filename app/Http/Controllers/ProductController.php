@@ -18,6 +18,10 @@ class ProductController extends Controller
 {
     public function index()
     {
+        if (Auth::check() && Auth::user()->isAdmin()) {
+            return redirect()->route('admin.products');
+        }
+
         $products = Product::latest()->get();
 
         $wishlistedIds = Auth::check()
@@ -227,14 +231,22 @@ public function update(Request $request, $id)
         }])
         ->get();
 
-    $swapRequests = \App\Models\Swap::whereHas('requestedProduct', function ($query) use ($user) {
-        $query->where('user_id', $user->id);
-    })->where('status', 'pending')->get();
+    $swapRequests = \App\Models\Swap::with(['requestedProduct', 'offeredProduct', 'ownerA', 'ownerB'])
+        ->whereHas('requestedProduct', function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        })
+        ->where('status', 'pending')
+        ->latest()
+        ->get();
 
-    $activeSwaps = \App\Models\Swap::where(function ($query) use ($user) {
-        $query->whereHas('requestedProduct', fn($q) => $q->where('user_id', $user->id))
-              ->orWhereHas('offeredProduct', fn($q) => $q->where('user_id', $user->id));
-    })->where('status', 'accepted')->get();
+    $activeSwaps = \App\Models\Swap::with(['requestedProduct', 'offeredProduct', 'ownerA', 'ownerB'])
+        ->where(function ($query) use ($user) {
+            $query->whereHas('requestedProduct', fn($q) => $q->where('user_id', $user->id))
+                ->orWhereHas('offeredProduct', fn($q) => $q->where('user_id', $user->id));
+        })
+        ->where('status', 'accepted')
+        ->latest()
+        ->get();
 
     return view('products.my_listings', compact(
         'products',
@@ -320,8 +332,12 @@ public function myPurchases()
         ->orderByDesc('created_at')
         ->get();
 
-    // Purchased products (if you have a purchases/orders table, adjust accordingly)
-    $orders = $user->orders()->with('product')->orderByDesc('created_at')->get();
+    // Purchased products (buy transactions only)
+    $orders = $user->orders()
+        ->with('product')
+        ->where('transaction_type', 'buy')
+        ->orderByDesc('created_at')
+        ->get();
 
      // Swaps involving this user
     $swaps = \App\Models\Swap::where(function($query) use ($user) {
@@ -352,6 +368,10 @@ public function myPurchases()
 
 public function show($id)
 {
+    if (Auth::check() && Auth::user()->isAdmin()) {
+        return redirect()->route('admin.products.show', $id);
+    }
+
     $product = Product::with(['user', 'rentals'])->findOrFail($id);
 
     // Track recently viewed for authenticated users (not the owner)

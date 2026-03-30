@@ -47,4 +47,9 @@ Artisan::command('inventory:cleanup-expired-reservations', function () {
     $this->info("Released {$released} expired reservations.");
 })->purpose('Release expired swap and rental stock reservations.');
 
+Schedule::command('notifications:prune')->daily();
+Schedule::command('disputes:prune')->daily();
+Schedule::command('listings:prune')->daily();
+Schedule::command('reviews:prune')->daily();
+
 Schedule::command('inventory:cleanup-expired-reservations')->everyMinute();

@@ -1,14 +1,15 @@
 @extends('layouts.app')
 @section('content')
 <div class="mx-auto max-w-2xl space-y-6">
-    <a href="{{ route('products.myPurchases') }}" class="inline-flex items-center text-sm font-semibold text-teal-700 hover:text-teal-800">Back to My Purchases</a>
+    <a href="{{ route('products.myPurchases') }}" class="btn-pill btn-pill-soft">Back to My Purchases</a>
 
     <div class="surface-card-strong p-6 sm:p-8">
-        <h1 class="text-3xl font-extrabold text-slate-900">Report a Dispute</h1>
-        <p class="mt-2 text-sm text-slate-600">Transaction type: <span class="font-semibold">{{ ucfirst($type) }}</span> (ref #{{ $id }})</p>
+        <p class="section-kicker">Support</p>
+        <h1 class="section-title mt-1">Report a Dispute</h1>
+        <p class="mt-2 text-sm text-neutral-600">Transaction type: <span class="font-semibold">{{ ucfirst($type) }}</span> (ref #{{ $id }})</p>
 
         @if($existing)
-            <div class="mt-5 rounded-xl border px-4 py-3 text-sm
+            <div class="mt-5 border px-4 py-3 text-sm
                 {{ $existing->status === 'open' ? 'border-amber-200 bg-amber-50 text-amber-800' : '' }}
                 {{ $existing->status === 'in_review' ? 'border-blue-200 bg-blue-50 text-blue-800' : '' }}
                 {{ in_array($existing->status, ['resolved','dismissed']) ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : '' }}">
@@ -21,7 +22,7 @@
         @endif
 
         @if($errors->any())
-            <div class="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div class="mt-5 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 <ul class="list-inside list-disc">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
             </div>
         @endif
@@ -33,13 +34,13 @@
 
             <div>
                 <label for="subject" class="field-label">Subject <span class="text-red-500">*</span></label>
-                <input type="text" id="subject" name="subject" value="{{ old('subject', $existing?->subject) }}" placeholder="Brief description of the issue" class="field-input">
+                <input type="text" id="subject" name="subject" value="{{ old('subject', $existing?->subject) }}" placeholder="Brief description of the issue" class="input-field">
                 @error('subject')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
             </div>
 
             <div>
                 <label for="description" class="field-label">Description <span class="text-red-500">*</span></label>
-                <textarea id="description" name="description" rows="5" placeholder="Provide details of what happened and the resolution you expect." class="field-input">{{ old('description', $existing?->description) }}</textarea>
+                <textarea id="description" name="description" rows="5" placeholder="Provide details of what happened and the resolution you expect." class="input-field">{{ old('description', $existing?->description) }}</textarea>
                 @error('description')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
             </div>
 
@@ -51,7 +52,7 @@
     </div>
 
     <div class="text-center">
-        <a href="{{ route('dispute.my') }}" class="text-sm font-semibold text-teal-700 hover:text-teal-800">View all my disputes</a>
+        <a href="{{ route('dispute.my') }}" class="text-sm font-semibold text-[var(--reloop-primary)] hover:underline">View all my disputes</a>
     </div>
 </div>
 @endsection

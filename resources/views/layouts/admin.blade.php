@@ -5,7 +5,7 @@
     <title>Admin Panel</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-[#f4f8fb] text-slate-900">
+<body class="bg-neutral-100 text-neutral-900">
 @php
     $adminUser = auth()->user();
     $isSuper = $adminUser->isSuperAdmin();
@@ -29,26 +29,27 @@
         ];
 @endphp
 
-<div class="min-h-screen">
-    <header class="max-w-7xl mx-auto px-6 pt-6">
-        <div class="flex items-start justify-between gap-4">
+<div class="min-h-screen pb-16">
+    <header class="mx-auto mt-6 w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="surface-card-strong flex flex-wrap items-start justify-between gap-4 p-6">
             <div>
-                <h1 class="text-4xl font-bold text-slate-900">{{ $isSuper ? 'Super Admin Dashboard' : 'Admin Dashboard' }}</h1>
-                <p class="text-slate-600 mt-2">{{ $isSuper ? 'Full platform oversight and control' : 'Operational moderation and user management' }}</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Control Room</p>
+                <h1 class="mt-3 text-4xl font-bold text-neutral-900">{{ $isSuper ? 'Super Admin Dashboard' : 'Admin Dashboard' }}</h1>
+                <p class="mt-2 text-sm text-neutral-700">{{ $isSuper ? 'Full platform oversight and control' : 'Operational moderation and user management' }}</p>
             </div>
             <div class="flex items-center gap-3">
-                <span class="px-6 py-3 rounded-xl text-white font-semibold {{ $isSuper ? 'bg-purple-600' : 'bg-blue-600' }}">
+                <span class="bg-primary-800 px-5 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-white">
                     {{ $isSuper ? 'Super Admin' : 'Admin' }}
                 </span>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button class="px-4 py-2 rounded-lg bg-slate-800 text-white text-sm">Logout</button>
+                    <button class="btn-pill btn-pill-dark !px-4 !py-2">Logout</button>
                 </form>
             </div>
         </div>
 
-        <div class="mt-8 bg-white rounded-2xl border border-slate-200">
-            <nav class="px-4 py-1 flex flex-wrap gap-2">
+        <div class="surface-card mt-4 p-3">
+            <nav class="flex flex-wrap gap-2">
                 @foreach($tabs as $tab)
                     @php
                         $isActive = false;
@@ -60,7 +61,7 @@
                         }
                     @endphp
                     <a href="{{ route($tab['route']) }}"
-                       class="px-4 py-3 text-base border-b-2 {{ $isActive ? 'border-blue-600 text-blue-600 font-semibold' : 'border-transparent text-slate-600 hover:text-slate-800' }}">
+                       class="px-4 py-3 text-sm font-semibold uppercase tracking-[0.06em] {{ $isActive ? 'bg-primary-800 text-white' : 'bg-accent-100 text-neutral-700 hover:bg-accent-200' }}">
                         {{ $tab['label'] }}
                     </a>
                 @endforeach
@@ -68,17 +69,19 @@
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-6 py-6">
+    <main class="mx-auto mt-4 w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         @if (session('success'))
-            <div class="mb-4 rounded-lg border border-green-200 bg-green-50 text-green-800 px-4 py-3">{{ session('success') }}</div>
+            <div class="alert-success">{{ session('success') }}</div>
         @endif
         @if ($errors->any())
-            <div class="mb-4 rounded-lg border border-red-200 bg-red-50 text-red-700 px-4 py-3">
+            <div class="alert-error">
                 {{ $errors->first() }}
             </div>
         @endif
 
-        @yield('content')
+        <div class="surface-card p-4 sm:p-6 lg:p-8">
+            @yield('content')
+        </div>
     </main>
 </div>
 </body>

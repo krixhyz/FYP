@@ -1,100 +1,58 @@
 @extends('layouts.app')
 
 @section('content')
-    <div class="max-w-5xl mx-auto py-10 text-gray-200">
-        <h2 class="text-2xl font-semibold mb-8 text-center">Incoming Swap Requests</h2>
+<div class="mx-auto max-w-6xl space-y-8">
+    <section class="surface-card-strong p-6 sm:p-8">
+        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Swap Workflow</p>
+        <h1 class="mt-4 text-4xl font-bold">Incoming Swap Requests</h1>
+    </section>
 
-        @if($requests->isEmpty())
-            <p class="text-gray-400 text-center">No pending swap requests at the moment.</p>
-        @else
-            <div class="space-y-6">
-                @foreach ($requests as $req)
-                    <div class="bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-700 hover:border-gray-600 transition">
-                        <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-6">
-                            <!-- Left side: Product cards -->
-                            <div class="flex flex-col md:flex-row gap-6 w-full">
-                                <!-- Offered Product -->
-                                <div class="bg-gray-900 rounded-xl p-4 w-full md:w-1/2 shadow-inner">
-                                    <h3 class="text-lg font-semibold text-blue-400 mb-2">
-                                        {{ $req->offeredProduct ? $req->offeredProduct->title : 'Cash Offer' }}
-                                    </h3>
+    @if($requests->isEmpty())
+        <div class="surface-card p-8 text-center text-neutral-600">No pending swap requests at the moment.</div>
+    @else
+        <div class="space-y-4">
+            @foreach ($requests as $req)
+                <article class="surface-card p-5">
+                    <div class="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr_0.9fr]">
+                        <div class="bg-accent-50 p-4">
+                            <p class="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-500">Offered Product</p>
+                            <h3 class="mt-2 text-lg font-bold text-neutral-900">{{ $req->offeredProduct ? $req->offeredProduct->title : 'Cash Offer' }}</h3>
+                            @if($req->offeredProduct && $req->offeredProduct->image)
+                                <img src="{{ asset('storage/' . $req->offeredProduct->image) }}" alt="Offered Product" class="mt-3 h-40 w-full object-cover">
+                            @endif
+                            <p class="mt-2 text-sm text-neutral-600">{{ $req->offeredProduct ? Str::limit($req->offeredProduct->description, 100) : 'User offers money instead of an item.' }}</p>
+                            @if($req->offered_amount)
+                                <p class="mt-2 text-sm font-semibold text-primary-800">Cash Top-up: Rs. {{ number_format($req->offered_amount,2) }}</p>
+                            @endif
+                        </div>
 
-                                    @if($req->offeredProduct && $req->offeredProduct->image)
-                                        <img src="{{ asset('storage/' . $req->offeredProduct->image) }}" alt="Offered Product" class="rounded-lg mb-3 w-full h-48 object-cover">
-                                    @endif
+                        <div class="bg-accent-50 p-4">
+                            <p class="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-500">Requested Product</p>
+                            <h3 class="mt-2 text-lg font-bold text-neutral-900">{{ $req->product->title }}</h3>
+                            @if($req->product->image)
+                                <img src="{{ asset('storage/' . $req->product->image) }}" alt="Target Product" class="mt-3 h-40 w-full object-cover">
+                            @endif
+                            <p class="mt-2 text-sm text-neutral-600">{{ Str::limit($req->product->description, 100) }}</p>
+                        </div>
 
-                                    @if($req->offeredProduct)
-                                        <p class="text-sm text-gray-300 line-clamp-3">
-                                            {{ Str::limit($req->offeredProduct->description, 100) }}
-                                        </p>
-                                    @else
-                                        <p class="italic text-gray-400">User offers money instead of an item.</p>
-                                    @endif
-
-                                    @if($req->offered_amount)
-                                        <p class="text-gray-300 mt-2">
-                                            <span class="font-semibold text-green-400">+ ${{ $req->offered_amount }}</span> offered
-                                        </p>
-                                    @endif
-                                </div>
-
-                                <!-- Target Product -->
-                                <div class="bg-gray-900 rounded-xl p-4 w-full md:w-1/2 shadow-inner">
-                                    <h3 class="text-lg font-semibold text-green-400 mb-2">
-                                        {{ $req->product->title }}
-                                    </h3>
-
-                                    @if($req->product->image)
-                                        <img src="{{ asset('storage/' . $req->product->image) }}" alt="Target Product" class="rounded-lg mb-3 w-full h-48 object-cover">
-                                    @endif
-
-                                    <p class="text-sm text-gray-300 line-clamp-3">
-                                        {{ Str::limit($req->product->description, 100) }}
-                                    </p>
-                                </div>
+                        <div class="flex flex-col justify-between gap-3 bg-accent-100 p-4">
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-500">Requester</p>
+                                <p class="mt-1 font-semibold text-neutral-900">{{ $req->requester->name }}</p>
+                                @if($req->message)
+                                    <p class="mt-2 text-sm text-neutral-600">{{ $req->message }}</p>
+                                @endif
                             </div>
-
-                            <!-- Right side: Details & Buttons -->
-                            <div class="flex flex-col justify-between gap-4 w-full md:w-1/3">
-                                <div>
-                                    <p class="text-gray-100 font-medium">
-                                        <span class="text-blue-400">{{ $req->requester->name }}</span> wants to swap
-                                    </p>
-
-                                    @if($req->message)
-                                        <p class="text-gray-400 mt-2 italic border-l-2 border-gray-600 pl-3">
-                                            "{{ $req->message }}"
-                                        </p>
-                                    @endif
-                                </div>
-
-                                <div class="flex gap-3 mt-4 flex-wrap">
-                                    <a href="{{ route('swap.request.show', $req) }}"
-                                       class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition">
-                                        View / Counter
-                                    </a>
-                                    <form action="{{ route('swap.request.accept', $req) }}" method="POST">
-                                        @csrf
-                                        <button
-                                            type="submit"
-                                            class="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition transform hover:scale-105 shadow">
-                                             Accept
-                                        </button>
-                                    </form>
-                                    <form action="{{ route('swap.request.reject', $req) }}" method="POST">
-                                        @csrf
-                                        <button
-                                            type="submit"
-                                            class="bg-gradient-to-r from-red-600 to-pink-500 hover:from-red-500 hover:to-pink-400 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition transform hover:scale-105 shadow">
-                                             Reject
-                                        </button>
-                                    </form>
-                                </div>
+                            <div class="grid grid-cols-1 gap-2">
+                                <a href="{{ route('swap.request.show', $req) }}" class="btn-pill btn-pill-soft justify-center">View / Counter</a>
+                                <form action="{{ route('swap.request.accept', $req) }}" method="POST">@csrf<button type="submit" class="btn-pill btn-pill-dark w-full justify-center">Accept</button></form>
+                                <form action="{{ route('swap.request.reject', $req) }}" method="POST">@csrf<button type="submit" class="btn-pill btn-pill-soft w-full justify-center">Reject</button></form>
                             </div>
                         </div>
                     </div>
-                @endforeach
-            </div>
-        @endif
-    </div>
+                </article>
+            @endforeach
+        </div>
+    @endif
+</div>
 @endsection

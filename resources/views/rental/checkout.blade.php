@@ -1,50 +1,35 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container mt-5">
-    <div class="card shadow-lg p-4 mx-auto" style="max-width: 600px;">
-        <h2 class="text-center mb-4">Rental Checkout</h2>
+<div class="mx-auto max-w-3xl space-y-8">
+    <section class="surface-card-strong p-6 sm:p-8">
+        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Rent Workflow</p>
+        <h1 class="mt-4 text-4xl font-bold">Rental Checkout</h1>
+    </section>
 
-        @php
-            $rentType = $rentalRequest->rental?->rent_type ?? 'daily';
-            $rentFare = $rentalRequest->rental?->rent_fare ?? 0;
-            $rentDeposit = $rentalRequest->rent_deposit ?? ($rentalRequest->rental?->rent_deposit ?? 0);
-            $totalAmount = ($rentalRequest->total_amount ?? 0) + $rentDeposit;
-        @endphp
+    @php
+        $rentType = $rentalRequest->rental?->rent_type ?? 'daily';
+        $rentFare = $rentalRequest->rental?->rent_fare ?? 0;
+        $rentDeposit = $rentalRequest->rent_deposit ?? ($rentalRequest->rental?->rent_deposit ?? 0);
+        $totalAmount = ($rentalRequest->total_amount ?? 0) + $rentDeposit;
+    @endphp
 
-        <table class="table table-bordered">
-            <tr>
-                <th>Product</th>
-                <td>{{ $rentalRequest->product->title }}</td>
-            </tr>
-            <tr>
-                <th>Rent Type</th>
-                <td>{{ ucfirst($rentType) }}</td>
-            </tr>
-            <tr>
-                <th>Duration</th>
-                <td>{{ $rentalRequest->duration }} {{ $rentType == 'hourly' ? 'hours' : 'days' }}</td>
-            </tr>
-            <tr>
-                <th>Fare</th>
-                <td>Rs. {{ number_format($rentFare, 2) }}</td>
-            </tr>
-            <tr>
-                <th>Deposit</th>
-                <td>Rs. {{ number_format($rentDeposit, 2) }}</td>
-            </tr>
-            <tr class="table-info">
-                <th>Total Amount</th>
-                <td><strong>Rs. {{ number_format($totalAmount, 2) }}</strong></td>
-            </tr>
-        </table>
+    <section class="surface-card p-5 sm:p-6 space-y-4">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
+            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Product</p><p class="mt-1 font-semibold">{{ $rentalRequest->product->title }}</p></div>
+            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Rent Type</p><p class="mt-1 font-semibold">{{ ucfirst($rentType) }}</p></div>
+            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Duration</p><p class="mt-1 font-semibold">{{ $rentalRequest->duration }} {{ $rentType == 'hourly' ? 'hours' : 'days' }}</p></div>
+            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Fare</p><p class="mt-1 font-semibold">Rs. {{ number_format($rentFare, 2) }}</p></div>
+            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Deposit</p><p class="mt-1 font-semibold">Rs. {{ number_format($rentDeposit, 2) }}</p></div>
+            <div class="bg-primary-800 p-3 text-white"><p class="text-xs uppercase tracking-[0.08em]">Total Amount</p><p class="mt-1 text-xl font-bold">Rs. {{ number_format($totalAmount, 2) }}</p></div>
+        </div>
 
-        <form method="POST" action="{{ route('rental.pay', $rentalRequest->id) }}" class="mt-3">
+        <form method="POST" action="{{ route('rental.pay', $rentalRequest->id) }}" class="mt-2">
             @csrf
-            <button type="submit" class="btn btn-primary w-100">Pay with eSewa</button>
+            <button type="submit" class="btn-pill btn-pill-dark w-full justify-center">Pay with eSewa</button>
         </form>
 
-        <a href="{{ route('products.index') }}" class="btn btn-success w-100 mt-3">Back to Products</a>
-    </div>
+        <a href="{{ route('products.index') }}" class="btn-pill btn-pill-soft">Back to Products</a>
+    </section>
 </div>
 @endsection

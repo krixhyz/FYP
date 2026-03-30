@@ -59,12 +59,12 @@ $maxWidth = [
         x-transition:leave-start="opacity-100"
         x-transition:leave-end="opacity-0"
     >
-        <div class="absolute inset-0 bg-slate-900/40"></div>
+        <div class="absolute inset-0 bg-[var(--reloop-ink)]/40"></div>
     </div>
 
     <div
         x-show="show"
-        class="mb-6 w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl transform transition-all {{ $maxWidth }} sm:mx-auto"
+        class="mb-6 w-full overflow-hidden border border-[var(--reloop-border)] bg-white shadow-[10px_10px_0_var(--reloop-shadow)] transform transition-all {{ $maxWidth }} sm:mx-auto"
         x-transition:enter="ease-out duration-300"
         x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
         x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"

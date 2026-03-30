@@ -1,4 +1,4 @@
-@props(['align' => 'right', 'width' => '48', 'contentClasses' => 'rounded-2xl border border-slate-200 bg-white py-1'])
+@props(['align' => 'right', 'width' => '48', 'contentClasses' => 'border border-[var(--reloop-border)] bg-white py-1 shadow-[6px_6px_0_var(--reloop-shadow)]'])
 
 @php
 $alignmentClasses = match ($align) {
@@ -25,10 +25,10 @@ $width = match ($width) {
             x-transition:leave="transition ease-in duration-75"
             x-transition:leave-start="opacity-100 scale-100"
             x-transition:leave-end="opacity-0 scale-95"
-            class="absolute z-50 mt-2 {{ $width }} rounded-md shadow-lg {{ $alignmentClasses }}"
+            class="absolute z-50 mt-2 {{ $width }} {{ $alignmentClasses }}"
             style="display: none;"
             @click="open = false">
-        <div class="{{ $contentClasses }} shadow-xl">
+        <div class="{{ $contentClasses }}">
             {{ $content }}
         </div>
     </div>

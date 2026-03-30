@@ -55,9 +55,11 @@ Route::middleware('auth')->group(function () {
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PaymentController;
 
-Route::post('/order/{product}', [OrderController::class, 'store'])->name('order.store');
-Route::get('/order/{order}/checkout', [OrderController::class, 'checkout'])->name('order.checkout');
-Route::post('/order/{order}/confirm', [PaymentController::class, 'createOrderPayment'])->name('order.confirm');
+ Route::middleware(['auth', 'user_only'])->group(function () {
+     Route::post('/order/{product}', [OrderController::class, 'store'])->name('order.store');
+     Route::get('/order/{order}/checkout', [OrderController::class, 'checkout'])->name('order.checkout');
+     Route::post('/order/{order}/confirm', [PaymentController::class, 'createOrderPayment'])->name('order.confirm');
+ });
 
 
 
@@ -81,7 +83,7 @@ Route::get('/products/{id}', [ProductController::class, 'show'])->name('products
 
 
 // Protect buy/rent/swap routes:
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'user_only'])->group(function () {
     Route::get('/products/{id}/buy', [ProductController::class, 'buy'])->name('products.buy');
     Route::get('/products/{id}/rent', [ProductController::class, 'rent'])->name('products.rent');
     Route::get('/products/{id}/swap', [ProductController::class, 'swap'])->name('products.swap');
@@ -90,7 +92,7 @@ Route::middleware(['auth'])->group(function () {
 //cart routes
 use App\Http\Controllers\CartController;
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'user_only'])->group(function () {
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('/cart/add/{productId}', [CartController::class, 'store'])->name('cart.store');
     Route::patch('/cart/{id}', [CartController::class, 'update'])->name('cart.update');
@@ -109,30 +111,30 @@ use App\Http\Controllers\RentalController;
 
 Route::middleware(['auth'])->group(function () {
     // renter side
-    Route::get('/rent/{product}', [RentalController::class, 'create'])->name('rental.create');
-    Route::post('/rental/request/{product}', [RentalController::class, 'store'])->name('rental.store');
-    Route::get('/rental/checkout/{rentalRequest}', [RentalController::class, 'checkout'])->name('rental.checkout');
-    Route::get('/rental/payment/{rentalRequest}', [RentalController::class, 'payment'])->name('rental.payment');
-    Route::post('/rental/{rentalRequest}/pay', [PaymentController::class, 'createRentalPayment'])->name('rental.pay');
+    Route::middleware(['user_only'])->group(function () {
+        Route::get('/rent/{product}', [RentalController::class, 'create'])->name('rental.create');
+        Route::post('/rental/request/{product}', [RentalController::class, 'store'])->name('rental.store');
+        Route::get('/rental/checkout/{rentalRequest}', [RentalController::class, 'checkout'])->name('rental.checkout');
+        Route::get('/rental/payment/{rentalRequest}', [RentalController::class, 'payment'])->name('rental.payment');
+        Route::post('/rental/{rentalRequest}/pay', [PaymentController::class, 'createRentalPayment'])->name('rental.pay');
+        Route::patch('/rental/{rentedRental}/return', [RentalController::class, 'returnRental'])->name('rental.return'); // NEW
+    });
 
     // owner side (reviewing rental requests)
     Route::get('/rental/request/{rentalRequest}/review', [RentalController::class, 'review'])->name('rental.review');
     Route::patch('/rental/request/{rentalRequest}/approve', [RentalController::class, 'approveRequest'])->name('rental.approve');
     Route::patch('/rental/request/{rentalRequest}/reject', [RentalController::class, 'reject'])->name('rental.reject');
 
-
-    Route::patch('/rental/{rentedRental}/return', [RentalController::class, 'returnRental'])->name('rental.return'); // NEW
-
 });
 
 //my purchases route
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'user_only'])->group(function () {
     Route::get('/my-purchases', [ProductController::class, 'myPurchases'])->name('products.myPurchases');
     Route::post('/order/{order}/cancel', [OrderController::class, 'cancel'])->name('order.cancel');
 });
 
 // Cancellation routes for rental requests and swap requests
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'user_only'])->group(function () {
     Route::delete('/rental/request/{rentalRequest}/cancel', [RentalController::class, 'cancelRequest'])->name('rental.cancel');
     Route::post('/swap/{swapRequest}/cancel', [SwapRequestController::class, 'cancel'])->name('swap.request.cancel');
 });
@@ -149,7 +151,7 @@ Route::middleware('auth')->group(function () {
 
 // Wishlist routes
 use App\Http\Controllers\WishlistController;
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'user_only'])->group(function () {
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
     Route::post('/wishlist/{product}/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
 });
@@ -159,7 +161,8 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth'])->group(function () {
     // Show request form
-    Route::post('/swap/request/{product}', [SwapRequestController::class, 'showRequestForm'])
+    Route::middleware(['user_only'])->group(function () {
+        Route::post('/swap/request/{product}', [SwapRequestController::class, 'showRequestForm'])
         ->name('swap.request.form');
 
     // Submit swap request
@@ -191,6 +194,7 @@ Route::middleware(['auth'])->group(function () {
     // Counter offer flow
     Route::post('/swap/{swapRequest}/counter', [SwapRequestController::class, 'counterOffer'])
         ->name('swap.request.counter');
+    });
     Route::post('/swap/{swapRequest}/counter/accept', [SwapRequestController::class, 'acceptCounter'])
         ->name('swap.request.counter.accept');
     Route::post('/swap/{swapRequest}/counter/reject', [SwapRequestController::class, 'rejectCounter'])
@@ -215,6 +219,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::patch('/products/{product}/flag', [AdminController::class, 'productFlag'])->name('products.flag');
     Route::patch('/products/{product}/unflag', [AdminController::class, 'productUnflag'])->name('products.unflag');
     Route::delete('/products/{product}', [AdminController::class, 'productDelete'])->name('products.delete');
+    Route::get('/products/{product}', [AdminController::class, 'productShow'])->name('products.show');
+
 
     Route::get('/content-moderation', [AdminController::class, 'contentModeration'])->name('content');
     Route::patch('/content-moderation/{product}/decision', [AdminController::class, 'contentDecision'])->name('content.decision');

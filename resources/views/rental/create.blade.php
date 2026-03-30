@@ -1,92 +1,83 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="max-w-7xl mx-auto py-4 sm:px-4 lg:px-6">
-    <h2 class="text-xl font-bold mb-3 text-center">Rent: {{ $product->title }}</h2>
+<div class="mx-auto max-w-4xl space-y-8">
+    <section class="surface-card-strong p-6 sm:p-8">
+        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Rent Workflow</p>
+        <h1 class="mt-4 text-4xl font-bold">Request Rental</h1>
+        <p class="mt-2 text-sm text-neutral-700">Select your rental window and submit a request.</p>
+    </section>
 
-    <div class="bg-white shadow-sm rounded-md mx-auto flex flex-col md:flex-row overflow-hidden product-card max-w-[500px]">
-        {{-- Product Image --}}
-        <div class="md:w-1/3 p-2 text-center">
-            @if($product->image)
-                <img src="{{ asset('storage/' . $product->image) }}" 
-                     class="w-full h-24 object-contain rounded product-image" 
-                     alt="{{ $product->title }}">
-            @else
-                <div class="w-full h-24 bg-gray-200 flex items-center justify-center text-gray-500 text-xs rounded">
-                    No Image
-                </div>
-            @endif
-        </div>
+    @php
+        $rental = $product->rentals()->first();
+        $ownerEndDate = null;
+        if ($rental && $rental->available_from && $rental->available_duration) {
+            $start = \Carbon\Carbon::parse($rental->available_from);
+            $ownerEndDate = $start->copy()->addDays($rental->available_duration - 1)->format('Y-m-d');
+        }
+    @endphp
 
-        {{-- Product Info & Form --}}
-        <div class="md:w-2/3 p-3">
-            <h5 class="text-sm font-medium">{{ $product->title }}</h5>
-            <p class="text-gray-600 text-xs mt-1">{{ Str::limit($product->description, 100) }}</p>
-            <p class="text-xs mb-1"><strong>Category:</strong> {{ $product->category ?? 'General' }}</p>
-            <p class="text-xs mb-1"><strong>Available Quantity:</strong> {{ $product->quantity }}</p>
-            <p class="text-[11px] text-gray-500 mb-2">Note: Renting is limited to one unit per request.</p>
+    <section class="grid grid-cols-1 gap-6 md:grid-cols-[0.95fr_1.05fr]">
+        <article class="surface-card p-4">
+            <div class="h-56 overflow-hidden bg-accent-100">
+                @if($product->image)
+                    <img src="{{ asset('storage/' . $product->image) }}" class="h-full w-full object-cover" alt="{{ $product->title }}">
+                @else
+                    <div class="flex h-full items-center justify-center text-neutral-500">No image available</div>
+                @endif
+            </div>
+            <h2 class="mt-3 text-xl font-bold">{{ $product->title }}</h2>
+            <p class="mt-1 text-sm text-neutral-600">{{ Str::limit($product->description, 120) }}</p>
 
-            @php
-                $rental = $product->rentals()->first();
-                $ownerEndDate = null;
-                if ($rental && $rental->available_from && $rental->available_duration) {
-                    $start = \Carbon\Carbon::parse($rental->available_from);
-                    $ownerEndDate = $start->copy()->addDays($rental->available_duration - 1)->format('Y-m-d');
-                }
-            @endphp
+            <div class="mt-4 space-y-2 bg-accent-50 p-4 text-sm">
+                <div class="flex justify-between"><span>Category</span><span class="font-semibold">{{ $product->category ?? 'General' }}</span></div>
+                <div class="flex justify-between"><span>Available Quantity</span><span class="font-semibold">{{ $product->quantity }}</span></div>
+                @if($rental)
+                    <div class="flex justify-between"><span>Rent Fare</span><span class="font-semibold">Rs. {{ $rental->rent_fare }} / day</span></div>
+                    <div class="flex justify-between"><span>Deposit</span><span class="font-semibold">Rs. {{ $rental->rent_deposit }}</span></div>
+                    <div class="flex justify-between"><span>Available From</span><span class="font-semibold">{{ $rental->available_from ? \Carbon\Carbon::parse($rental->available_from)->format('Y-m-d') : 'Not set' }}</span></div>
+                    <div class="flex justify-between"><span>Available Until</span><span class="font-semibold">{{ $ownerEndDate ?? 'Not set' }}</span></div>
+                @else
+                    <p class="text-red-700">Rental information unavailable.</p>
+                @endif
+            </div>
+        </article>
 
-            @if($rental)
-                <p class="text-xs mb-1"><strong>Rent Fare:</strong> Rs. {{ $rental->rent_fare }} per day</p>
-                <p class="text-xs mb-1"><strong>Deposit:</strong> Rs. {{ $rental->rent_deposit }}</p>
-                <p class="text-xs mb-1"><strong>Available Duration:</strong> 
-                    {{ $rental->available_duration ? $rental->available_duration . ' day(s)' : 'Not set' }}
-                </p>
-                <p class="text-xs mb-1"><strong>Available From:</strong> 
-                    {{ $rental->available_from ? \Carbon\Carbon::parse($rental->available_from)->format('Y-m-d') : 'Not set' }}
-                </p>
-                <p class="text-xs mb-1"><strong>Available Until:</strong> 
-                    {{ $ownerEndDate ?? 'Not set' }}
-                </p>
-            @else
-                <p class="text-xs text-red-500 mb-1">Rental information unavailable</p>
-            @endif
-
-            <form action="{{ route('rental.store', $product->id) }}" method="POST" class="mt-2" id="rentalForm"
+        <article class="surface-card p-5">
+            <form action="{{ route('rental.store', $product->id) }}" method="POST" id="rentalForm"
                   data-rent-fare="{{ $rental ? $rental->rent_fare : 0 }}"
                   data-rent-deposit="{{ $rental ? $rental->rent_deposit : 0 }}"
                   data-max-duration="{{ $rental ? $rental->duration : 100 }}"
                   data-owner-start-date="{{ $rental && $rental->available_from ? \Carbon\Carbon::parse($rental->available_from)->format('Y-m-d') : '' }}"
-                  data-owner-end-date="{{ $ownerEndDate }}">
+                  data-owner-end-date="{{ $ownerEndDate }}"
+                  class="space-y-4">
                 @csrf
 
-                <div class="mb-2">
-                    <label class="form-label text-xs font-bold">Start Date</label>
-                    <input type="date" name="start_date" id="startDate" class="form-control text-xs p-1.5 rounded" required>
+                <div>
+                    <label class="label">Start Date</label>
+                    <input type="date" name="start_date" id="startDate" class="input" required>
                 </div>
 
-                <div class="mb-2">
-                    <label class="form-label text-xs font-bold">End Date</label>
-                    <input type="date" name="end_date" id="endDate" class="form-control text-xs p-1.5 rounded" required>
+                <div>
+                    <label class="label">End Date</label>
+                    <input type="date" name="end_date" id="endDate" class="input" required>
                 </div>
 
-                <div class="mb-2 p-2 bg-gray-100 rounded">
-                    <p class="mb-0 text-xs font-bold">Estimated Total:</p>
-                    <p id="totalAmount" class="text-sm text-blue-600">Rs. 0</p>
+                <div class="bg-accent-50 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-500">Estimated Total</p>
+                    <p id="totalAmount" class="mt-2 text-2xl font-bold text-primary-800">Rs. 0</p>
                 </div>
 
-                {{-- Hidden Inputs --}}
                 <input type="hidden" name="product_id" value="{{ $product->id }}">
                 <input type="hidden" name="rent_fare" id="rentFare" value="{{ $rental ? $rental->rent_fare : 0 }}">
                 <input type="hidden" name="rent_deposit" id="rentDeposit" value="{{ $rental ? $rental->rent_deposit : 0 }}">
                 <input type="hidden" name="duration" id="duration" value="0">
                 <input type="hidden" name="total_amount" id="totalAmountInput" value="0">
 
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs w-full">
-                    Request Rent
-                </button>
+                <button type="submit" class="btn-pill btn-pill-dark w-full justify-center">Submit Rental Request</button>
             </form>
-        </div>
-    </div>
+        </article>
+    </section>
 </div>
 
 <script>
@@ -109,7 +100,9 @@ if (form && startInput && endInput && totalAmountDisplay) {
 
     const today = new Date().toISOString().split('T')[0];
     startInput.setAttribute('min', ownerStartDate || today);
-    startInput.setAttribute('max', ownerEndDate);
+    if (ownerEndDate) {
+        startInput.setAttribute('max', ownerEndDate);
+    }
 
     function updateTotal() {
         if (!startInput.value || !endInput.value) {
@@ -121,9 +114,10 @@ if (form && startInput && endInput && totalAmountDisplay) {
 
         let start = new Date(startInput.value);
         let end = new Date(endInput.value);
-        const maxEnd = new Date(ownerEndDate);
-
-        if (end > maxEnd) end = maxEnd;
+        if (ownerEndDate) {
+            const maxEnd = new Date(ownerEndDate);
+            if (end > maxEnd) end = maxEnd;
+        }
 
         let diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
         if (diffDays > maxDuration) diffDays = maxDuration;
@@ -142,14 +136,15 @@ if (form && startInput && endInput && totalAmountDisplay) {
         const maxEnd = new Date(start);
         maxEnd.setDate(maxEnd.getDate() + parseInt(maxDuration) - 1);
 
-        const ownerEnd = new Date(ownerEndDate);
-        const finalMax = maxEnd < ownerEnd ? maxEnd : ownerEnd;
+        if (ownerEndDate) {
+            const ownerEnd = new Date(ownerEndDate);
+            const finalMax = maxEnd < ownerEnd ? maxEnd : ownerEnd;
+            endInput.max = finalMax.toISOString().split('T')[0];
+        }
 
         endInput.min = startInput.value;
-        endInput.max = finalMax.toISOString().split('T')[0];
-
         const currentEnd = new Date(endInput.value);
-        if (currentEnd > finalMax) {
+        if (endInput.max && currentEnd > new Date(endInput.max)) {
             endInput.value = endInput.max;
         }
 

@@ -1,39 +1,36 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container mt-5">
-    <div class="card shadow-lg p-4 mx-auto" style="max-width: 700px;">
-        <h2 class="text-center mb-4">Rental Request Review</h2>
+<div class="mx-auto max-w-3xl space-y-8">
+    <section class="surface-card-strong p-6 sm:p-8">
+        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Rent Workflow</p>
+        <h1 class="mt-4 text-4xl font-bold">Rental Request Review</h1>
+    </section>
 
-        <table class="table table-bordered">
-            <tr><th>Product</th><td>{{ $rentalRequest->product->title }}</td></tr>
-            <tr><th>Renter</th><td>{{ $rentalRequest->renter->name }}</td></tr>
-            <tr><th>Duration</th><td>{{ $rentalRequest->duration }} days</td></tr>
-            <tr><th>Fare</th><td>Rs. {{ $rentalRequest->rental->rent_fare ?? 0 }}</td></tr>
-            <tr><th>Deposit</th><td>Rs. {{ $rentalRequest->rent_deposit }}</td></tr>
-            <tr class="table-info">
-                <th>Total Amount</th>
-                <td><strong>Rs. {{ $rentalRequest->total_amount + $rentalRequest->rent_deposit }}</strong></td>
-            </tr>
-            <tr><th>Start Date</th><td>{{ $rentalRequest->start_date }}</td></tr>
-            <tr><th>End Date</th><td>{{ $rentalRequest->end_date }}</td></tr>
-        </table>
+    <section class="surface-card p-5 sm:p-6">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
+            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Product</p><p class="mt-1 font-semibold">{{ $rentalRequest->product->title }}</p></div>
+            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Renter</p><p class="mt-1 font-semibold">{{ $rentalRequest->renter->name }}</p></div>
+            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Duration</p><p class="mt-1 font-semibold">{{ $rentalRequest->duration }} days</p></div>
+            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Fare</p><p class="mt-1 font-semibold">Rs. {{ $rentalRequest->rental->rent_fare ?? 0 }}</p></div>
+            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Deposit</p><p class="mt-1 font-semibold">Rs. {{ $rentalRequest->rent_deposit }}</p></div>
+            <div class="bg-primary-800 p-3 text-white"><p class="text-xs uppercase tracking-[0.08em]">Total Amount</p><p class="mt-1 text-xl font-bold">Rs. {{ $rentalRequest->total_amount + $rentalRequest->rent_deposit }}</p></div>
+            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Start Date</p><p class="mt-1 font-semibold">{{ $rentalRequest->start_date }}</p></div>
+            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">End Date</p><p class="mt-1 font-semibold">{{ $rentalRequest->end_date }}</p></div>
+        </div>
 
-        <div class="text-center mt-4 d-flex justify-content-center gap-3">
-            <!-- Approve Form -->
+        <div class="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <form action="{{ route('rental.approve', $rentalRequest->id) }}" method="POST">
                 @csrf
                 @method('PATCH')
-                <button type="submit" class="btn btn-success">Approve</button>
+                <button type="submit" class="btn-pill btn-pill-dark w-full justify-center">Approve</button>
             </form>
-
-            <!-- Reject Form -->
             <form action="{{ route('rental.reject', $rentalRequest->id) }}" method="POST">
                 @csrf
                 @method('PATCH')
-                <button type="submit" class="btn btn-danger">Reject</button>
+                <button type="submit" class="btn-pill btn-pill-soft w-full justify-center">Reject</button>
             </form>
         </div>
-    </div>
+    </section>
 </div>
 @endsection

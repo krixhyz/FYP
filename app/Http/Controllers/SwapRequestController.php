@@ -68,7 +68,7 @@ class SwapRequestController extends Controller
         // Notify product owner
         $product->user->notify(new SwapRequested($swapRequest));
 
-        return redirect()->route('swap.request.incoming')->with('success', 'Swap request sent!');
+        return redirect()->route('dashboard')->with('success', 'Swap request sent!');
     }
 
 

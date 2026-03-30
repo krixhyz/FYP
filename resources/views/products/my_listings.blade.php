@@ -1,52 +1,116 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container mx-auto py-10 max-w-6xl space-y-12">
+<div class="mx-auto max-w-7xl space-y-8">
+    @php
+        $activeProducts = $products->where('status', '!=', 'sold');
+        $listedUnits = $products->sum('quantity');
+        $soldUnits = $soldProducts->sum(fn($p) => $p->orders->sum(fn($o) => $o->quantity ?? 1));
+        $salesRevenue = $soldProducts->sum(fn($p) => $p->orders->sum(fn($o) => ($o->unit_price ?? $p->price ?? 0) * ($o->quantity ?? 1)));
+        $pendingActionCount = $pendingRequests->count() + $swapRequests->count();
+    @endphp
 
-    {{-- ==================== HEADER ==================== --}}
-    <h2 class="font-semibold text-2xl text-gray-800 text-center mb-6">
-        My Listings Dashboard
-    </h2>
+    <section class="surface-card-strong p-6 sm:p-8">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <p class="section-kicker">Seller Workspace</p>
+                <h1 class="section-title mt-1">My Listings Dashboard</h1>
+                <p class="meta-text mt-2">Track inventory, incoming requests, live rentals, and sales from one clear workspace.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('products.create') }}" class="btn-pill btn-pill-dark">Add Listing</a>
+                <a href="{{ route('dashboard') }}" class="btn-pill btn-pill-soft">Main Dashboard</a>
+            </div>
+        </div>
+    </section>
 
-    {{-- ==================== SECTION 1: My Products ==================== --}}
-    <div class="bg-white shadow-md rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-lg font-semibold mb-5 text-gray-800 flex items-center gap-2">
-            <span class="text-blue-600"></span> My Products
-        </h3>
+    <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <article class="surface-card p-4"><p class="meta-text">Active Listings</p><p class="mt-2 text-3xl font-extrabold">{{ $activeProducts->count() }}</p></article>
+        <article class="surface-card p-4"><p class="meta-text">Units Listed</p><p class="mt-2 text-3xl font-extrabold">{{ $listedUnits }}</p></article>
+        <article class="surface-card p-4"><p class="meta-text">Units Sold</p><p class="mt-2 text-3xl font-extrabold">{{ $soldUnits }}</p></article>
+        <article class="surface-card p-4"><p class="meta-text">Sales Revenue</p><p class="mt-2 text-3xl font-extrabold text-[var(--reloop-primary-dark)]">Rs. {{ number_format($salesRevenue, 2) }}</p></article>
+        <article class="surface-card p-4"><p class="meta-text">Pending Actions</p><p class="mt-2 text-3xl font-extrabold">{{ $pendingActionCount }}</p></article>
+    </section>
 
-        <table class="w-full text-sm text-left text-gray-600 border-collapse">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
-                <tr>
-                    <th class="px-6 py-3">Image</th>
-                    <th class="px-6 py-3">Title</th>
-                    <th class="px-6 py-3">Price</th>
-                    <th class="px-6 py-3">Quantity</th>
-                    <th class="px-6 py-3">Status</th>
-                    <th class="px-6 py-3">Actions</th>
-                </tr>
-            </thead>
+    <section class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <article class="surface-card p-5 overflow-x-auto">
+            <div class="mb-3 flex items-center justify-between">
+                <h2 class="text-lg font-extrabold">Incoming Rental Requests</h2>
+                <span class="status-chip status-warning">{{ $pendingRequests->count() }} Pending</span>
+            </div>
+            <table class="min-w-full text-sm">
+                <thead><tr><th>Product</th><th>Renter</th><th>Duration</th><th>Amount</th><th>Action</th></tr></thead>
+                <tbody>
+                    @forelse ($pendingRequests as $request)
+                        <tr>
+                            <td>{{ $request->product->title ?? 'N/A' }}</td>
+                            <td>{{ $request->renter->name ?? 'N/A' }}</td>
+                            <td>{{ $request->duration }} days</td>
+                            <td>Rs. {{ number_format($request->total_amount, 2) }}</td>
+                            <td><a href="{{ route('rental.review', $request->id) }}" class="btn-pill btn-pill-soft !px-3 !py-1 text-xs">Review</a></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5" class="text-center text-[var(--reloop-ink-soft)]">No pending rental requests.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </article>
+
+        <article class="surface-card p-5 overflow-x-auto">
+            <div class="mb-3 flex items-center justify-between">
+                <h2 class="text-lg font-extrabold">Incoming Swap Requests</h2>
+                <span class="status-chip status-info">{{ $swapRequests->count() }} Pending</span>
+            </div>
+            <table class="min-w-full text-sm">
+                <thead><tr><th>Your Item</th><th>Offered Item</th><th>Requester</th><th>Action</th></tr></thead>
+                <tbody>
+                    @forelse ($swapRequests as $swap)
+                        @php
+                            $requesterName = $swap->ownerB?->name ?? $swap->ownerA?->name ?? 'N/A';
+                        @endphp
+                        <tr>
+                            <td>{{ $swap->requestedProduct->title ?? 'N/A' }}</td>
+                            <td>{{ $swap->offeredProduct->title ?? 'N/A' }}</td>
+                            <td>{{ $requesterName }}</td>
+                            <td>
+                                <div class="flex gap-2">
+                                    <form action="{{ route('swap.request.accept', $swap->id) }}" method="POST">
+                                        @csrf
+                                        <button type="submit" class="btn-pill btn-pill-dark !px-3 !py-1 text-xs">Accept</button>
+                                    </form>
+                                    <form action="{{ route('swap.request.reject', $swap->id) }}" method="POST">
+                                        @csrf
+                                        <button type="submit" class="btn-pill !px-3 !py-1 text-xs !border-[var(--reloop-danger)] !text-[var(--reloop-danger)] hover:!bg-[var(--reloop-danger)] hover:!text-white">Reject</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4" class="text-center text-[var(--reloop-ink-soft)]">No pending swap requests.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </article>
+    </section>
+
+    <section class="surface-card p-5 overflow-x-auto">
+        <h2 class="text-lg font-extrabold mb-3">Listings Inventory</h2>
+        <table class="min-w-full text-sm">
+            <thead><tr><th>Image</th><th>Title</th><th>Price</th><th>Quantity</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
-                @forelse ($products->where('status', '!=', 'sold') as $product)
-                    <tr class="border-b hover:bg-gray-50 transition">
-                        <td class="px-6 py-4">
-                            <img src="{{ asset('storage/' . $product->image) }}" alt="Image"
-                                 class="w-16 h-16 object-cover rounded-md shadow-sm border">
+                @forelse ($activeProducts as $product)
+                    <tr>
+                        <td>
+                            <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->title }}" class="h-14 w-14 object-cover border border-[var(--reloop-border)]">
                         </td>
-                        <td class="px-6 py-4 font-medium text-gray-900">{{ $product->title }}</td>
-                        <td class="px-6 py-4">
-                            @if($product->price)
-                                <span class="font-semibold text-gray-800">Rs. {{ $product->price }}</span>
-                            @else
-                                <span class="text-gray-400">—</span>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4">{{ $product->quantity }}</td>
-                        <td class="px-6 py-4">
+                        <td class="font-semibold">{{ $product->title }}</td>
+                        <td>{{ $product->price ? 'Rs. ' . number_format($product->price, 2) : '-' }}</td>
+                        <td>{{ $product->quantity }}</td>
+                        <td>
                             <form action="{{ route('products.updateStatus', $product->id) }}" method="POST">
                                 @csrf
                                 @method('PATCH')
-                                <select name="status" onchange="this.form.submit()"
-                                        class="border-gray-300 rounded-md text-sm p-1.5 focus:ring-2 focus:ring-blue-400">
+                                <select name="status" onchange="this.form.submit()" class="input-field !py-1.5 text-sm">
                                     <option value="available" {{ $product->status == 'available' ? 'selected' : '' }}>Available</option>
                                     <option value="sold" {{ $product->status == 'sold' ? 'selected' : '' }}>Sold</option>
                                     <option value="rented" {{ $product->status == 'rented' ? 'selected' : '' }}>Rented</option>
@@ -54,229 +118,104 @@
                                 </select>
                             </form>
                         </td>
-                        <td class="px-6 py-4 flex flex-col sm:flex-row gap-2">
-                            <a href="{{ route('products.edit', $product->id) }}"
-                               class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-md font-medium transition">
-                                Edit
-                            </a>
-                            <form action="{{ route('products.destroy', $product->id) }}" method="POST"
-                                  onsubmit="return confirm('Are you sure you want to delete this product?')">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit"
-                                        class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-md font-medium transition">
-                                    Delete
-                                </button>
-                            </form>
+                        <td>
+                            <div class="flex gap-2">
+                                <a href="{{ route('products.edit', $product->id) }}" class="btn-pill btn-pill-soft !px-3 !py-1 text-xs">Edit</a>
+                                <form action="{{ route('products.destroy', $product->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this product?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn-pill !px-3 !py-1 text-xs !border-[var(--reloop-danger)] !text-[var(--reloop-danger)] hover:!bg-[var(--reloop-danger)] hover:!text-white">Delete</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 @empty
-                    <tr>
-                        <td colspan="6" class="text-center py-6 text-gray-500">No active products listed yet.</td>
-                    </tr>
+                    <tr><td colspan="6" class="text-center text-[var(--reloop-ink-soft)]">No active products listed yet.</td></tr>
                 @endforelse
             </tbody>
         </table>
-    </div>
+    </section>
 
-    {{-- ==================== SECTION 2: Pending Rental Requests ==================== --}}
-    <div class="bg-white shadow-md rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-lg font-semibold mb-5 text-gray-800"> Pending Rental Requests</h3>
+    <section class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <article class="surface-card p-5 overflow-x-auto">
+            <h2 class="text-lg font-extrabold mb-3">Active Rentals</h2>
+            <table class="min-w-full text-sm">
+                <thead><tr><th>Product</th><th>Renter</th><th>Period</th><th>Amount</th><th>Action</th></tr></thead>
+                <tbody>
+                    @forelse ($activeRentals as $rental)
+                        <tr>
+                            <td>{{ $rental->product->title ?? 'N/A' }}</td>
+                            <td>{{ $rental->renter->name ?? 'N/A' }}</td>
+                            <td>{{ optional($rental->start_date)->format('Y-m-d') }} to {{ optional($rental->end_date)->format('Y-m-d') }}</td>
+                            <td>Rs. {{ number_format($rental->total_amount, 2) }}</td>
+                            <td>
+                                @if($rental->status === 'active')
+                                    <form action="{{ route('rental.return', $rental->id) }}" method="POST">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button class="btn-pill btn-pill-dark !px-3 !py-1 text-xs">Mark Returned</button>
+                                    </form>
+                                @else
+                                    <span class="status-chip status-success">{{ ucfirst($rental->status) }}</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5" class="text-center text-[var(--reloop-ink-soft)]">No active rentals.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </article>
 
-        <x-section-table :data="$pendingRequests" empty="No pending rental requests.">
-            <x-slot name="header">
-                <tr>
-                    <th>Product</th>
-                    <th>Renter</th>
-                    <th>Duration</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </x-slot>
+        <article class="surface-card p-5 overflow-x-auto">
+            <h2 class="text-lg font-extrabold mb-3">Recent Closed Deals</h2>
+            <table class="min-w-full text-sm">
+                <thead><tr><th>Product</th><th>Units Sold</th><th>Revenue</th><th>Last Sale</th></tr></thead>
+                <tbody>
+                    @forelse ($soldProducts as $sold)
+                        @php
+                            $units = $sold->orders->sum(fn($o) => $o->quantity ?? 1);
+                            $revenue = $sold->orders->sum(fn($o) => ($o->unit_price ?? $sold->price ?? 0) * ($o->quantity ?? 1));
+                            $lastSale = $sold->orders->max('created_at');
+                        @endphp
+                        <tr>
+                            <td>{{ $sold->title }}</td>
+                            <td>{{ $units }}</td>
+                            <td>Rs. {{ number_format($revenue, 2) }}</td>
+                            <td>{{ $lastSale ? \Illuminate\Support\Carbon::parse($lastSale)->format('Y-m-d') : '-' }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4" class="text-center text-[var(--reloop-ink-soft)]">No sales yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </article>
+    </section>
 
-            @foreach ($pendingRequests as $request)
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="px-6 py-4">{{ $request->product->title ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $request->renter->name ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $request->duration }} days</td>
-                    <td class="px-6 py-4">Rs. {{ $request->total_amount }}</td>
-                    <td class="px-6 py-4">
-                        <span class="bg-yellow-100 text-yellow-700 px-2 py-1 text-xs font-semibold rounded">
-                            {{ ucfirst($request->status) }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4">
-                        <a href="{{ route('rental.review', $request->id) }}"
-                           class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded">
-                            Review
-                        </a>
-                    </td>
-                </tr>
-            @endforeach
-        </x-section-table>
-    </div>
-
-    {{-- ==================== SECTION 3: Active Rentals ==================== --}}
-    <div class="bg-white shadow-md rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-lg font-semibold mb-5 text-gray-800"> Active Rentals</h3>
-
-        <x-section-table :data="$activeRentals" empty="No active rentals.">
-            <x-slot name="header">
-                <tr>
-                    <th>Product</th>
-                    <th>Renter</th>
-                    <th>From - To</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </x-slot>
-
-            @foreach ($activeRentals as $rental)
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="px-6 py-4">{{ $rental->product->title ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $rental->renter->name ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $rental->start_date }} → {{ $rental->end_date }}</td>
-                    <td class="px-6 py-4">Rs. {{ $rental->total_amount }}</td>
-                    <td class="px-6 py-4">
-                        <span class="bg-green-100 text-green-700 px-2 py-1 text-xs font-semibold rounded">
-                            {{ ucfirst($rental->status) }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4">
-                        <a href="#" class="bg-gray-700 hover:bg-gray-800 text-white text-xs px-3 py-1 rounded">
-                            View
-                        </a>
-
-                        @if($rental->status === 'active')
-                            <form action="{{ route('rental.return', $rental->id) }}" method="POST" class="inline">
-                                @csrf
-                                @method('PATCH')
-                                <button
-                                    class="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 rounded ml-1">
-                                    Mark Returned
-                                </button>
-                            </form>
-                        @endif
-                    </td>
-                </tr>
-            @endforeach
-        </x-section-table>
-    </div>
-
-    {{-- ==================== SECTION 4: Swap Requests ==================== --}}
-    <div class="bg-white shadow-md rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-lg font-semibold mb-5 text-gray-800"> Swap Requests</h3>
-
-        <x-section-table :data="$swapRequests" empty="No pending swap requests.">
-            <x-slot name="header">
-                <tr>
-                    <th>Requested Product</th>
-                    <th>Offered Product</th>
-                    <th>Requester</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </x-slot>
-
-            @foreach ($swapRequests as $swap)
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="px-6 py-4">{{ $swap->requestedProduct->title ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $swap->offeredProduct->title ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $swap->requester->name ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">
-                        <span class="bg-blue-100 text-blue-700 px-2 py-1 text-xs font-semibold rounded">
-                            {{ ucfirst($swap->status) }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 flex gap-2">
-                        <a href="{{ route('swap.accept', $swap->id) }}"
-                           class="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 rounded">Accept</a>
-                        <a href="{{ route('swap.reject', $swap->id) }}"
-                           class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1 rounded">Reject</a>
-                    </td>
-                </tr>
-            @endforeach
-        </x-section-table>
-    </div>
-
-    {{-- ==================== SECTION 5: Active Swaps ==================== --}}
-    <div class="bg-white shadow-md rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-lg font-semibold mb-5 text-gray-800"> Swapped Products</h3>
-
-        <x-section-table :data="$activeSwaps" empty="No active swaps yet.">
-            <x-slot name="header">
-                <tr>
-                    <th>My Product</th>
-                    <th>Swapped With</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                </tr>
-            </x-slot>
-
-            @foreach ($activeSwaps as $swap)
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="px-6 py-4">{{ $swap->myProduct->title ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $swap->otherProduct->title ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $swap->created_at->format('Y-m-d') }}</td>
-                    <td class="px-6 py-4">
-                        <span class="bg-green-100 text-green-700 px-2 py-1 text-xs font-semibold rounded">
-                            {{ ucfirst($swap->status) }}
-                        </span>
-                    </td>
-                </tr>
-            @endforeach
-        </x-section-table>
-    </div>
-
-    {{-- ==================== SECTION 6: Sales Summary ==================== --}}
-    <div class="bg-white shadow-md rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-lg font-semibold mb-5 text-gray-800"> Sales Summary </h3>
-
-        <table class="w-full text-sm text-left text-gray-600 border-collapse">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
-                <tr>
-                    <th class="px-6 py-3">Product</th>
-                    <th class="px-6 py-3">Unit Price</th>
-                    <th class="px-6 py-3">Units Sold</th>
-                    <th class="px-6 py-3">Remaining Qty</th>
-                    <th class="px-6 py-3">Total Revenue</th>
-                    <th class="px-6 py-3">Status</th>
-                    <th class="px-6 py-3">Last Sale</th>
-                </tr>
-            </thead>
+    <section class="surface-card p-5 overflow-x-auto">
+        <h2 class="text-lg font-extrabold mb-3">Active Swaps</h2>
+        <table class="min-w-full text-sm">
+            <thead><tr><th>Your Item</th><th>Other Item</th><th>Counterparty</th><th>Status</th><th>Date</th></tr></thead>
             <tbody>
-                @forelse ($soldProducts as $sold)
+                @forelse ($activeSwaps as $swap)
                     @php
-                        $unitsSold = $sold->orders->sum(fn($o) => $o->quantity ?? 1);
-                        $totalRevenue = ($sold->price ?? 0) * $unitsSold;
-                        $lastSale = $sold->orders->max('created_at');
+                        $myOwnsRequested = ($swap->requestedProduct->user_id ?? null) === auth()->id();
+                        $myItem = $myOwnsRequested ? $swap->requestedProduct : $swap->offeredProduct;
+                        $otherItem = $myOwnsRequested ? $swap->offeredProduct : $swap->requestedProduct;
+                        $counterparty = $myOwnsRequested ? $swap->ownerB?->name : $swap->ownerA?->name;
                     @endphp
-                    <tr class="border-b hover:bg-gray-50 transition">
-                        <td class="px-6 py-4 font-medium text-gray-900">{{ $sold->title }}</td>
-                        <td class="px-6 py-4">Rs. {{ number_format($sold->price,2) }}</td>
-                        <td class="px-6 py-4">{{ $unitsSold }}</td>
-                        <td class="px-6 py-4">{{ $sold->quantity }}</td>
-                        <td class="px-6 py-4">Rs. {{ number_format($totalRevenue,2) }}</td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded text-xs
-                                @if($sold->status==='sold') bg-red-100 text-red-700
-                                @elseif($sold->status==='available') bg-green-100 text-green-700
-                                @else bg-gray-100 text-gray-600 @endif">
-                                {{ ucfirst($sold->status) }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4">{{ $lastSale ? $lastSale->format('Y-m-d') : '—' }}</td>
+                    <tr>
+                        <td>{{ $myItem?->title ?? 'N/A' }}</td>
+                        <td>{{ $otherItem?->title ?? 'N/A' }}</td>
+                        <td>{{ $counterparty ?? 'N/A' }}</td>
+                        <td><span class="status-chip status-success">{{ ucfirst($swap->status) }}</span></td>
+                        <td>{{ $swap->created_at->format('Y-m-d') }}</td>
                     </tr>
                 @empty
-                    <tr>
-                        <td colspan="7" class="text-center py-6 text-gray-500">No sales yet.</td>
-                    </tr>
+                    <tr><td colspan="5" class="text-center text-[var(--reloop-ink-soft)]">No active swaps yet.</td></tr>
                 @endforelse
             </tbody>
         </table>
-    </div>
-
+    </section>
 </div>
 @endsection
