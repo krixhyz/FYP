@@ -20,15 +20,19 @@
     </div>
 
     @if(! $admin->isSuperAdmin())
-        <div class="mb-5 border border-blue-200 bg-blue-50 px-5 py-4 text-blue-700">
+        <div class="mb-5 border-2 border-blue-300 bg-blue-50 px-5 py-4 font-manrope text-sm text-blue-700">
+            <p class="font-space font-bold">Manage Users</p>
+            <p class="font-space font-bold">Manage Users</p>
+            <p class="mt-1">View, edit, and manage platform users. Control roles, status, and permissions.</p>
+        </div>
             <p class="font-semibold">Limited Access</p>
             <p class="text-sm mt-1">You can manage regular users only. Cannot manage Admins or Super Admins. Cannot access sensitive payment details.</p>
         </div>
     @endif
 
     @if($admin->isSuperAdmin())
-        <details class="mb-5 border border-neutral-300 p-4">
-            <summary class="cursor-pointer font-semibold text-[var(--reloop-green-ink)]">Create User</summary>
+        <details class="mb-5 bg-[#f3f3f3] p-4">
+            <summary class="cursor-pointer font-space font-bold text-[#006a38]">Create User</summary>
             <form method="POST" action="{{ route('admin.users.store') }}" class="mt-4 grid grid-cols-1 md:grid-cols-5 gap-3">
                 @csrf
                 <input name="name" placeholder="Full name" class="input-field !py-2" required>
@@ -45,8 +49,8 @@
     @endif
 
     <div class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-            <thead class="bg-neutral-100 text-neutral-700 uppercase text-xs tracking-[0.12em]">
+        <table class="editorial-table">
+            <thead>
                 <tr>
                     <th class="p-3 text-left">User</th>
                     <th class="p-3 text-left">Role</th>
@@ -57,7 +61,7 @@
                     <th class="p-3 text-left">Actions</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-neutral-200">
+            <tbody>
                 @foreach ($users as $user)
                     @php
                         $listingsCount = $user->products()->count();
@@ -68,7 +72,7 @@
                     <tr>
                         <td class="p-3">
                             <p class="font-semibold">{{ $user->name }}</p>
-                            <p class="text-neutral-600">{{ $user->email }}</p>
+                            <p class="text-[#444746]">{{ $user->email }}</p>
                         </td>
                         <td class="p-3">
                             @if($admin->isSuperAdmin())
@@ -106,7 +110,7 @@
                                 <a href="{{ route('admin.users.show', $user) }}" class="btn-pill btn-pill-soft !px-2 !py-1 text-xs">View</a>
                                 <form method="POST" action="{{ route('admin.users.resetPassword', $user) }}">
                                     @csrf
-                                    <button class="btn-pill !px-2 !py-1 text-xs !border-amber-700 !text-amber-700 hover:!bg-amber-700 hover:!text-white" @disabled(!$canManage)>Reset</button>
+                                    <button class="btn-pill !px-2 !py-1 text-xs !border-amber-600 !text-amber-600 hover:!bg-amber-600 hover:!text-white" @disabled(!$canManage)>Reset</button>
                                 </form>
                                 <form method="POST" action="{{ route('admin.users.delete', $user) }}">
                                     @csrf

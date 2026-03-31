@@ -1,5 +1,6 @@
 import './bootstrap';
 import './echo';
+import './cart';
 
 import Alpine from 'alpinejs';
 window.Alpine = Alpine;

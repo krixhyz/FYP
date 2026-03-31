@@ -34,25 +34,31 @@ class OrderController extends Controller
                 return back()->with('error', $e->getMessage());
             }
 
-            $unitPrice = $product->price ?? 0;
-            $totalPrice = $unitPrice * $requestedQty;
-
-            // Create order (assumes orders table has a quantity column; add one if missing)
-            $order = Order::create([
-                'buyer_id' => Auth::id(),
-                'product_id' => $product->id,
-                'transaction_type' => 'buy',
-                'quantity' => $requestedQty,
-                'unit_price' => $unitPrice,
-                'total_price' => $totalPrice,
-                'status' => 'pending',
-                'reserved_until' => now()->addMinutes(config('esewa.reservation_minutes')),
-            ]);
-
             return redirect()
-                ->route('order.checkout', $order->id)
-                ->with('success', 'Order placed successfully! Proceed to checkout.');
+                ->route('order.checkout.product', ['product' => $product->id, 'quantity' => $requestedQty])
+                ->with('success', 'Review and complete payment to place this order.');
         });
+    }
+
+    public function checkoutProduct(Request $request, Product $product, InventoryReservationService $inventory)
+    {
+        if ($product->user_id === Auth::id()) {
+            return redirect()->route('products.show', $product->id)->with('error', 'You cannot buy your own product.');
+        }
+
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:1',
+        ]);
+
+        try {
+            $inventory->ensurePurchasableQuantity($product, (int) $validated['quantity'], now());
+        } catch (\RuntimeException $e) {
+            return redirect()->route('products.show', $product->id)->with('error', $e->getMessage());
+        }
+
+        $quantity = (int) $validated['quantity'];
+
+        return view('orders.checkout', compact('product', 'quantity'));
     }
 
     public function checkout($orderId)
@@ -61,6 +67,10 @@ class OrderController extends Controller
 
         if ($order->buyer_id !== Auth::id()) {
             abort(403, 'Unauthorized');
+        }
+
+        if ($order->status !== 'pending') {
+            return redirect()->route('products.myPurchases')->with('info', 'This order is no longer awaiting checkout.');
         }
 
         return view('orders.checkout', compact('order'));
@@ -79,7 +89,21 @@ class OrderController extends Controller
         $order->status = 'cancelled';
         $order->save();
 
-        return back()->with('success', 'Order cancelled successfully.');
+        return redirect()->route('products.myPurchases')->with('success', 'Order cancelled successfully.');
+    }
+
+    public function cancelFromCheckout(Order $order)
+    {
+        if ($order->buyer_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($order->status === 'pending') {
+            $order->status = 'cancelled';
+            $order->save();
+        }
+
+        return redirect()->route('products.index')->with('info', 'Unpaid checkout was cancelled.');
     }
 
     public function confirm(Request $request, $orderId)

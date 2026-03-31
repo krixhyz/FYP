@@ -1,28 +1,24 @@
-@extends('layouts.app')
+@extends('layouts.guest')
 
 @section('content')
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">{{ __('Verify Your Email Address') }}</div>
-
-                <div class="card-body">
-                    @if (session('resent'))
-                        <div class="alert alert-success" role="alert">
-                            {{ __('A fresh verification link has been sent to your email address.') }}
-                        </div>
-                    @endif
-
-                    {{ __('Before proceeding, please check your email for a verification link.') }}
-                    {{ __('If you did not receive the email') }},
-                    <form class="d-inline" method="POST" action="{{ route('verification.resend') }}">
-                        @csrf
-                        <button type="submit" class="btn btn-link p-0 m-0 align-baseline">{{ __('click here to request another') }}</button>.
-                    </form>
-                </div>
-            </div>
+    <div class="space-y-5">
+        <div>
+            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Email Verification</p>
+            <h1 class="mt-2 font-space text-4xl font-bold text-[#1a1c1c]">Verify Your Email Address</h1>
+            <p class="mt-2 font-manrope text-sm text-[#444746]">Please check your inbox for the verification link before continuing.</p>
         </div>
     </div>
-</div>
+
+    @if (session('resent'))
+        <div class="mt-4 border-2 border-[#10b981] bg-[#d1fae5] px-4 py-3 font-manrope text-sm text-[#065f46]" role="alert">
+            {{ __('A fresh verification link has been sent to your email address.') }}
+        </div>
+    @endif
+
+    <form class="mt-6" method="POST" action="{{ route('verification.send') }}">
+        @csrf
+        <x-primary-button>
+            {{ __('Resend Verification Email') }}
+        </x-primary-button>
+    </form>
 @endsection

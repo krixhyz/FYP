@@ -25,6 +25,13 @@ class ProfileUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
+            'province_id' => ['required', 'exists:provinces,id'],
+            'city_id' => [
+                'required',
+                Rule::exists('cities', 'id')->where(function ($query) {
+                    $query->where('province_id', $this->input('province_id'));
+                }),
+            ],
         ];
     }
 }

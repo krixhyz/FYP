@@ -1,163 +1,180 @@
-<nav class="sticky top-0 z-50 px-4 pt-4 sm:px-6 lg:px-8">
-    <div class="mx-auto w-full max-w-7xl bg-[rgb(243_243_243_/_0.8)] p-2 backdrop-blur-md">
-        <div class="flex min-h-14 flex-wrap items-center justify-between gap-3 bg-white px-4 py-2">
-            <div class="flex items-center gap-5">
-                <a href="{{ route('products.index') }}" class="text-lg font-bold uppercase tracking-[0.12em] text-primary-800">Reloop</a>
-                    @if(auth()->check() && auth()->user()->isAdmin())
-                        <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.*') ? 'nav-link-active' : '' }} hidden md:inline-flex">Admin Panel</a>
-                    @else
-                        <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'nav-link-active' : '' }} hidden md:inline-flex">Dashboard</a>
-                    @endif
-            </div>
-
+<nav class="bg-white/70 backdrop-blur-[24px] sticky top-0 z-50">
+    <div class="px-8 md:px-16 py-0 flex h-14 items-center justify-between">
+        <div class="flex items-center gap-8">
+            <a href="{{ route('products.index') }}" class="font-space font-bold uppercase tracking-wider text-[#006a38] text-sm">Reloop</a>
             @auth
-                @php
-                    $navUnreadCount = auth()->user()->unreadNotifications()->count();
-                    $navDropdownNotifs = auth()->user()->notifications()->latest()->take(10)->get();
-                @endphp
-            @endauth
-
-            <div class="hidden items-center gap-2 lg:flex">
-                @auth
-                    @if(!auth()->user()->isAdmin())
-                        <a href="{{ route('wishlist.index') }}" class="btn-pill btn-pill-soft !px-3" title="Wishlist">Wishlist</a>
-                        <a href="{{ route('cart.index') }}" class="btn-pill btn-pill-soft !px-3" title="Cart">Cart</a>
-                    @endif
-
-                    <div class="relative" x-data="{ open: false }" @click.outside="open = false">
-                        <button @click="open = !open" class="relative btn-pill btn-pill-soft !px-3" title="Notifications">
-                            Notifications
-                            <span id="notification-count" class="{{ $navUnreadCount > 0 ? '' : 'hidden' }} absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
-                                {{ $navUnreadCount > 0 ? ($navUnreadCount > 99 ? '99+' : $navUnreadCount) : '' }}
-                            </span>
-                        </button>
-
-                        <div x-show="open"
-                             x-transition:enter="transition ease-out duration-150"
-                             x-transition:enter-start="opacity-0"
-                             x-transition:enter-end="opacity-100"
-                             x-transition:leave="transition ease-in duration-100"
-                             x-transition:leave-start="opacity-100"
-                             x-transition:leave-end="opacity-0"
-                             class="absolute right-0 top-full z-50 mt-2 w-80 bg-white p-2 shadow-soft"
-                             style="display:none;">
-                            <div class="mb-2 flex items-center justify-between bg-accent-100 px-3 py-2">
-                                <span class="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-900">Notifications</span>
-                                <div class="flex items-center gap-2 text-xs">
-                                    <button id="mark-all-read-btn" class="font-semibold text-primary-800" onclick="markAllNotificationsRead(event)">Mark all read</button>
-                                    <a href="{{ route('notifications.index') }}" class="text-neutral-600 hover:text-neutral-900">See all</a>
-                                </div>
-                            </div>
-
-                            <div id="notification-dropdown-list" class="max-h-80 space-y-2 overflow-y-auto">
-                                @forelse($navDropdownNotifs as $notif)
-                                    @php
-                                        $isUnread = is_null($notif->read_at);
-                                        $msg = $notif->data['message'] ?? 'Notification';
-                                        $url = $notif->data['redirect_url'] ?? route('notifications.index');
-                                        $type = $notif->data['type'] ?? 'general';
-                                        $canClick = $url !== '#';
-
-                                        if ($type === 'rental' && !empty($notif->data['rental_request_id'])) {
-                                            $rentalReq = \App\Models\RentalRequest::find($notif->data['rental_request_id']);
-
-                                            if (!$rentalReq || $rentalReq->status === 'rejected') {
-                                                $url = '#';
-                                                $canClick = false;
-                                            } elseif ($rentalReq->status === 'approved') {
-                                                $url = route('products.myListings');
-                                                $canClick = true;
-                                            } else {
-                                                $url = route('rental.review', $rentalReq->id);
-                                                $canClick = true;
-                                            }
-                                        }
-                                    @endphp
-                                    <div class="notification-dropdown-item {{ $isUnread ? 'bg-primary-50' : 'bg-accent-50' }} {{ $canClick ? 'cursor-pointer' : 'cursor-not-allowed opacity-70' }} p-3"
-                                         data-id="{{ $notif->id }}"
-                                         data-url="{{ $url }}"
-                                         @if($canClick) onclick="handleDropdownNotifClick(this)" @endif>
-                                        <div class="flex items-start gap-2">
-                                            @if($isUnread)
-                                                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary-700"></span>
-                                            @else
-                                                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-accent-600 bg-transparent"></span>
-                                            @endif
-                                            <div class="min-w-0 flex-1">
-                                                <p class="line-clamp-2 text-sm text-neutral-800 {{ $isUnread ? 'font-semibold' : '' }}">{{ $msg }}</p>
-                                                <p class="mt-0.5 text-xs text-neutral-500">{{ $notif->created_at->diffForHumans() }}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                @empty
-                                    <div class="bg-accent-50 px-3 py-6 text-center text-sm text-neutral-500">No notifications yet</div>
-                                @endforelse
-                            </div>
-                        </div>
-                    </div>
-                @endauth
-
-                @auth
-                    <a href="{{ route('profile.edit') }}" class="btn-pill btn-pill-soft !px-3">Profile</a>
-                    <form method="POST" action="{{ route('logout') }}" class="shrink-0">
-                        @csrf
-                        <button type="submit" class="btn-pill btn-pill-dark !px-3">Logout</button>
-                    </form>
+                @if(auth()->check() && auth()->user()->isAdmin())
+                    <x-nav-link href="{{ route('admin.dashboard') }}" :active="request()->routeIs('admin.*')">
+                        Admin Panel
+                    </x-nav-link>
                 @else
-                    <a href="{{ route('login') }}" class="btn-pill btn-pill-soft !px-3">Log In</a>
-                    <a href="{{ route('register') }}" class="btn-pill btn-pill-dark !px-3">Register</a>
-                @endauth
-            </div>
-
-            <div class="flex items-center gap-2 lg:hidden">
-                @auth
-                    <a href="{{ route('notifications.index') }}" class="relative btn-pill btn-pill-soft !px-2.5 !py-2" title="Notifications">
-                        Alerts
-                        @if(isset($navUnreadCount) && $navUnreadCount > 0)
-                            <span class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
-                                {{ $navUnreadCount > 99 ? '99+' : $navUnreadCount }}
-                            </span>
-                        @endif
-                    </a>
-                @endauth
-                @auth
-                    @if(!auth()->user()->isAdmin())
-                        <a href="{{ route('cart.index') }}" class="btn-pill btn-pill-soft !px-2.5 !py-2">Cart</a>
-                    @endif
-                @endauth
-
-                <button id="menu-toggle" type="button" class="btn-pill btn-pill-soft !px-2.5 !py-2">Menu</button>
-            </div>
+                    <x-nav-link href="{{ route('dashboard') }}" :active="request()->routeIs('dashboard')">
+                        Dashboard
+                    </x-nav-link>
+                @endif
+            @endauth
         </div>
 
-        <div id="mobile-menu" class="mt-2 hidden bg-white p-3 lg:hidden">
-            <div class="flex flex-col gap-2">
-                @auth
-                    @if(auth()->user()->isAdmin())
-                        <a href="{{ route('admin.dashboard') }}" class="btn-pill btn-pill-soft justify-start">Admin Panel</a>
-                    @else
-                        <a href="{{ route('dashboard') }}" class="btn-pill btn-pill-soft justify-start">Dashboard</a>
-                    @endif
-                @else
-                    <a href="{{ route('dashboard') }}" class="btn-pill btn-pill-soft justify-start">Dashboard</a>
-                @endauth
+        @auth
+            @php
+                $navUnreadCount = auth()->user()->unreadNotifications()->count();
+                $navDropdownNotifs = auth()->user()->notifications()->latest()->take(10)->get();
+            @endphp
+        @endauth
 
-                @auth
-                    @if(!auth()->user()->isAdmin())
-                        <a href="{{ route('wishlist.index') }}" class="btn-pill btn-pill-soft justify-start">My Wishlist</a>
-                        <a href="{{ route('dispute.my') }}" class="btn-pill btn-pill-soft justify-start">My Disputes</a>
+        <div class="hidden items-center gap-3 lg:flex">
+            @auth
+                @if(!auth()->user()->isAdmin())
+                    <x-nav-link href="{{ route('wishlist.index') }}" :active="request()->routeIs('wishlist.*')">
+                        Wishlist
+                    </x-nav-link>
+                    <x-nav-link href="{{ route('cart.index') }}" :active="request()->routeIs('cart.*')">
+                        Cart
+                    </x-nav-link>
+                @endif
+
+                <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                    <button @click="open = !open" class="relative font-space text-xs font-medium uppercase tracking-wider text-[#444746] px-3 py-2 hover:text-[#006a38] transition-colors">
+                        Notifications
+                        <span id="notification-count" class="{{ $navUnreadCount > 0 ? '' : 'hidden' }} absolute -top-1 -right-2 bg-[#e2e2e2] text-[#1a1c1c] text-[10px] font-space font-bold px-2 py-0.5">
+                            {{ $navUnreadCount > 0 ? ($navUnreadCount > 99 ? '99+' : $navUnreadCount) : '' }}
+                        </span>
+                    </button>
+
+                    <div x-show="open"
+                         x-transition:enter="transition ease-out duration-150"
+                         x-transition:enter-start="opacity-0"
+                         x-transition:enter-end="opacity-100"
+                         x-transition:leave="transition ease-in duration-100"
+                         x-transition:leave-start="opacity-100"
+                         x-transition:leave-end="opacity-0"
+                         class="absolute right-0 top-full z-50 mt-2 w-80 bg-white/90 backdrop-blur-[24px] shadow-[0_20px_40px_rgba(26,28,28,0.06)]"
+                         style="display:none;">
+                        <div class="mb-0 flex items-center justify-between bg-[#f3f3f3] px-4 py-3">
+                            <span class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Notifications</span>
+                            <div class="flex items-center gap-2 text-xs">
+                                <button id="mark-all-read-btn" class="font-space font-bold uppercase text-[#006a38] hover:text-[#004a29]" onclick="markAllNotificationsRead(event)">Mark all read</button>
+                                <a href="{{ route('notifications.index') }}" class="font-space font-bold uppercase text-[#444746] hover:text-[#006a38]">See all</a>
+                            </div>
+                        </div>
+
+                        <div id="notification-dropdown-list" class="max-h-80 overflow-y-auto">
+                            @forelse($navDropdownNotifs as $notif)
+                                @php
+                                    $isUnread = is_null($notif->read_at);
+                                    $msg = $notif->data['message'] ?? 'Notification';
+                                    $url = $notif->data['redirect_url'] ?? route('notifications.index');
+                                    $type = $notif->data['type'] ?? 'general';
+                                    $canClick = $url !== '#';
+
+                                    if ($type === 'rental' && !empty($notif->data['rental_request_id'])) {
+                                        $rentalReq = \App\Models\RentalRequest::find($notif->data['rental_request_id']);
+
+                                        if (!$rentalReq || $rentalReq->status === 'rejected') {
+                                            $url = '#';
+                                            $canClick = false;
+                                        } elseif ($rentalReq->status === 'approved') {
+                                            $url = route('products.myListings');
+                                            $canClick = true;
+                                        } else {
+                                            $url = route('rental.review', $rentalReq->id);
+                                            $canClick = true;
+                                        }
+                                    }
+                                @endphp
+                                <div class="notification-dropdown-item {{ $canClick ? 'cursor-pointer' : 'cursor-not-allowed opacity-70' }} px-4 py-3 border-b border-[rgba(189,202,189,0.2)] {{ $isUnread ? 'bg-white' : 'bg-[#f9f9f9]' }} hover:bg-[#f3f3f3]"
+                                     data-id="{{ $notif->id }}"
+                                     data-url="{{ $url }}"
+                                     @if($canClick) onclick="handleDropdownNotifClick(this)" @endif>
+                                    <div class="flex items-start gap-2">
+                                        @if($isUnread)
+                                            <span class="mt-1 h-2 w-2 shrink-0 bg-[#006a38]"></span>
+                                        @else
+                                            <span class="mt-1 h-2 w-2 shrink-0 border border-[#bdcabd] bg-transparent"></span>
+                                        @endif
+                                        <div class="min-w-0 flex-1">
+                                            <p class="line-clamp-2 font-manrope text-sm text-[#1a1c1c] {{ $isUnread ? 'font-medium' : '' }}">{{ $msg }}</p>
+                                            <p class="mt-0.5 font-manrope text-xs text-[#444746]">{{ $notif->created_at->diffForHumans() }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="bg-[#f3f3f3] px-4 py-6 text-center font-manrope text-sm text-[#444746]">No notifications yet</div>
+                            @endforelse
+                        </div>
+                    </div>
+                </div>
+            @endauth
+
+            @auth
+                <x-nav-link href="{{ route('profile.edit') }}" :active="request()->routeIs('profile.*')">
+                    Profile
+                </x-nav-link>
+
+                <form method="POST" action="{{ route('logout') }}" class="inline">
+                    @csrf
+                    <button type="submit" class="font-space text-xs font-bold uppercase tracking-wider text-[#ba1a1a] px-3 py-2 hover:text-[#8a1515] transition-colors">
+                        Logout
+                    </button>
+                </form>
+            @else
+                <a href="{{ route('login') }}" class="font-space text-xs font-medium uppercase tracking-wider text-[#444746] px-3 py-2 hover:text-[#006a38] transition-colors">
+                    Log In
+                </a>
+                <a href="{{ route('register') }}" class="bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-4 py-2 font-space font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all">
+                    Register
+                </a>
+            @endauth
+        </div>
+
+        <div class="flex items-center gap-2 lg:hidden">
+            @auth
+                <a href="{{ route('notifications.index') }}" class="relative font-space text-xs font-medium uppercase tracking-wider text-[#444746] px-3 py-2 hover:text-[#006a38]" title="Notifications">
+                    Alerts
+                    @if(isset($navUnreadCount) && $navUnreadCount > 0)
+                        <span class="absolute -top-1 -right-1 bg-[#e2e2e2] text-[#1a1c1c] text-[10px] font-space font-bold px-2 py-0.5">
+                            {{ $navUnreadCount > 99 ? '99+' : $navUnreadCount }}
+                        </span>
                     @endif
-                    <a href="{{ route('notifications.index') }}" class="btn-pill btn-pill-soft justify-start">Notifications</a>
-                    <a href="{{ route('profile.edit') }}" class="btn-pill btn-pill-soft justify-start">Profile</a>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button type="submit" class="btn-pill btn-pill-dark w-full justify-start">Logout</button>
-                    </form>
+                </a>
+            @endauth
+            @auth
+                @if(!auth()->user()->isAdmin())
+                    <a href="{{ route('cart.index') }}" class="font-space text-xs font-medium uppercase tracking-wider text-[#444746] px-3 py-2 hover:text-[#006a38]">Cart</a>
+                @endif
+            @endauth
+
+            <button id="menu-toggle" type="button" class="font-space text-xs font-bold uppercase tracking-wider text-[#1a1c1c] px-3 py-2 hover:text-[#006a38]">Menu</button>
+        </div>
+    </div>
+
+    <div id="mobile-menu" class="hidden bg-white border-t border-[rgba(189,202,189,0.2)] lg:hidden">
+        <div class="flex flex-col px-4">
+            @auth
+                @if(auth()->user()->isAdmin())
+                    <x-responsive-nav-link href="{{ route('admin.dashboard') }}" :active="request()->routeIs('admin.*')">Admin Panel</x-responsive-nav-link>
                 @else
-                    <a href="{{ route('login') }}" class="btn-pill btn-pill-soft justify-start">Log in</a>
-                    <a href="{{ route('register') }}" class="btn-pill btn-pill-dark justify-start">Register</a>
-                @endauth
-            </div>
+                    <x-responsive-nav-link href="{{ route('dashboard') }}" :active="request()->routeIs('dashboard')">Dashboard</x-responsive-nav-link>
+                @endif
+            @else
+                <x-responsive-nav-link href="{{ route('dashboard') }}">Dashboard</x-responsive-nav-link>
+            @endauth
+
+            @auth
+                @if(!auth()->user()->isAdmin())
+                    <x-responsive-nav-link href="{{ route('wishlist.index') }}" :active="request()->routeIs('wishlist.*')">My Wishlist</x-responsive-nav-link>
+                    <x-responsive-nav-link href="{{ route('dispute.my') }}">My Disputes</x-responsive-nav-link>
+                @endif
+                <x-responsive-nav-link href="{{ route('notifications.index') }}">Notifications</x-responsive-nav-link>
+                <x-responsive-nav-link href="{{ route('profile.edit') }}" :active="request()->routeIs('profile.*')">Profile</x-responsive-nav-link>
+                <form method="POST" action="{{ route('logout') }}" class="block w-full">
+                    @csrf
+                    <button type="submit" class="w-full text-left px-4 py-3 font-space text-sm uppercase tracking-wider text-[#ba1a1a] border-b border-[rgba(189,202,189,0.2)] hover:text-[#8a1515] min-h-[44px] flex items-center transition-colors">Logout</button>
+                </form>
+            @else
+                <x-responsive-nav-link href="{{ route('login') }}">Log in</x-responsive-nav-link>
+                <x-responsive-nav-link href="{{ route('register') }}">Register</x-responsive-nav-link>
+            @endauth
         </div>
     </div>
 
@@ -254,7 +271,7 @@
             el.setAttribute('onclick', 'handleDropdownNotifClick(this)');
             el.innerHTML = `
                 <div class="flex items-start gap-2">
-                    <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary-700"></span>
+                    <span class="mt-1.5 h-2 w-2 shrink-0 bg-primary-700"></span>
                     <div class="min-w-0 flex-1">
                         <p class="line-clamp-2 text-sm font-semibold text-neutral-800">${escapeHtml(msg)}</p>
                         <p class="mt-0.5 text-xs text-neutral-500">just now</p>

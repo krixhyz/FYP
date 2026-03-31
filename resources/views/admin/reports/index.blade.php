@@ -28,9 +28,9 @@
                         <h3 class="text-xs font-bold uppercase tracking-[0.14em]">{{ $item->transaction_type }}</h3>
                         <span class="status-chip status-warning">{{ $item->status === 'open' ? 'New' : 'Investigating' }}</span>
                     </div>
-                    <p class="text-neutral-700">Reporter: {{ $item->reporter?->name ?? 'Unknown' }} | Subject: {{ $item->subject }}</p>
+                    <p class="text-[#1a1c1c]">Reporter: {{ $item->reporter?->name ?? 'Unknown' }} | Subject: {{ $item->subject }}</p>
                     <p class="mt-2 bg-white border border-neutral-300 px-3 py-2 text-sm">{{ $item->description }}</p>
-                    <p class="text-xs text-neutral-500 mt-2">Reported on {{ $item->created_at->format('F j, Y') }}</p>
+                    <p class="font-manrope text-xs text-[#888888] mt-2">Reported on {{ $item->created_at->format('F j, Y') }}</p>
 
                     <div class="mt-4 flex flex-wrap gap-2">
                         <a href="{{ route('admin.disputes.show', $item) }}" class="btn-pill btn-pill-soft !px-4 !py-2 text-sm">Investigate</a>
@@ -40,7 +40,7 @@
                             @method('PATCH')
                             <input type="hidden" name="status" value="in_review">
                             <input type="hidden" name="admin_notes" value="Escalated for action by report operations.">
-                            <button class="btn-pill !px-4 !py-2 text-sm !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">Take Action</button>
+                            <button class="btn-pill !px-4 !py-2 text-sm !border-[#ba1a1a] !text-[#ba1a1a] hover:!bg-[#ba1a1a] hover:!text-white">Take Action</button>
                         </form>
 
                         <form method="POST" action="{{ route('admin.disputes.resolve', $item) }}">

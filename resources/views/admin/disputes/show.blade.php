@@ -14,7 +14,7 @@
             <div class="flex items-start justify-between gap-3 mb-4">
                 <div>
                     <h2 class="text-xl font-extrabold">{{ $dispute->subject }}</h2>
-                    <p class="text-xs text-neutral-500 mt-0.5">
+                    <p class="font-manrope text-xs text-[#888888] mt-0.5">
                         Dispute #{{ $dispute->id }} · {{ ucfirst($dispute->transaction_type) }} ·
                         Filed {{ $dispute->created_at->diffForHumans() }}
                     </p>
@@ -24,7 +24,7 @@
                 </span>
             </div>
 
-            <div class="prose prose-sm max-w-none text-neutral-700">
+            <div class="font-manrope text-[#444746] leading-relaxed">
                 <p>{{ $dispute->description }}</p>
             </div>
         </div>
@@ -50,16 +50,16 @@
                     <dt class="meta-text">Status</dt><dd><span class="capitalize">{{ $dispute->swap->status }}</span></dd>
                 </dl>
             @else
-                <p class="text-sm text-neutral-500">Transaction no longer exists.</p>
+                <p class="font-manrope text-sm text-[#888888]">Transaction no longer exists.</p>
             @endif
         </div>
 
         @if($dispute->admin_notes)
-            <div class="surface-card p-5 bg-blue-50 border-blue-200">
-                <p class="text-sm font-semibold text-blue-800 mb-1">Previous Admin Note</p>
-                <p class="text-sm text-blue-700">{{ $dispute->admin_notes }}</p>
+            <div class="surface-card p-5 border-2 border-blue-300 bg-blue-50">
+                <p class="font-space text-sm font-bold text-blue-800 mb-1">Previous Admin Note</p>
+                <p class="font-manrope text-sm text-blue-700">{{ $dispute->admin_notes }}</p>
                 @if($dispute->resolver)
-                    <p class="text-xs text-blue-600 mt-2">by {{ $dispute->resolver->name }} | {{ $dispute->resolved_at?->diffForHumans() }}</p>
+                    <p class="font-manrope text-xs text-blue-600 mt-2">by {{ $dispute->resolver->name }} | {{ $dispute->resolved_at?->diffForHumans() }}</p>
                 @endif
             </div>
         @endif
@@ -71,10 +71,10 @@
         <div class="surface-card p-5">
             <h3 class="text-lg font-extrabold mb-3">Reporter</h3>
             <p class="font-medium">{{ $dispute->reporter?->name ?? 'N/A' }}</p>
-            <p class="text-sm text-neutral-600">{{ $dispute->reporter?->email }}</p>
+            <p class="font-manrope text-sm text-[#444746]">{{ $dispute->reporter?->email }}</p>
             @if($dispute->reporter)
                 <a href="{{ route('admin.users.show', $dispute->reporter->id) }}"
-                   class="mt-2 inline-block text-xs text-[var(--reloop-green)] hover:underline">View profile</a>
+                   class="mt-2 inline-block text-xs text-[#006a38] hover:underline font-semibold">View profile</a>
             @endif
         </div>
 

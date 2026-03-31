@@ -16,13 +16,47 @@ use App\Models\RentalRequest;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         if (Auth::check() && Auth::user()->isAdmin()) {
             return redirect()->route('admin.products');
         }
 
-        $products = Product::latest()->get();
+        $search = trim((string) $request->query('search', ''));
+        $category = $request->query('category');
+        $listingType = $request->query('listing_type');
+        $minPrice = $request->query('min_price');
+        $maxPrice = $request->query('max_price');
+
+        $productsQuery = Product::query()
+            ->where('status', 'available')
+            ->when(Auth::check(), fn($q) => $q->where('user_id', '!=', Auth::id()))
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('title', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhere('category', 'like', "%{$search}%");
+                });
+            })
+            ->when(in_array($category, ['electronics', 'clothing', 'furniture', 'general'], true), function ($q) use ($category) {
+                $q->where('category', $category);
+            })
+            ->when(in_array($listingType, ['sell', 'rent', 'swap'], true), function ($q) use ($listingType) {
+                $q->where(function ($inner) use ($listingType) {
+                    $inner->whereJsonContains('type', $listingType)
+                        ->orWhere('type', 'like', '%"' . $listingType . '"%')
+                        ->orWhere('type', $listingType);
+                });
+            })
+            ->when(is_numeric($minPrice), function ($q) use ($minPrice) {
+                $q->where('price', '>=', (float) $minPrice);
+            })
+            ->when(is_numeric($maxPrice), function ($q) use ($maxPrice) {
+                $q->where('price', '<=', (float) $maxPrice);
+            })
+            ->latest();
+
+        $products = $productsQuery->paginate(12)->withQueryString();
 
         $wishlistedIds = Auth::check()
             ? Wishlist::where('user_id', Auth::id())->pluck('product_id')->toArray()
@@ -39,7 +73,16 @@ class ProductController extends Controller
                 ->values();
         }
 
-        return view('products.index', compact('products', 'wishlistedIds', 'recentlyViewed'));
+        return view('products.index', compact(
+            'products',
+            'wishlistedIds',
+            'recentlyViewed',
+            'search',
+            'category',
+            'listingType',
+            'minPrice',
+            'maxPrice'
+        ));
     }
 
     public function create()
@@ -356,13 +399,20 @@ public function myPurchases()
         ->latest()
         ->get();
 
+    $awaitingSwapPaymentRequests = \App\Models\SwapRequest::with(['product', 'offeredProduct', 'owner'])
+        ->where('requester_id', $user->id)
+        ->where('status', 'awaiting_payment')
+        ->latest()
+        ->get();
+
     return view('products.my_purchases', compact(
         'rentedRentals',
         'pendingRentalRequests',
         'approvedRentalRequests',
         'orders',
         'swaps',
-        'pendingSwapRequests'
+        'pendingSwapRequests',
+        'awaitingSwapPaymentRequests'
     ));
 }
 

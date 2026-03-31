@@ -1,52 +1,57 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="space-y-6">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-3">
+<div class="px-8 md:px-16 py-12">
+    <!-- Header -->
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-8 pb-6 border-b border-[rgba(189,202,189,0.2)]">
+        <div class="flex items-center gap-4">
             <div>
-                <p class="section-kicker">Personal</p>
-                <h1 class="section-title mt-1">My Wishlist</h1>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">Personal</p>
+                <h1 class="font-space font-bold text-3xl text-[#1a1c1c]">My Wishlist</h1>
             </div>
-            <span class="status-chip status-error">
+            <span class="bg-[#e2e2e2] text-[#1a1c1c] text-[10px] font-space font-bold px-3 py-1.5">
                 {{ $wishlistItems->count() }} {{ Str::plural('item', $wishlistItems->count()) }}
             </span>
         </div>
-        <a href="{{ route('products.index') }}" class="btn-pill btn-pill-soft">Browse Products</a>
+        <a href="{{ route('products.index') }}" class="bg-transparent border-2 border-[#006a38] text-[#006a38] px-6 py-[10px] font-space font-bold text-sm uppercase tracking-wider hover:bg-[rgba(0,106,56,0.06)] transition-all">Browse Products</a>
     </div>
 
     @if(session('success'))
-        <div class="border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div class="bg-[#d4edda] border-2 border-[#c3e6cb] text-[#155724] px-4 py-3 mb-6 font-manrope text-sm">
             {{ session('success') }}
         </div>
     @endif
 
     @if($wishlistItems->isEmpty())
-        <div class="surface-card p-14 text-center">
-            <h2 class="text-xl font-bold text-neutral-700">Your wishlist is empty</h2>
-            <p class="mt-2 text-sm text-neutral-500">Save items you value to revisit them later.</p>
-            <a href="{{ route('products.index') }}" class="btn-pill btn-pill-dark mt-6">Explore Products</a>
+        <!-- Empty State -->
+        <div class="bg-[#f3f3f3] px-8 md:px-16 py-16 text-center">
+            <h2 class="font-space font-bold text-lg text-[#1a1c1c] mb-2">Your wishlist is empty</h2>
+            <p class="font-manrope text-base text-[#444746] mb-6">Save items you value to revisit them later.</p>
+            <a href="{{ route('products.index') }}" class="bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-6 py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 inline-block">Explore Products</a>
         </div>
     @else
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <!-- Wishlist Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             @foreach ($wishlistItems as $item)
                 @php $product = $item->product; @endphp
-                <article class="group surface-card overflow-hidden transition hover:-translate-y-1">
-                    <div class="relative h-52 overflow-hidden bg-neutral-100">
+                <div class="bg-white shadow-none hover:shadow-[0_20px_40px_rgba(26,28,28,0.06)] outline outline-1 outline-transparent hover:outline-[rgba(189,202,189,0.5)] transition-all">
+                    <!-- Image Container -->
+                    <div class="relative w-full aspect-[4/3] overflow-hidden bg-[#f3f3f3]">
                         @if($product->image)
-                            <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->title }}" class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                            <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->title }}" class="h-full w-full object-cover hover:scale-105 transition-transform duration-300">
                         @else
-                            <div class="flex h-full items-center justify-center text-neutral-300">
+                            <div class="flex h-full items-center justify-center text-[#aaa]">
                                 <svg class="h-16 w-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.6-4.6a2 2 0 012.8 0L16 16m-2-2l1.6-1.6a2 2 0 012.8 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                             </div>
                         @endif
 
+                        <!-- Wishlist Remove Button (top-right) -->
                         <div class="absolute right-3 top-3 z-10">
                             <form action="{{ route('wishlist.toggle', $product->id) }}" method="POST">
                                 @csrf
-                                <button type="submit" title="Remove from wishlist" class="flex h-8 w-8 items-center justify-center bg-red-500 text-white hover:bg-red-600">
+                                <button type="submit" title="Remove from wishlist" class="flex h-8 w-8 items-center justify-center bg-[#006a38] text-white hover:brightness-110 transition">
                                     <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                                     </svg>
@@ -55,36 +60,39 @@
                         </div>
                     </div>
 
+                    <!-- Product Info -->
                     <a href="{{ route('products.show', $product->id) }}" class="block p-4">
-                        <h3 class="truncate text-lg font-bold">{{ $product->title }}</h3>
-                        <p class="mt-1 line-clamp-2 text-sm text-neutral-600">{{ $product->description }}</p>
+                        <h3 class="truncate font-space font-bold text-[#1a1c1c]">{{ $product->title }}</h3>
+                        <p class="mt-1 line-clamp-2 font-manrope text-sm text-[#444746]">{{ $product->description }}</p>
 
+                        <!-- Type Chips -->
                         <div class="mt-3 flex flex-wrap gap-1.5">
                             @if(in_array('sell', $product->type ?? []))
-                                <span class="status-chip status-info">Buy</span>
+                                <span class="bg-[#d1ecf1] text-[#0c5460] text-[10px] font-space font-bold px-2 py-1">Buy</span>
                             @endif
                             @if(in_array('rent', $product->type ?? []))
-                                <span class="status-chip status-warning">Rent</span>
+                                <span class="bg-[#ffd580] text-[#664d03] text-[10px] font-space font-bold px-2 py-1">Rent</span>
                             @endif
                             @if(in_array('swap', $product->type ?? []))
-                                <span class="status-chip status-success">Swap</span>
+                                <span class="bg-[#d4edda] text-[#155724] text-[10px] font-space font-bold px-2 py-1">Swap</span>
                             @endif
                         </div>
 
+                        <!-- Price & Status -->
                         <div class="mt-4 flex items-end justify-between">
                             @if(in_array('sell', $product->type ?? []))
-                                <p class="text-xl font-extrabold">Rs. {{ number_format($product->price, 2) }}</p>
+                                <p class="font-space font-bold text-lg text-[#006a38]">Rs. {{ number_format($product->price, 2) }}</p>
                             @else
-                                <p class="text-sm font-semibold text-neutral-500">Exchange only</p>
+                                <p class="font-manrope text-sm text-[#444746]">Exchange only</p>
                             @endif
-                            <span class="text-xs font-semibold {{ $product->status === 'available' ? 'text-emerald-700' : 'text-red-600' }}">
+                            <span class="text-xs font-space font-bold {{ $product->status === 'available' ? 'text-[#006a38]' : 'text-[#ba1a1a]' }}">
                                 {{ ucfirst($product->status) }}
                             </span>
                         </div>
 
-                        <p class="mt-2 text-xs text-neutral-500">By {{ $product->user?->name ?? 'Unknown' }} | Saved {{ $item->created_at->diffForHumans() }}</p>
+                        <p class="mt-2 font-manrope text-xs text-[#444746]">By {{ $product->user?->name ?? 'Unknown' }} | Saved {{ $item->created_at->diffForHumans() }}</p>
                     </a>
-                </article>
+                </div>
             @endforeach
         </div>
     @endif

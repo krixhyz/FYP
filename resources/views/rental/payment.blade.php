@@ -3,8 +3,8 @@
 @section('content')
 <div class="mx-auto max-w-3xl space-y-8">
     <section class="surface-card-strong p-6 sm:p-8">
-        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Rent Workflow</p>
-        <h1 class="mt-4 text-4xl font-bold">Rental Payment</h1>
+        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Rent Workflow</p>
+        <h1 class="mt-4 font-space text-4xl font-bold text-[#1a1c1c]">Rental Payment</h1>
     </section>
 
     @php
@@ -16,12 +16,12 @@
 
     <section class="surface-card p-5 sm:p-6 space-y-4">
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
-            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Product</p><p class="mt-1 font-semibold">{{ $rentalRequest->product->title }}</p></div>
-            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Rent Type</p><p class="mt-1 font-semibold">{{ ucfirst($rentType) }}</p></div>
-            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Duration</p><p class="mt-1 font-semibold">{{ $rentalRequest->duration }} {{ $rentType == 'hourly' ? 'hours' : 'days' }}</p></div>
-            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Fare</p><p class="mt-1 font-semibold">Rs. {{ number_format($rentFare, 2) }}</p></div>
-            <div class="bg-accent-50 p-3"><p class="text-xs uppercase tracking-[0.08em] text-neutral-500">Deposit</p><p class="mt-1 font-semibold">Rs. {{ number_format($rentDeposit, 2) }}</p></div>
-            <div class="bg-primary-800 p-3 text-white"><p class="text-xs uppercase tracking-[0.08em]">Total Amount</p><p class="mt-1 text-xl font-bold">Rs. {{ number_format($totalAmount, 2) }}</p></div>
+            <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Product</p><p class="mt-1 font-semibold">{{ $rentalRequest->product->title }}</p></div>
+            <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Rent Type</p><p class="mt-1 font-semibold">{{ ucfirst($rentType) }}</p></div>
+            <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Duration</p><p class="mt-1 font-semibold">{{ $rentalRequest->duration }} {{ $rentType == 'hourly' ? 'hours' : 'days' }}</p></div>
+            <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Fare</p><p class="mt-1 font-semibold">Rs. {{ number_format($rentFare, 2) }}</p></div>
+            <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Deposit</p><p class="mt-1 font-semibold">Rs. {{ number_format($rentDeposit, 2) }}</p></div>
+            <div class="bg-[#006a38] p-3 text-white"><p class="font-space text-[10px] font-bold uppercase tracking-widest">Total Amount</p><p class="mt-1 font-manrope text-xl font-bold">Rs. {{ number_format($totalAmount, 2) }}</p></div>
         </div>
 
         <form method="POST" action="{{ route('rental.pay', $rentalRequest->id) }}" class="mt-2">

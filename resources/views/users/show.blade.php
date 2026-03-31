@@ -4,7 +4,7 @@
 <div class="mx-auto max-w-7xl space-y-8">
     <section class="surface-card-strong p-8">
         <div class="flex items-start gap-5">
-            <div class="flex h-24 w-24 items-center justify-center rounded-full bg-[var(--reloop-primary)] text-4xl font-semibold text-white shrink-0">{{ strtoupper(substr($user->name, 0, 1)) }}</div>
+            <div class="flex h-24 w-24 items-center justify-center bg-[var(--reloop-primary)] text-4xl font-semibold text-white shrink-0">{{ strtoupper(substr($user->name, 0, 1)) }}</div>
             <div class="flex-1 min-w-0">
                 <div class="mb-2 flex flex-wrap items-center gap-3">
                     <h1 class="text-3xl font-extrabold text-[var(--reloop-ink)]">{{ $user->name }}</h1>
@@ -63,9 +63,9 @@
         @if($recentReviews->isEmpty())
             <p class="text-[var(--reloop-ink-soft)]">No reviews yet.</p>
         @else
-            <div class="space-y-5">
+                <div class="space-y-3">
                 @foreach($recentReviews as $review)
-                    <article class="border-b border-[var(--reloop-border)] pb-5 last:border-b-0 last:pb-0">
+                    <article class="bg-[var(--reloop-surface-low)] px-4 py-4">
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <p class="font-semibold text-[var(--reloop-ink)]">{{ $review->reviewer?->name ?? 'User' }}</p>

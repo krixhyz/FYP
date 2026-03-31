@@ -13,7 +13,7 @@
         @csrf
     </form>
 
-    <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6">
+    <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6" x-data="locationForm()">
         @csrf
         @method('patch')
 
@@ -47,6 +47,35 @@
             @endif
         </div>
 
+        <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+                <label for="province_id" class="field-label">Province</label>
+                <select id="province_id" name="province_id" class="input-field" x-model="provinceId" @change="loadCities()" required>
+                    <option value="">Select Province</option>
+                    @foreach($provinces as $province)
+                        <option value="{{ $province->id }}" @selected((string) old('province_id', $user->province_id) === (string) $province->id)>
+                            {{ $province->name }}
+                        </option>
+                    @endforeach
+                </select>
+                <x-input-error class="mt-2" :messages="$errors->get('province_id')" />
+            </div>
+
+            <div>
+                <label for="city_id" class="field-label">City</label>
+                <div class="relative">
+                    <select id="city_id" name="city_id" class="input-field pr-9" :disabled="!provinceId || loadingCities" required>
+                        <option value="" x-text="provinceId ? 'Select City' : 'Select Province first'"></option>
+                        <template x-for="city in cities" :key="city.id">
+                            <option :value="city.id" x-text="city.name" :selected="String(selectedCityId) === String(city.id)"></option>
+                        </template>
+                    </select>
+                    <span x-show="loadingCities" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500">Loading...</span>
+                </div>
+                <x-input-error class="mt-2" :messages="$errors->get('city_id')" />
+            </div>
+        </div>
+
         <div class="flex items-center gap-4">
             <button type="submit" class="btn-pill btn-pill-dark">{{ __('Save') }}</button>
 
@@ -61,4 +90,34 @@
             @endif
         </div>
     </form>
+
+    <script>
+        function locationForm() {
+            return {
+                provinceId: '{{ old('province_id', $user->province_id) }}',
+                selectedCityId: '{{ old('city_id', $user->city_id) }}',
+                loadingCities: false,
+                cities: @json($cities),
+
+                async loadCities() {
+                    if (!this.provinceId) {
+                        this.cities = [];
+                        this.selectedCityId = '';
+                        return;
+                    }
+
+                    this.loadingCities = true;
+                    try {
+                        const response = await fetch(`/api/cities/${this.provinceId}`);
+                        const payload = await response.json();
+                        this.cities = Array.isArray(payload) ? payload : [];
+                    } catch (e) {
+                        this.cities = [];
+                    } finally {
+                        this.loadingCities = false;
+                    }
+                }
+            }
+        }
+    </script>
 </section>

@@ -3,8 +3,8 @@
 @section('content')
 <div class="mx-auto max-w-3xl space-y-8">
     <section class="surface-card-strong p-6 sm:p-8">
-        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Swap Workflow</p>
-        <h1 class="mt-4 text-4xl font-bold">Send Swap Request</h1>
+        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Swap Workflow</p>
+        <h1 class="mt-4 font-space text-4xl font-bold text-[#1a1c1c]">Send Swap Request</h1>
     </section>
 
     <section class="surface-card p-5 sm:p-6">

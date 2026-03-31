@@ -3,9 +3,9 @@
 @section('content')
 <div class="mx-auto max-w-4xl space-y-8">
     <section class="surface-card-strong p-6 sm:p-8">
-        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Rent Workflow</p>
-        <h1 class="mt-4 text-4xl font-bold">Request Rental</h1>
-        <p class="mt-2 text-sm text-neutral-700">Select your rental window and submit a request.</p>
+        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Rent Workflow</p>
+        <h1 class="mt-4 font-space text-4xl font-bold text-[#1a1c1c]">Request Rental</h1>
+        <p class="mt-2 font-manrope text-sm text-[#444746]">Select your rental window and submit a request.</p>
     </section>
 
     @php
@@ -19,17 +19,17 @@
 
     <section class="grid grid-cols-1 gap-6 md:grid-cols-[0.95fr_1.05fr]">
         <article class="surface-card p-4">
-            <div class="h-56 overflow-hidden bg-accent-100">
+            <div class="h-56 overflow-hidden bg-[#f3f3f3]">
                 @if($product->image)
                     <img src="{{ asset('storage/' . $product->image) }}" class="h-full w-full object-cover" alt="{{ $product->title }}">
                 @else
-                    <div class="flex h-full items-center justify-center text-neutral-500">No image available</div>
+                    <div class="flex h-full items-center justify-center text-[#888888]">No image available</div>
                 @endif
             </div>
             <h2 class="mt-3 text-xl font-bold">{{ $product->title }}</h2>
-            <p class="mt-1 text-sm text-neutral-600">{{ Str::limit($product->description, 120) }}</p>
+            <p class="mt-1 font-manrope text-sm text-[#444746]">{{ Str::limit($product->description, 120) }}</p>
 
-            <div class="mt-4 space-y-2 bg-accent-50 p-4 text-sm">
+            <div class="mt-4 space-y-2 bg-[#f3f3f3] p-4 text-sm">
                 <div class="flex justify-between"><span>Category</span><span class="font-semibold">{{ $product->category ?? 'General' }}</span></div>
                 <div class="flex justify-between"><span>Available Quantity</span><span class="font-semibold">{{ $product->quantity }}</span></div>
                 @if($rental)
@@ -64,8 +64,8 @@
                 </div>
 
                 <div class="bg-accent-50 p-4">
-                    <p class="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-500">Estimated Total</p>
-                    <p id="totalAmount" class="mt-2 text-2xl font-bold text-primary-800">Rs. 0</p>
+                    <p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#444746]">Estimated Total</p>
+                    <p id="totalAmount" class="mt-2 font-manrope text-2xl font-bold text-[#006a38]">Rs. 0</p>
                 </div>
 
                 <input type="hidden" name="product_id" value="{{ $product->id }}">

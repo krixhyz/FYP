@@ -5,7 +5,7 @@
     <div class="surface-card-strong p-6 text-center space-y-4">
         <p class="section-kicker">Payment</p>
         <h2 class="section-title mt-1">Redirecting to eSewa</h2>
-        <p class="text-sm text-neutral-600">Please wait while we redirect you to the payment page.</p>
+        <p class="font-manrope text-sm text-[#444746]">Please wait while we redirect you to the payment page.</p>
 
         <form id="esewa-payment-form" action="{{ $formUrl }}" method="POST">
             @foreach($payload as $name => $value)

@@ -22,7 +22,7 @@
 
     <div class="space-y-4">
         @forelse($products as $product)
-            <article class="surface-card p-5 {{ $product->flagged ? 'bg-red-50 border-red-300' : 'bg-amber-50 border-amber-300' }}">
+            <article class="surface-card p-5 {{ $product->flagged ? 'border-2 border-[#ba1a1a] bg-[#fee2e2]' : 'border-2 border-amber-300 bg-amber-50' }}">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <div class="flex items-center gap-2">
@@ -56,7 +56,7 @@
                         @csrf
                         @method('PATCH')
                         <input type="hidden" name="decision" value="reject">
-                        <button class="btn-pill !border-red-600 !text-red-600 !px-4 !py-2 text-sm hover:!bg-red-600 hover:!text-white">Reject</button>
+                        <button class="btn-pill !border-[#ba1a1a] !text-[#ba1a1a] !px-4 !py-2 text-sm hover:!bg-[#ba1a1a] hover:!text-white">Reject</button>
                     </form>
 
                     <a href="{{ route('products.show', $product->id) }}" class="btn-pill btn-pill-soft !px-4 !py-2 text-sm">View Full Details</a>

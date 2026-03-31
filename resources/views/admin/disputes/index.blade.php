@@ -20,7 +20,7 @@
 
     <div class="space-y-4">
         @forelse($disputes as $dispute)
-            <div class="surface-card p-5 {{ in_array($dispute->status, ['open','in_review']) ? '' : 'border-red-300 bg-red-50' }}">
+            <div class="surface-card p-5 {{ in_array($dispute->status, ['open','in_review']) ? '' : 'border-2 border-[#ba1a1a] bg-[#fee2e2]' }}">
                 <div class="flex items-start justify-between gap-3">
                     <div>
                         <div class="flex items-center gap-2">
@@ -29,8 +29,8 @@
                                 {{ str_replace('_',' ', $dispute->status) }}
                             </span>
                         </div>
-                        <p class="meta-text mt-1">Reporter: {{ $dispute->reporter?->name ?? 'Unknown user' }}</p>
-                        <p class="text-xs text-neutral-500 mt-1">Type: {{ $dispute->transaction_type }} | Date Opened {{ $dispute->created_at->format('M j') }}</p>
+                        <p class="font-manrope text-xs text-[#888888] mt-1">Reporter: {{ $dispute->reporter?->name ?? 'Unknown user' }}</p>
+                        <p class="font-manrope text-xs text-[#888888] mt-1">Type: {{ $dispute->transaction_type }} | Date Opened {{ $dispute->created_at->format('M j') }}</p>
                     </div>
                 </div>
 
@@ -50,14 +50,14 @@
                         @method('PATCH')
                         <input type="hidden" name="status" value="dismissed">
                         <input type="hidden" name="admin_notes" value="Resolved in favor of seller by operations.">
-                        <button class="btn-pill w-full justify-center !border-neutral-800 !text-neutral-800 !py-2 hover:!bg-neutral-900 hover:!text-white">Resolve in Favor of Seller</button>
+                        <button class="btn-pill w-full justify-center !border-[#444746] !text-[#444746] !py-2 hover:!bg-[#444746] hover:!text-white">Resolve in Favor of Seller</button>
                     </form>
 
                     <form method="POST" action="{{ route('admin.disputes.escalate', $dispute) }}">
                         @csrf
                         @method('PATCH')
                         <input type="hidden" name="reason" value="Requires super admin review due to risk profile.">
-                        <button class="btn-pill w-full justify-center !border-red-600 !text-red-600 !py-2 hover:!bg-red-600 hover:!text-white">Escalate to Super Admin</button>
+                        <button class="btn-pill w-full justify-center !border-[#ba1a1a] !text-[#ba1a1a] !py-2 hover:!bg-[#ba1a1a] hover:!text-white">Escalate to Super Admin</button>
                     </form>
                 </div>
             </div>

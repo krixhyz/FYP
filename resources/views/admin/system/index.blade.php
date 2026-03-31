@@ -19,7 +19,7 @@
                 <button class="btn-pill btn-pill-soft !px-4 !py-2 text-sm">Configure</button>
             </div>
             <textarea name="category_rules" rows="3" class="input-field text-sm" placeholder="Category rule definitions...">{{ old('category_rules', $settings['category_rules']) }}</textarea>
-            <p class="text-xs text-neutral-500 mt-2">Current categories: {{ $categories->join(', ') ?: 'none' }}</p>
+            <p class="font-manrope text-xs text-[#888888] mt-2">Current categories: {{ $categories->join(', ') ?: 'none' }}</p>
         </div>
 
         <div class="surface-card p-4">

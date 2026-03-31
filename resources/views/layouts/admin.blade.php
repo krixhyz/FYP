@@ -5,7 +5,7 @@
     <title>Admin Panel</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-neutral-100 text-neutral-900">
+<body class="bg-[#f9f9f9] text-[#1a1c1c]">
 @php
     $adminUser = auth()->user();
     $isSuper = $adminUser->isSuperAdmin();
@@ -29,21 +29,21 @@
         ];
 @endphp
 
-<div class="min-h-screen pb-16">
+<div class="min-h-screen pb-16 bg-[#f9f9f9]">
     <header class="mx-auto mt-6 w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="surface-card-strong flex flex-wrap items-start justify-between gap-4 p-6">
             <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Control Room</p>
-                <h1 class="mt-3 text-4xl font-bold text-neutral-900">{{ $isSuper ? 'Super Admin Dashboard' : 'Admin Dashboard' }}</h1>
-                <p class="mt-2 text-sm text-neutral-700">{{ $isSuper ? 'Full platform oversight and control' : 'Operational moderation and user management' }}</p>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Control Room</p>
+                <h1 class="mt-3 font-space font-bold text-4xl text-[#1a1c1c]">{{ $isSuper ? 'Super Admin Dashboard' : 'Admin Dashboard' }}</h1>
+                <p class="mt-2 font-manrope text-sm text-[#444746]">{{ $isSuper ? 'Full platform oversight and control' : 'Operational moderation and user management' }}</p>
             </div>
             <div class="flex items-center gap-3">
-                <span class="bg-primary-800 px-5 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-white">
+                <span class="bg-[#006a38] px-5 py-3 font-space text-xs font-bold uppercase tracking-widest text-white">
                     {{ $isSuper ? 'Super Admin' : 'Admin' }}
                 </span>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button class="btn-pill btn-pill-dark !px-4 !py-2">Logout</button>
+                    <button class="bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-4 py-2 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110">Logout</button>
                 </form>
             </div>
         </div>
@@ -61,7 +61,7 @@
                         }
                     @endphp
                     <a href="{{ route($tab['route']) }}"
-                       class="px-4 py-3 text-sm font-semibold uppercase tracking-[0.06em] {{ $isActive ? 'bg-primary-800 text-white' : 'bg-accent-100 text-neutral-700 hover:bg-accent-200' }}">
+                       class="px-4 py-3 font-space text-sm font-bold uppercase tracking-widest {{ $isActive ? 'bg-[#006a38] text-white' : 'bg-[#f3f3f3] text-[#444746] hover:bg-[#e8e8e8]' }}">
                         {{ $tab['label'] }}
                     </a>
                 @endforeach
@@ -71,10 +71,10 @@
 
     <main class="mx-auto mt-4 w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         @if (session('success'))
-            <div class="alert-success">{{ session('success') }}</div>
+            <div class="border-2 border-[#10b981] bg-[#d1fae5] px-4 py-3 font-manrope text-sm text-[#065f46]">{{ session('success') }}</div>
         @endif
         @if ($errors->any())
-            <div class="alert-error">
+            <div class="border-2 border-[#ba1a1a] bg-[#fee2e2] px-4 py-3 font-manrope text-sm text-[#7f1d1d]">
                 {{ $errors->first() }}
             </div>
         @endif

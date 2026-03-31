@@ -27,12 +27,19 @@ class CartController extends Controller
         $product = Product::findOrFail($productId);
 
         if ($product->user_id === Auth::id()) {
-            return back()->with('error', 'Cannot add your own product to cart.');
+            $message = 'Cannot add your own product to cart.';
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 403);
+            }
+            return back()->with('error', $message);
         }
 
         try {
             $inventory->ensurePurchasableQuantity($product, (int) $validated['quantity'], now());
         } catch (\RuntimeException $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+            }
             return back()->with('error', $e->getMessage());
         }
 
@@ -43,6 +50,9 @@ class CartController extends Controller
             try {
                 $inventory->ensurePurchasableQuantity($product, (int) $newQty, now());
             } catch (\RuntimeException $e) {
+                if ($request->expectsJson()) {
+                    return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+                }
                 return back()->with('error', $e->getMessage());
             }
             $existing->quantity = $newQty;
@@ -55,7 +65,12 @@ class CartController extends Controller
             ]);
         }
 
-        return back()->with('success', 'Added to cart.');
+        $message = "Added {$validated['quantity']}x {$product->title} to cart";
+        
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => $message]);
+        }
+        return back()->with('success', $message);
     }
 
     public function update(Request $request, $id, InventoryReservationService $inventory)
@@ -70,19 +85,35 @@ class CartController extends Controller
         try {
             $inventory->ensurePurchasableQuantity($product, (int) $validated['quantity'], now());
         } catch (\RuntimeException $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+            }
             return back()->with('error', $e->getMessage());
         }
 
         $cartItem->quantity = $validated['quantity'];
         $cartItem->save();
 
-        return back()->with('success', 'Cart updated.');
+        $message = "Updated {$product->title} quantity to {$validated['quantity']}";
+        
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => $message]);
+        }
+        return back()->with('success', $message);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        Auth::user()->cartItems()->findOrFail($id)->delete();
-        return back()->with('success', 'Item removed from cart.');
+        $cartItem = Auth::user()->cartItems()->findOrFail($id);
+        $productTitle = $cartItem->product->title;
+        $cartItem->delete();
+
+        $message = "Removed {$productTitle} from cart";
+        
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => $message]);
+        }
+        return back()->with('success', $message);
     }
 
     public function checkout()

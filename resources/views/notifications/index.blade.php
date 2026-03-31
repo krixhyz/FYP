@@ -1,26 +1,26 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="mx-auto max-w-4xl space-y-8">
-    <section class="surface-card-strong p-6 sm:p-8">
+<div class="max-w-4xl mx-auto px-8 md:px-16 py-12 space-y-8">
+    <section class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)] p-6 md:p-8">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Activity Feed</p>
-                <h1 class="mt-3 text-4xl font-bold">Notifications</h1>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">Activity Feed</p>
+                <h1 class="font-space font-bold text-3xl text-[#1a1c1c]">Notifications</h1>
             </div>
             @if($notifications->where('read_at', null)->count())
                 <form method="POST" action="{{ route('notifications.markAllRead') }}">
                     @csrf
-                    <button type="submit" class="btn-pill btn-pill-dark">Mark all as read</button>
+                    <button type="submit" class="bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-4 py-2 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110">Mark all as read</button>
                 </form>
             @endif
         </div>
     </section>
 
     @if($notifications->isEmpty())
-        <div id="notification-empty-state" class="surface-card p-12 text-center">
-            <p class="text-sm font-semibold uppercase tracking-[0.08em] text-neutral-700">No notifications yet</p>
-            <p class="mt-1 text-xs text-neutral-500">New updates will appear here.</p>
+        <div id="notification-empty-state" class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)] p-12 text-center">
+            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">No notifications yet</p>
+            <p class="font-manrope text-xs text-[#888888] mt-1">New updates will appear here.</p>
         </div>
     @else
         <div id="notification-page-list" class="space-y-3">
@@ -48,35 +48,35 @@
                     }
 
                     $iconMap = [
-                        'rental'      => ['bg' => 'bg-blue-100',   'text' => 'text-blue-700',   'label' => 'RENT'],
-                        'rentalAccept'=> ['bg' => 'bg-green-100',  'text' => 'text-green-700',  'label' => 'OK'],
-                        'rentalReject'=> ['bg' => 'bg-red-100',    'text' => 'text-red-700',    'label' => 'NO'],
-                        'swap'        => ['bg' => 'bg-primary-100', 'text' => 'text-primary-800', 'label' => 'SWAP'],
-                        'swapAccept'  => ['bg' => 'bg-green-100',  'text' => 'text-green-700',  'label' => 'OK'],
-                        'swapCounter' => ['bg' => 'bg-yellow-100', 'text' => 'text-yellow-700', 'label' => 'CTR'],
-                        'swapReject'  => ['bg' => 'bg-red-100',    'text' => 'text-red-700',    'label' => 'NO'],
-                        'dispute'     => ['bg' => 'bg-orange-100', 'text' => 'text-orange-700', 'label' => 'DSP'],
+                        'rental'      => ['bg' => 'bg-[#dbeafe]',  'text' => 'text-[#1e40af]',  'label' => 'RENT'],
+                        'rentalAccept'=> ['bg' => 'bg-[#d1fae5]',  'text' => 'text-[#065f46]',  'label' => 'OK'],
+                        'rentalReject'=> ['bg' => 'bg-[#fee2e2]',  'text' => 'text-[#7f1d1d]',  'label' => 'NO'],
+                        'swap'        => ['bg' => 'bg-[#dcfce7]', 'text' => 'text-[#166534]', 'label' => 'SWAP'],
+                        'swapAccept'  => ['bg' => 'bg-[#d1fae5]',  'text' => 'text-[#065f46]',  'label' => 'OK'],
+                        'swapCounter' => ['bg' => 'bg-[#fef3c7]', 'text' => 'text-[#92400e]', 'label' => 'CTR'],
+                        'swapReject'  => ['bg' => 'bg-[#fee2e2]',  'text' => 'text-[#7f1d1d]',  'label' => 'NO'],
+                        'dispute'     => ['bg' => 'bg-[#fed7aa]', 'text' => 'text-[#92400e]', 'label' => 'DSP'],
                     ];
-                    $icon = $iconMap[$type] ?? ['bg' => 'bg-gray-100', 'text' => 'text-gray-700', 'label' => 'N'];
+                    $icon = $iconMap[$type] ?? ['bg' => 'bg-[#f3f4f6]', 'text' => 'text-[#374151]', 'label' => 'N'];
                 @endphp
 
-                <div class="group relative flex items-start gap-4 p-4 {{ $isUnread ? 'surface-card-strong' : 'surface-card' }}" data-id="{{ $notification->id }}">
-                    <div class="shrink-0 flex h-10 min-w-10 items-center justify-center text-[11px] font-bold uppercase tracking-[0.08em] {{ $icon['bg'] }} {{ $icon['text'] }}">
+                <div class="group relative flex items-start gap-4 p-4 {{ $isUnread ? 'bg-[#f3f3f3]' : 'bg-white' }} shadow-[0_20px_40px_rgba(26,28,28,0.06)]" data-id="{{ $notification->id }}">
+                    <div class="shrink-0 flex h-10 min-w-10 items-center justify-center text-[10px] font-bold uppercase tracking-[0.08em] {{ $icon['bg'] }} {{ $icon['text'] }}">
                         {{ $icon['label'] }}
                     </div>
 
                     <div class="flex-1 min-w-0">
                         <div class="flex items-start justify-between gap-2">
-                            <p class="text-sm {{ $isUnread ? 'font-semibold text-neutral-900' : 'text-neutral-700' }}">{{ $message }}</p>
+                            <p class="font-manrope text-sm {{ $isUnread ? 'font-bold text-[#1a1c1c]' : 'text-[#444746]' }}">{{ $message }}</p>
                             @if($isUnread)
-                                <span class="shrink-0 bg-primary-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white">New</span>
+                                <span class="shrink-0 bg-[#006a38] px-2 py-0.5 text-[10px] font-space font-bold uppercase tracking-widest text-white">New</span>
                             @endif
                         </div>
-                        <p class="text-xs text-neutral-500 mt-1">{{ $notification->created_at->diffForHumans() }}</p>
+                        <p class="font-manrope text-xs text-[#888888] mt-1">{{ $notification->created_at->diffForHumans() }}</p>
 
                         <div class="mt-2 flex items-center gap-3">
                             @if($isUnread)
-                                <button type="button" onclick="markNotifReadOnly(event, '{{ $notification->id }}', this)" class="text-xs text-neutral-500 hover:text-neutral-700">Mark as read</button>
+                                <button type="button" onclick="markNotifReadOnly(event, '{{ $notification->id }}', this)" class="font-manrope text-xs text-[#888888] hover:text-[#444746]">Mark as read</button>
                             @endif
                         </div>
                     </div>
@@ -123,24 +123,24 @@ function prependNotificationToPage(message, redirectUrl, id, type = 'general') {
     const label = iconMap[type] ?? 'N';
 
     const card = document.createElement('div');
-    card.className = 'group relative flex items-start gap-4 p-4 surface-card-strong';
+    card.className = 'group relative flex items-start gap-4 p-4 bg-[#f3f3f3] shadow-[0_20px_40px_rgba(26,28,28,0.06)]';
 
     const safeMessage = escapeHtml(message || 'Notification');
     const isViewable = redirectUrl && redirectUrl !== '#';
 
     card.innerHTML = `
-        <div class="shrink-0 flex h-10 min-w-10 items-center justify-center text-[11px] font-bold uppercase tracking-[0.08em] bg-accent-100 text-neutral-800">${label}</div>
+        <div class="shrink-0 flex h-10 min-w-10 items-center justify-center text-[10px] font-bold uppercase tracking-[0.08em] bg-[#f3f4f6] text-[#374151]">${label}</div>
         <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-2">
-                <p class="text-sm font-semibold text-neutral-900">${safeMessage}</p>
-                <span class="shrink-0 bg-primary-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white">New</span>
+                <p class="text-sm font-bold text-[#1a1c1c] font-manrope">${safeMessage}</p>
+                <span class="shrink-0 bg-[#006a38] px-2 py-0.5 text-[10px] font-space font-bold uppercase tracking-widest text-white">New</span>
             </div>
-            <p class="text-xs text-neutral-500 mt-1">just now</p>
+            <p class="text-xs text-[#888888] mt-1 font-manrope">just now</p>
             <div class="mt-2 flex items-center gap-3">
                 ${isViewable
-                    ? `<a href="${redirectUrl}" class="text-xs font-semibold text-primary-800" onclick="markNotifReadAndGo(event, '${id}', '${redirectUrl}')">View</a>`
-                    : `<span class="text-xs font-medium text-neutral-400 cursor-not-allowed">View</span>`}
-                <button type="button" class="text-xs text-neutral-500 hover:text-neutral-700" onclick="markNotifReadOnly(event, '${id}', this)">Mark as read</button>
+                    ? `<a href="${redirectUrl}" class="text-xs font-manrope font-bold text-[#006a38]" onclick="markNotifReadAndGo(event, '${id}', '${redirectUrl}')">View</a>`
+                    : `<span class="text-xs font-manrope font-medium text-[#ccc] cursor-not-allowed">View</span>`}
+                <button type="button" class="text-xs font-manrope text-[#888888] hover:text-[#444746]" onclick="markNotifReadOnly(event, '${id}', this)">Mark as read</button>
             </div>
         </div>
     `;
@@ -166,11 +166,11 @@ function markNotifReadOnly(e, id, btn) {
     }).then(r => r.json()).then(() => {
         const card = btn.closest('[data-id]');
         if (card) {
-            card.classList.remove('surface-card-strong');
-            card.classList.add('surface-card');
+            card.classList.remove('bg-[#f3f3f3]');
+            card.classList.add('bg-white');
             const msgEl = card.querySelector('p');
-            if (msgEl) { msgEl.classList.remove('font-semibold', 'text-neutral-900'); msgEl.classList.add('text-neutral-700'); }
-            card.querySelector('.bg-primary-800')?.remove();
+            if (msgEl) { msgEl.classList.remove('font-bold', 'text-[#1a1c1c]'); msgEl.classList.add('text-[#444746]'); }
+            card.querySelector('.bg-[#006a38]')?.remove();
         }
         btn.remove();
     });

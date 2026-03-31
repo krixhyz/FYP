@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
@@ -20,6 +20,8 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'province_id',
+        'city_id',
         'password',
         'role',
         'account_status',
@@ -125,6 +127,16 @@ public function recentlyViewed()
 {
     return $this->hasMany(\App\Models\RecentlyViewed::class, 'user_id')
         ->orderByDesc('viewed_at');
+}
+
+public function province()
+{
+    return $this->belongsTo(Province::class);
+}
+
+public function city()
+{
+    return $this->belongsTo(City::class);
 }
 
 public function isAdmin(): bool

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="mx-auto max-w-7xl space-y-8">
+<div class="px-8 md:px-16 py-12 space-y-8">
     @php
         $activeProducts = $products->where('status', '!=', 'sold');
         $listedUnits = $products->sum('quantity');
@@ -10,212 +10,305 @@
         $pendingActionCount = $pendingRequests->count() + $swapRequests->count();
     @endphp
 
-    <section class="surface-card-strong p-6 sm:p-8">
+    <!-- Hero Section -->
+    <section class="bg-[#f3f3f3] px-8 md:px-12 py-8 border-t border-b border-[rgba(189,202,189,0.3)]">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <p class="section-kicker">Seller Workspace</p>
-                <h1 class="section-title mt-1">My Listings Dashboard</h1>
-                <p class="meta-text mt-2">Track inventory, incoming requests, live rentals, and sales from one clear workspace.</p>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">Seller Workspace</p>
+                <h1 class="font-space font-bold text-3xl text-[#1a1c1c] mb-1">My Listings Dashboard</h1>
+                <p class="font-manrope text-base text-[#444746]">Track inventory, incoming requests, live rentals, and sales from one clear workspace.</p>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="{{ route('products.create') }}" class="btn-pill btn-pill-dark">Add Listing</a>
-                <a href="{{ route('dashboard') }}" class="btn-pill btn-pill-soft">Main Dashboard</a>
+            <div class="flex flex-wrap gap-3">
+                <a href="{{ route('products.create') }}" class="bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-6 py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 active:brightness-95 transition-all">Add Listing</a>
+                <a href="{{ route('dashboard') }}" class="bg-transparent border-2 border-[#006a38] text-[#006a38] px-6 py-[10px] font-space font-bold text-sm uppercase tracking-wider hover:bg-[rgba(0,106,56,0.06)] transition-all">Main Dashboard</a>
             </div>
         </div>
     </section>
 
-    <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <article class="surface-card p-4"><p class="meta-text">Active Listings</p><p class="mt-2 text-3xl font-extrabold">{{ $activeProducts->count() }}</p></article>
-        <article class="surface-card p-4"><p class="meta-text">Units Listed</p><p class="mt-2 text-3xl font-extrabold">{{ $listedUnits }}</p></article>
-        <article class="surface-card p-4"><p class="meta-text">Units Sold</p><p class="mt-2 text-3xl font-extrabold">{{ $soldUnits }}</p></article>
-        <article class="surface-card p-4"><p class="meta-text">Sales Revenue</p><p class="mt-2 text-3xl font-extrabold text-[var(--reloop-primary-dark)]">Rs. {{ number_format($salesRevenue, 2) }}</p></article>
-        <article class="surface-card p-4"><p class="meta-text">Pending Actions</p><p class="mt-2 text-3xl font-extrabold">{{ $pendingActionCount }}</p></article>
+    <!-- Stats Strip -->
+    <section class="bg-[#f3f3f3] border-b border-[rgba(189,202,189,0.3)]">
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-0">
+            <div class="px-5 py-4 border-r border-[rgba(189,202,189,0.3)] last:border-r-0">
+                <p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888]">Active Listings</p>
+                <p class="font-space font-bold text-2xl text-[#006a38] mt-1">{{ $activeProducts->count() }}</p>
+            </div>
+            <div class="px-5 py-4 border-r border-[rgba(189,202,189,0.3)] last:border-r-0">
+                <p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888]">Units Listed</p>
+                <p class="font-space font-bold text-2xl text-[#006a38] mt-1">{{ $listedUnits }}</p>
+            </div>
+            <div class="px-5 py-4 border-r border-[rgba(189,202,189,0.3)] last:border-r-0">
+                <p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888]">Units Sold</p>
+                <p class="font-space font-bold text-2xl text-[#006a38] mt-1">{{ $soldUnits }}</p>
+            </div>
+            <div class="px-5 py-4 border-r border-[rgba(189,202,189,0.3)] last:border-r-0">
+                <p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888]">Sales Revenue</p>
+                <p class="font-space font-bold text-2xl text-[#006a38] mt-1">Rs. {{ number_format($salesRevenue, 2) }}</p>
+            </div>
+            <div class="px-5 py-4 border-r border-[rgba(189,202,189,0.3)] last:border-r-0">
+                <p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888]">Pending Actions</p>
+                <p class="font-space font-bold text-2xl text-[#006a38] mt-1">{{ $pendingActionCount }}</p>
+            </div>
+        </div>
     </section>
 
-    <section class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <article class="surface-card p-5 overflow-x-auto">
-            <div class="mb-3 flex items-center justify-between">
-                <h2 class="text-lg font-extrabold">Incoming Rental Requests</h2>
-                <span class="status-chip status-warning">{{ $pendingRequests->count() }} Pending</span>
-            </div>
-            <table class="min-w-full text-sm">
-                <thead><tr><th>Product</th><th>Renter</th><th>Duration</th><th>Amount</th><th>Action</th></tr></thead>
-                <tbody>
-                    @forelse ($pendingRequests as $request)
-                        <tr>
-                            <td>{{ $request->product->title ?? 'N/A' }}</td>
-                            <td>{{ $request->renter->name ?? 'N/A' }}</td>
-                            <td>{{ $request->duration }} days</td>
-                            <td>Rs. {{ number_format($request->total_amount, 2) }}</td>
-                            <td><a href="{{ route('rental.review', $request->id) }}" class="btn-pill btn-pill-soft !px-3 !py-1 text-xs">Review</a></td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="5" class="text-center text-[var(--reloop-ink-soft)]">No pending rental requests.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </article>
 
-        <article class="surface-card p-5 overflow-x-auto">
-            <div class="mb-3 flex items-center justify-between">
-                <h2 class="text-lg font-extrabold">Incoming Swap Requests</h2>
-                <span class="status-chip status-info">{{ $swapRequests->count() }} Pending</span>
+    <!-- Incoming Requests Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
+        <!-- Rental Requests Panel -->
+        <div class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)]">
+            <div class="px-6 py-4 border-b border-[rgba(189,202,189,0.2)] flex items-center justify-between">
+                <h2 class="font-space text-sm font-bold uppercase tracking-widest text-[#1a1c1c]">Incoming Rental Requests</h2>
+                <span class="bg-[#e2e2e2] text-[#1a1c1c] text-[10px] font-space font-bold px-3 py-1.5">{{ $pendingRequests->count() }} Pending</span>
             </div>
-            <table class="min-w-full text-sm">
-                <thead><tr><th>Your Item</th><th>Offered Item</th><th>Requester</th><th>Action</th></tr></thead>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm font-manrope">
+                    <thead>
+                        <tr class="bg-[#f3f3f3] border-b border-[rgba(189,202,189,0.2)]">
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Product</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Renter</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Duration</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Amount</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($pendingRequests as $request)
+                            <tr class="border-b border-[rgba(189,202,189,0.2)] hover:bg-[#f9f9f9]">
+                                <td class="px-4 py-3">{{ $request->product->title ?? 'N/A' }}</td>
+                                <td class="px-4 py-3">{{ $request->renter->name ?? 'N/A' }}</td>
+                                <td class="px-4 py-3">{{ $request->duration }} days</td>
+                                <td class="px-4 py-3">Rs. {{ number_format($request->total_amount, 2) }}</td>
+                                <td class="px-4 py-3"><a href="{{ route('rental.review', $request->id) }}" class="bg-transparent border-2 border-[#006a38] text-[#006a38] px-3 py-1.5 font-space text-[11px] font-bold uppercase hover:bg-[rgba(0,106,56,0.06)] inline-block">Review</a></td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="px-4 py-3 text-center text-[#444746]">No pending rental requests.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Swap Requests Panel -->
+        <div class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)]">
+            <div class="px-6 py-4 border-b border-[rgba(189,202,189,0.2)] flex items-center justify-between">
+                <h2 class="font-space text-sm font-bold uppercase tracking-widest text-[#1a1c1c]">Incoming Swap Requests</h2>
+                <span class="bg-[#e2e2e2] text-[#1a1c1c] text-[10px] font-space font-bold px-3 py-1.5">{{ $swapRequests->count() }} Pending</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm font-manrope">
+                    <thead>
+                        <tr class="bg-[#f3f3f3] border-b border-[rgba(189,202,189,0.2)]">
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Your Item</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Offered Item</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Requester</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($swapRequests as $swap)
+                            @php
+                                $requesterName = $swap->ownerB?->name ?? $swap->ownerA?->name ?? 'N/A';
+                            @endphp
+                            <tr class="border-b border-[rgba(189,202,189,0.2)] hover:bg-[#f9f9f9]">
+                                <td class="px-4 py-3">{{ $swap->requestedProduct->title ?? 'N/A' }}</td>
+                                <td class="px-4 py-3">{{ $swap->offeredProduct->title ?? 'N/A' }}</td>
+                                <td class="px-4 py-3">{{ $requesterName }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex gap-2">
+                                        <form action="{{ route('swap.request.accept', $swap->id) }}" method="POST">
+                                            @csrf
+                                            <button type="submit" class="bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-3 py-1.5 font-space text-[11px] font-bold uppercase hover:brightness-110 inline-block">Accept</button>
+                                        </form>
+                                        <form action="{{ route('swap.request.reject', $swap->id) }}" method="POST">
+                                            @csrf
+                                            <button type="submit" class="bg-transparent border-2 border-[#ba1a1a] text-[#ba1a1a] px-3 py-1.5 font-space text-[11px] font-bold uppercase hover:bg-[rgba(186,26,26,0.06)] inline-block">Reject</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="4" class="px-4 py-3 text-center text-[#444746]">No pending swap requests.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Listings Inventory Panel -->
+    <div class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)]">
+        <div class="px-6 py-4 border-b border-[rgba(189,202,189,0.2)]">
+            <h2 class="font-space text-sm font-bold uppercase tracking-widest text-[#1a1c1c]">Listings Inventory</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm font-manrope">
+                <thead>
+                    <tr class="bg-[#f3f3f3] border-b border-[rgba(189,202,189,0.2)]">
+                        <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Image</th>
+                        <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Title</th>
+                        <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Price</th>
+                        <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Quantity</th>
+                        <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Status</th>
+                        <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Actions</th>
+                    </tr>
+                </thead>
                 <tbody>
-                    @forelse ($swapRequests as $swap)
-                        @php
-                            $requesterName = $swap->ownerB?->name ?? $swap->ownerA?->name ?? 'N/A';
-                        @endphp
-                        <tr>
-                            <td>{{ $swap->requestedProduct->title ?? 'N/A' }}</td>
-                            <td>{{ $swap->offeredProduct->title ?? 'N/A' }}</td>
-                            <td>{{ $requesterName }}</td>
-                            <td>
+                    @forelse ($activeProducts as $product)
+                        <tr class="border-b border-[rgba(189,202,189,0.2)] hover:bg-[#f9f9f9]">
+                            <td class="px-4 py-3"><img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->title }}" class="h-14 w-14 object-cover"></td>
+                            <td class="px-4 py-3">{{ $product->title }}</td>
+                            <td class="px-4 py-3">{{ $product->price ? 'Rs. ' . number_format($product->price, 2) : '-' }}</td>
+                            <td class="px-4 py-3">{{ $product->quantity }}</td>
+                            <td class="px-4 py-3">
+                                <form action="{{ route('products.updateStatus', $product->id) }}" method="POST">
+                                    @csrf
+                                    @method('PATCH')
+                                    <select name="status" onchange="this.form.submit()" class="bg-[#f3f3f3] border-0 border-b-2 border-gray-400 px-2 py-1.5 text-sm font-manrope text-[#1a1c1c] focus:border-[#006a38] focus:outline-none">
+                                        <option value="available" {{ $product->status == 'available' ? 'selected' : '' }}>Available</option>
+                                        <option value="sold" {{ $product->status == 'sold' ? 'selected' : '' }}>Sold</option>
+                                        <option value="rented" {{ $product->status == 'rented' ? 'selected' : '' }}>Rented</option>
+                                        <option value="swapped" {{ $product->status == 'swapped' ? 'selected' : '' }}>Swapped</option>
+                                    </select>
+                                </form>
+                            </td>
+                            <td class="px-4 py-3">
                                 <div class="flex gap-2">
-                                    <form action="{{ route('swap.request.accept', $swap->id) }}" method="POST">
+                                    <a href="{{ route('products.edit', $product->id) }}" class="bg-transparent border-2 border-[#006a38] text-[#006a38] px-3 py-1.5 font-space text-[11px] font-bold uppercase hover:bg-[rgba(0,106,56,0.06)] inline-block">Edit</a>
+                                    <form action="{{ route('products.destroy', $product->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this product?')">
                                         @csrf
-                                        <button type="submit" class="btn-pill btn-pill-dark !px-3 !py-1 text-xs">Accept</button>
-                                    </form>
-                                    <form action="{{ route('swap.request.reject', $swap->id) }}" method="POST">
-                                        @csrf
-                                        <button type="submit" class="btn-pill !px-3 !py-1 text-xs !border-[var(--reloop-danger)] !text-[var(--reloop-danger)] hover:!bg-[var(--reloop-danger)] hover:!text-white">Reject</button>
+                                        @method('DELETE')
+                                        <button type="submit" class="bg-transparent border-2 border-[#ba1a1a] text-[#ba1a1a] px-3 py-1.5 font-space text-[11px] font-bold uppercase hover:bg-[rgba(186,26,26,0.06)] inline-block">Delete</button>
                                     </form>
                                 </div>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="text-center text-[var(--reloop-ink-soft)]">No pending swap requests.</td></tr>
+                        <tr><td colspan="6" class="px-4 py-3 text-center text-[#444746]">No active products listed yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>
-        </article>
-    </section>
+        </div>
+    </div>
 
-    <section class="surface-card p-5 overflow-x-auto">
-        <h2 class="text-lg font-extrabold mb-3">Listings Inventory</h2>
-        <table class="min-w-full text-sm">
-            <thead><tr><th>Image</th><th>Title</th><th>Price</th><th>Quantity</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>
-                @forelse ($activeProducts as $product)
-                    <tr>
-                        <td>
-                            <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->title }}" class="h-14 w-14 object-cover border border-[var(--reloop-border)]">
-                        </td>
-                        <td class="font-semibold">{{ $product->title }}</td>
-                        <td>{{ $product->price ? 'Rs. ' . number_format($product->price, 2) : '-' }}</td>
-                        <td>{{ $product->quantity }}</td>
-                        <td>
-                            <form action="{{ route('products.updateStatus', $product->id) }}" method="POST">
-                                @csrf
-                                @method('PATCH')
-                                <select name="status" onchange="this.form.submit()" class="input-field !py-1.5 text-sm">
-                                    <option value="available" {{ $product->status == 'available' ? 'selected' : '' }}>Available</option>
-                                    <option value="sold" {{ $product->status == 'sold' ? 'selected' : '' }}>Sold</option>
-                                    <option value="rented" {{ $product->status == 'rented' ? 'selected' : '' }}>Rented</option>
-                                    <option value="swapped" {{ $product->status == 'swapped' ? 'selected' : '' }}>Swapped</option>
-                                </select>
-                            </form>
-                        </td>
-                        <td>
-                            <div class="flex gap-2">
-                                <a href="{{ route('products.edit', $product->id) }}" class="btn-pill btn-pill-soft !px-3 !py-1 text-xs">Edit</a>
-                                <form action="{{ route('products.destroy', $product->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this product?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn-pill !px-3 !py-1 text-xs !border-[var(--reloop-danger)] !text-[var(--reloop-danger)] hover:!bg-[var(--reloop-danger)] hover:!text-white">Delete</button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr><td colspan="6" class="text-center text-[var(--reloop-ink-soft)]">No active products listed yet.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    </section>
-
-    <section class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <article class="surface-card p-5 overflow-x-auto">
-            <h2 class="text-lg font-extrabold mb-3">Active Rentals</h2>
-            <table class="min-w-full text-sm">
-                <thead><tr><th>Product</th><th>Renter</th><th>Period</th><th>Amount</th><th>Action</th></tr></thead>
-                <tbody>
-                    @forelse ($activeRentals as $rental)
-                        <tr>
-                            <td>{{ $rental->product->title ?? 'N/A' }}</td>
-                            <td>{{ $rental->renter->name ?? 'N/A' }}</td>
-                            <td>{{ optional($rental->start_date)->format('Y-m-d') }} to {{ optional($rental->end_date)->format('Y-m-d') }}</td>
-                            <td>Rs. {{ number_format($rental->total_amount, 2) }}</td>
-                            <td>
-                                @if($rental->status === 'active')
-                                    <form action="{{ route('rental.return', $rental->id) }}" method="POST">
-                                        @csrf
-                                        @method('PATCH')
-                                        <button class="btn-pill btn-pill-dark !px-3 !py-1 text-xs">Mark Returned</button>
-                                    </form>
-                                @else
-                                    <span class="status-chip status-success">{{ ucfirst($rental->status) }}</span>
-                                @endif
-                            </td>
+    <!-- Active Rentals & Recent Deals Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
+        <!-- Active Rentals Panel -->
+        <div class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)]">
+            <div class="px-6 py-4 border-b border-[rgba(189,202,189,0.2)]">
+                <h2 class="font-space text-sm font-bold uppercase tracking-widest text-[#1a1c1c]">Active Rentals</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm font-manrope">
+                    <thead>
+                        <tr class="bg-[#f3f3f3] border-b border-[rgba(189,202,189,0.2)]">
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Product</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Renter</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Period</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Amount</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Action</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="5" class="text-center text-[var(--reloop-ink-soft)]">No active rentals.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </article>
+                    </thead>
+                    <tbody>
+                        @forelse ($activeRentals as $rental)
+                            <tr class="border-b border-[rgba(189,202,189,0.2)] hover:bg-[#f9f9f9]">
+                                <td class="px-4 py-3">{{ $rental->product->title ?? 'N/A' }}</td>
+                                <td class="px-4 py-3">{{ $rental->renter->name ?? 'N/A' }}</td>
+                                <td class="px-4 py-3">{{ optional($rental->start_date)->format('Y-m-d') }} to {{ optional($rental->end_date)->format('Y-m-d') }}</td>
+                                <td class="px-4 py-3">Rs. {{ number_format($rental->total_amount, 2) }}</td>
+                                <td class="px-4 py-3">
+                                    @if($rental->status === 'active')
+                                        <form action="{{ route('rental.return', $rental->id) }}" method="POST">
+                                            @csrf
+                                            @method('PATCH')
+                                            <button class="bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-3 py-1.5 font-space text-[11px] font-bold uppercase hover:brightness-110 inline-block">Mark Returned</button>
+                                        </form>
+                                    @else
+                                        <span class="bg-[#e2e2e2] text-[#006a38] text-[10px] font-space font-bold px-3 py-1.5">{{ ucfirst($rental->status) }}</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="px-4 py-3 text-center text-[#444746]">No active rentals.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-        <article class="surface-card p-5 overflow-x-auto">
-            <h2 class="text-lg font-extrabold mb-3">Recent Closed Deals</h2>
-            <table class="min-w-full text-sm">
-                <thead><tr><th>Product</th><th>Units Sold</th><th>Revenue</th><th>Last Sale</th></tr></thead>
+        <!-- Recent Closed Deals Panel -->
+        <div class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)]">
+            <div class="px-6 py-4 border-b border-[rgba(189,202,189,0.2)]">
+                <h2 class="font-space text-sm font-bold uppercase tracking-widest text-[#1a1c1c]">Recent Closed Deals</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm font-manrope">
+                    <thead>
+                        <tr class="bg-[#f3f3f3] border-b border-[rgba(189,202,189,0.2)]">
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Product</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Units Sold</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Revenue</th>
+                            <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Last Sale</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($soldProducts as $sold)
+                            @php
+                                $units = $sold->orders->sum(fn($o) => $o->quantity ?? 1);
+                                $revenue = $sold->orders->sum(fn($o) => ($o->unit_price ?? $sold->price ?? 0) * ($o->quantity ?? 1));
+                                $lastSale = $sold->orders->max('created_at');
+                            @endphp
+                            <tr class="border-b border-[rgba(189,202,189,0.2)] hover:bg-[#f9f9f9]">
+                                <td class="px-4 py-3">{{ $sold->title }}</td>
+                                <td class="px-4 py-3">{{ $units }}</td>
+                                <td class="px-4 py-3">Rs. {{ number_format($revenue, 2) }}</td>
+                                <td class="px-4 py-3">{{ $lastSale ? \Illuminate\Support\Carbon::parse($lastSale)->format('Y-m-d') : '-' }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="4" class="px-4 py-3 text-center text-[#444746]">No sales yet.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Swaps Panel -->
+    <div class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)]">
+        <div class="px-6 py-4 border-b border-[rgba(189,202,189,0.2)]">
+            <h2 class="font-space text-sm font-bold uppercase tracking-widest text-[#1a1c1c]">Active Swaps</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm font-manrope">
+                <thead>
+                    <tr class="bg-[#f3f3f3] border-b border-[rgba(189,202,189,0.2)]">
+                        <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Your Item</th>
+                        <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Other Item</th>
+                        <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Counterparty</th>
+                        <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Status</th>
+                        <th class="px-4 py-3 text-left font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Date</th>
+                    </tr>
+                </thead>
                 <tbody>
-                    @forelse ($soldProducts as $sold)
+                    @forelse ($activeSwaps as $swap)
                         @php
-                            $units = $sold->orders->sum(fn($o) => $o->quantity ?? 1);
-                            $revenue = $sold->orders->sum(fn($o) => ($o->unit_price ?? $sold->price ?? 0) * ($o->quantity ?? 1));
-                            $lastSale = $sold->orders->max('created_at');
+                            $myOwnsRequested = ($swap->requestedProduct->user_id ?? null) === auth()->id();
+                            $myItem = $myOwnsRequested ? $swap->requestedProduct : $swap->offeredProduct;
+                            $otherItem = $myOwnsRequested ? $swap->offeredProduct : $swap->requestedProduct;
+                            $counterparty = $myOwnsRequested ? $swap->ownerB?->name : $swap->ownerA?->name;
                         @endphp
-                        <tr>
-                            <td>{{ $sold->title }}</td>
-                            <td>{{ $units }}</td>
-                            <td>Rs. {{ number_format($revenue, 2) }}</td>
-                            <td>{{ $lastSale ? \Illuminate\Support\Carbon::parse($lastSale)->format('Y-m-d') : '-' }}</td>
+                        <tr class="border-b border-[rgba(189,202,189,0.2)] hover:bg-[#f9f9f9]">
+                            <td class="px-4 py-3">{{ $myItem?->title ?? 'N/A' }}</td>
+                            <td class="px-4 py-3">{{ $otherItem?->title ?? 'N/A' }}</td>
+                            <td class="px-4 py-3">{{ $counterparty ?? 'N/A' }}</td>
+                            <td class="px-4 py-3"><span class="bg-[#e2e2e2] text-[#006a38] text-[10px] font-space font-bold px-3 py-1.5">{{ ucfirst($swap->status) }}</span></td>
+                            <td class="px-4 py-3">{{ $swap->created_at->format('Y-m-d') }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="text-center text-[var(--reloop-ink-soft)]">No sales yet.</td></tr>
+                        <tr><td colspan="5" class="px-4 py-3 text-center text-[#444746]">No active swaps yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>
-        </article>
-    </section>
-
-    <section class="surface-card p-5 overflow-x-auto">
-        <h2 class="text-lg font-extrabold mb-3">Active Swaps</h2>
-        <table class="min-w-full text-sm">
-            <thead><tr><th>Your Item</th><th>Other Item</th><th>Counterparty</th><th>Status</th><th>Date</th></tr></thead>
-            <tbody>
-                @forelse ($activeSwaps as $swap)
-                    @php
-                        $myOwnsRequested = ($swap->requestedProduct->user_id ?? null) === auth()->id();
-                        $myItem = $myOwnsRequested ? $swap->requestedProduct : $swap->offeredProduct;
-                        $otherItem = $myOwnsRequested ? $swap->offeredProduct : $swap->requestedProduct;
-                        $counterparty = $myOwnsRequested ? $swap->ownerB?->name : $swap->ownerA?->name;
-                    @endphp
-                    <tr>
-                        <td>{{ $myItem?->title ?? 'N/A' }}</td>
-                        <td>{{ $otherItem?->title ?? 'N/A' }}</td>
-                        <td>{{ $counterparty ?? 'N/A' }}</td>
-                        <td><span class="status-chip status-success">{{ ucfirst($swap->status) }}</span></td>
-                        <td>{{ $swap->created_at->format('Y-m-d') }}</td>
-                    </tr>
-                @empty
-                    <tr><td colspan="5" class="text-center text-[var(--reloop-ink-soft)]">No active swaps yet.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    </section>
+        </div>
+    </div>
 </div>
 @endsection

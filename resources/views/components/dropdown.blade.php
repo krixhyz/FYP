@@ -1,4 +1,4 @@
-@props(['align' => 'right', 'width' => '48', 'contentClasses' => 'border border-[var(--reloop-border)] bg-white py-1 shadow-[6px_6px_0_var(--reloop-shadow)]'])
+@props(['align' => 'right', 'width' => '48', 'contentClasses' => 'py-1'])
 
 @php
 $alignmentClasses = match ($align) {
@@ -28,7 +28,7 @@ $width = match ($width) {
             class="absolute z-50 mt-2 {{ $width }} {{ $alignmentClasses }}"
             style="display: none;"
             @click="open = false">
-        <div class="{{ $contentClasses }}">
+        <div class="bg-white/90 backdrop-blur-[24px] shadow-[0_20px_40px_rgba(26,28,28,0.06)] {{ $contentClasses }}">
             {{ $content }}
         </div>
     </div>

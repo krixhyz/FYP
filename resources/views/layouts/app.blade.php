@@ -15,7 +15,7 @@
     </script>
     @endauth
 </head>
-<body class="min-h-screen bg-neutral-100 text-neutral-900 antialiased">
+<body class="bg-[#f9f9f9] font-manrope text-[#1a1c1c]">
     @include('layouts.navigation')
 
     <main class="mx-auto mt-8 w-full max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">

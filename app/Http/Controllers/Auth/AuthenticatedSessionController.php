@@ -7,8 +7,8 @@ use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\View\View;
 use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -23,18 +23,19 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(LoginRequest $request): RedirectResponse
     {
-        $request->validate([
-            'email' => ['required', 'string', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+        $pendingUser = \App\Models\User::query()
+            ->where('email', $request->string('email'))
+            ->first();
 
-        if (! Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
+        if ($pendingUser && in_array($pendingUser->account_status, ['suspended', 'banned'], true)) {
             throw ValidationException::withMessages([
-                'email' => __('auth.failed'),
+                'email' => 'This account is currently ' . $pendingUser->account_status . '. Please contact support.',
             ]);
         }
+
+        $request->authenticate();
 
         $request->session()->regenerate();
 

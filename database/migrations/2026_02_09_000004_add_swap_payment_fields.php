@@ -15,13 +15,19 @@ return new class extends Migration
             }
         });
 
-        DB::statement("ALTER TABLE swap_requests MODIFY COLUMN status ENUM('requested','countered','awaiting_payment','accepted','rejected','cancelled') NOT NULL DEFAULT 'requested'");
+        $driver = Schema::getConnection()->getDriverName();
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            DB::statement("ALTER TABLE swap_requests MODIFY COLUMN status ENUM('requested','countered','awaiting_payment','accepted','rejected','cancelled') NOT NULL DEFAULT 'requested'");
+        }
     }
 
     public function down(): void
     {
-        DB::statement("UPDATE swap_requests SET status='requested' WHERE status='awaiting_payment'");
-        DB::statement("ALTER TABLE swap_requests MODIFY COLUMN status ENUM('requested','countered','accepted','rejected','cancelled') NOT NULL DEFAULT 'requested'");
+        $driver = Schema::getConnection()->getDriverName();
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            DB::statement("UPDATE swap_requests SET status='requested' WHERE status='awaiting_payment'");
+            DB::statement("ALTER TABLE swap_requests MODIFY COLUMN status ENUM('requested','countered','accepted','rejected','cancelled') NOT NULL DEFAULT 'requested'");
+        }
 
         Schema::table('swap_requests', function (Blueprint $table) {
             if (Schema::hasColumn('swap_requests', 'reserved_until')) {

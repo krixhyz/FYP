@@ -19,17 +19,17 @@
         <div class="surface-card p-5">
             <p class="meta-text">User Growth</p>
             <p class="mt-2 text-4xl font-extrabold">{{ $userGrowthThisMonth }}</p>
-            <p class="mt-1 text-xs text-neutral-500">vs last month {{ $userGrowthLastMonth }}</p>
+            <p class="mt-1 font-manrope text-xs text-[#888888]">vs last month {{ $userGrowthLastMonth }}</p>
         </div>
         <div class="surface-card p-5">
             <p class="meta-text">Revenue Growth</p>
             <p class="mt-2 text-4xl font-extrabold">Rs. {{ number_format($revenueThisMonth, 2) }}</p>
-            <p class="mt-1 text-xs text-neutral-500">vs last month Rs. {{ number_format($revenueLastMonth, 2) }}</p>
+            <p class="mt-1 font-manrope text-xs text-[#888888]">vs last month Rs. {{ number_format($revenueLastMonth, 2) }}</p>
         </div>
         <div class="surface-card p-5">
             <p class="meta-text">Listing Growth</p>
             <p class="mt-2 text-4xl font-extrabold">{{ $listingGrowthThisMonth }}</p>
-            <p class="mt-1 text-xs text-neutral-500">vs last month {{ $listingGrowthLastMonth }}</p>
+            <p class="mt-1 font-manrope text-xs text-[#888888]">vs last month {{ $listingGrowthLastMonth }}</p>
         </div>
     </div>
 
@@ -37,20 +37,20 @@
         <h3 class="text-2xl font-extrabold">Sustainability Impact</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div>
-                <p class="text-4xl font-extrabold text-[var(--reloop-green)]">{{ number_format($totalProducts * 0.0043, 1) }}</p>
-                <p class="text-sm text-neutral-600">tons CO2 Saved</p>
+                <p class="text-4xl font-extrabold text-[#006a38]">{{ number_format($totalProducts * 0.0043, 1) }}</p>
+                <p class="font-manrope text-sm text-[#444746]">tons CO2 Saved</p>
             </div>
             <div>
-                <p class="text-4xl font-extrabold text-[var(--reloop-green)]">{{ number_format($totalProducts) }}</p>
-                <p class="text-sm text-neutral-600">Items Reused</p>
+                <p class="text-4xl font-extrabold text-[#006a38]">{{ number_format($totalProducts) }}</p>
+                <p class="font-manrope text-sm text-[#444746]">Items Reused</p>
             </div>
             <div>
-                <p class="text-4xl font-extrabold text-[var(--reloop-green)]">89%</p>
-                <p class="text-sm text-neutral-600">Waste Reduction</p>
+                <p class="text-4xl font-extrabold text-[#006a38]">89%</p>
+                <p class="font-manrope text-sm text-[#444746]">Waste Reduction</p>
             </div>
             <div>
-                <p class="text-4xl font-extrabold text-[var(--reloop-green)]">{{ number_format($activeUsers) }}</p>
-                <p class="text-sm text-neutral-600">Eco Champions</p>
+                <p class="text-4xl font-extrabold text-[#006a38]">{{ number_format($activeUsers) }}</p>
+                <p class="font-manrope text-sm text-[#444746]">Eco Champions</p>
             </div>
         </div>
     </div>

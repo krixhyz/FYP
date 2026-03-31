@@ -3,8 +3,8 @@
 @section('content')
 <div class="mx-auto max-w-6xl space-y-8">
     <section class="surface-card-strong p-6 sm:p-8">
-        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Swap Workflow</p>
-        <h1 class="mt-4 text-4xl font-bold">Incoming Swap Requests</h1>
+        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Swap Workflow</p>
+        <h1 class="mt-4 font-space text-4xl font-bold text-[#1a1c1c]">Incoming Swap Requests</h1>
     </section>
 
     @if($requests->isEmpty())
@@ -22,7 +22,7 @@
                             @endif
                             <p class="mt-2 text-sm text-neutral-600">{{ $req->offeredProduct ? Str::limit($req->offeredProduct->description, 100) : 'User offers money instead of an item.' }}</p>
                             @if($req->offered_amount)
-                                <p class="mt-2 text-sm font-semibold text-primary-800">Cash Top-up: Rs. {{ number_format($req->offered_amount,2) }}</p>
+                                <p class="mt-2 text-sm font-semibold text-[#006a38]">Cash Top-up: Rs. {{ number_format($req->offered_amount,2) }}</p>
                             @endif
                         </div>
 

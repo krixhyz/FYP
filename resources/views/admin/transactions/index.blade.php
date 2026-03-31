@@ -28,7 +28,8 @@
     </div>
 
     @if(!auth()->user()->isSuperAdmin())
-        <div class="mb-5 border border-blue-200 bg-blue-50 px-5 py-4 text-blue-700">
+        <div class="mb-5 border-2 border-blue-300 bg-blue-50 px-5 py-4 font-manrope text-sm text-blue-700">
+            <p class="font-space font-bold">Transaction History</p>
             <p class="font-semibold">Limited Access</p>
             <p class="text-sm mt-1">You can monitor transactions and resolve disputes. Cannot configure payment gateways or access raw financial data.</p>
         </div>
@@ -52,8 +53,8 @@
     @endif
 
     <div class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-            <thead class="bg-neutral-100 text-neutral-700 uppercase text-xs tracking-[0.12em]">
+        <table class="editorial-table">
+            <thead>
                 <tr>
                     <th class="p-3 text-left">ID</th>
                     <th class="p-3 text-left">Buyer</th>
@@ -64,7 +65,7 @@
                     <th class="p-3 text-left">Status</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-neutral-200">
+            <tbody>
                 @forelse($transactions as $txn)
                     <tr>
                         <td class="p-3">{{ $txn['ref'] }}</td>
@@ -80,7 +81,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="p-5 text-center text-neutral-600">No transactions found.</td></tr>
+                    <tr><td colspan="7" class="p-5 text-center font-manrope text-[#444746]">No transactions found.</td></tr>
                 @endforelse
             </tbody>
         </table>

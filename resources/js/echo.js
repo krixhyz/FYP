@@ -208,6 +208,108 @@ function incrementBadge() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
+   CART NOTIFICATION SYSTEM
+   ───────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Display a cart success notification with checkmark icon
+ */
+function showCartSuccessToast(message) {
+    const container = getOrCreateToastContainer();
+
+    const toast = document.createElement('div');
+    toast.className = [
+        'toast-item',
+        'flex items-start gap-3',
+        'rounded-2xl shadow-lg border border-gray-200',
+        'bg-white px-4 py-3 max-w-sm w-full',
+        'cursor-pointer select-none',
+        'transition-all duration-300 ease-out',
+        'opacity-0 translate-y-2',
+    ].join(' ');
+
+    toast.innerHTML = `
+        <div class="shrink-0 mt-0.5 h-8 w-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+            </svg>
+        </div>
+        <p class="text-sm font-medium text-gray-900 leading-snug line-clamp-3">${escapeHtml(message)}</p>
+        <button class="toast-close shrink-0 text-gray-400 hover:text-gray-600 ml-1 -mt-0.5"
+                aria-label="Dismiss">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>`;
+
+    container.prepend(toast);
+
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            toast.classList.remove('opacity-0', 'translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+        });
+    });
+
+    toast.querySelector('.toast-close').addEventListener('click', (e) => {
+        e.stopPropagation();
+        dismissToast(toast);
+    });
+
+    const timer = setTimeout(() => dismissToast(toast), 5000);
+    toast._dismissTimer = timer;
+}
+
+/**
+ * Display a cart error notification with X icon
+ */
+function showCartErrorToast(message) {
+    const container = getOrCreateToastContainer();
+
+    const toast = document.createElement('div');
+    toast.className = [
+        'toast-item',
+        'flex items-start gap-3',
+        'rounded-2xl shadow-lg border border-gray-200',
+        'bg-white px-4 py-3 max-w-sm w-full',
+        'cursor-pointer select-none',
+        'transition-all duration-300 ease-out',
+        'opacity-0 translate-y-2',
+    ].join(' ');
+
+    toast.innerHTML = `
+        <div class="shrink-0 mt-0.5 h-8 w-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </div>
+        <p class="text-sm font-medium text-gray-900 leading-snug line-clamp-3">${escapeHtml(message)}</p>
+        <button class="toast-close shrink-0 text-gray-400 hover:text-gray-600 ml-1 -mt-0.5"
+                aria-label="Dismiss">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>`;
+
+    container.prepend(toast);
+
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            toast.classList.remove('opacity-0', 'translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+        });
+    });
+
+    toast.querySelector('.toast-close').addEventListener('click', (e) => {
+        e.stopPropagation();
+        dismissToast(toast);
+    });
+
+    const timer = setTimeout(() => dismissToast(toast), 5000);
+    toast._dismissTimer = timer;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
    AJAX HELPERS
    ───────────────────────────────────────────────────────────────────────── */
 
@@ -283,3 +385,10 @@ function hasNotificationInDom(id) {
         document.querySelector(`[data-notification-id="${safeId}"]`)
     );
 }
+
+// Expose cart notification functions to window for global access
+window.showCartSuccessToast = showCartSuccessToast;
+window.showCartErrorToast = showCartErrorToast;
+window.getOrCreateToastContainer = getOrCreateToastContainer;
+window.dismissToast = dismissToast;
+window.escapeHtml = escapeHtml;

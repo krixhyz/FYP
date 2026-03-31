@@ -42,7 +42,7 @@
                     <label class="flex items-center space-x-1">
                         <input type="checkbox" name="listing_type[]" value="{{ $value }}"
                                {{ in_array($value, $selectedTypes) ? 'checked' : '' }}
-                               class="rounded text-blue-600 focus:ring-blue-500">
+                               class="rounded text-[#0066cc] focus:ring-blue-500">
                         <span>{{ $label }}</span>
                     </label>
                 @endforeach
@@ -66,8 +66,8 @@
         </div>
 
         {{-- Rent Section --}}
-         <div id="rentSection" class="transition-all duration-300 space-y-4 border border-neutral-300 p-4 bg-neutral-100 {{ in_array('rent', $selectedTypes) ? '' : 'hidden' }}">
-             <h3 class="text-sm font-semibold uppercase tracking-[0.08em] text-neutral-700">Rental Details</h3>
+         <div id="rentSection" class="transition-all duration-300 space-y-4 border-2 border-[#bdbdbd] p-4 bg-[#f3f3f3] {{ in_array('rent', $selectedTypes) ? '' : 'hidden' }}">
+             <h3 class="font-space text-sm font-bold uppercase tracking-wider text-[#888888]">Rental Details</h3>
 
             <div>
               <label class="field-label">Rent Deposit</label>
@@ -109,32 +109,32 @@
 
         {{-- Product Images --}}
         <div>
-            <label class="field-label">Product Images <span class="text-neutral-500 font-normal">(up to 6)</span></label>
+            <label class="field-label">Product Images <span class="font-manrope text-[#888888] font-normal">(up to 6)</span></label>
 
             {{-- Existing images (edit mode) --}}
             @if(!empty($product->images))
-                <p class="text-xs text-neutral-600 mb-2">Current images &mdash; check to remove:</p>
+                <p class="font-manrope text-xs text-[#444746] mb-2">Current images &mdash; check to remove:</p>
                 <div class="flex flex-wrap gap-3 mb-3">
                     @foreach($product->images as $imgPath)
                         <label class="relative cursor-pointer group">
                             <input type="checkbox" name="remove_images[]" value="{{ $imgPath }}"
                                    class="absolute top-1 left-1 z-10 accent-red-500">
                             <img src="{{ asset('storage/'.$imgPath) }}"
-                                 class="w-24 h-24 object-cover border border-neutral-300 group-hover:opacity-75 transition">
-                            <span class="absolute bottom-1 right-1 bg-red-500 text-white text-xs px-1 hidden group-hover:block">Remove</span>
+                                 class="w-24 h-24 object-cover border-2 border-[#bdbdbd] group-hover:opacity-75 transition">
+                            <span class="absolute bottom-1 right-1 bg-[#ba1a1a] text-white text-xs px-1 hidden group-hover:block">Remove</span>
                         </label>
                     @endforeach
                 </div>
             @elseif(!empty($product->image))
                 <div class="flex flex-wrap gap-3 mb-3">
-                    <img src="{{ asset('storage/'.$product->image) }}" class="w-24 h-24 object-cover border border-neutral-300">
+                    <img src="{{ asset('storage/'.$product->image) }}" class="w-24 h-24 object-cover border-2 border-[#bdbdbd]">
                 </div>
             @endif
 
             <input type="file" name="images[]" multiple accept="image/*"
                    id="imageUploader"
-                   class="w-full text-sm file:mr-2 file:py-1 file:px-3 file:border-0 file:bg-[var(--reloop-primary)] file:text-white hover:file:bg-[var(--reloop-primary-container)] cursor-pointer">
-            <p class="text-xs text-neutral-500 mt-1">JPEG, PNG, GIF or WebP &bull; max 4 MB each &bull; up to 6 images</p>
+                   class="w-full text-sm file:mr-2 file:py-1 file:px-3 file:border-0 file:bg-[#006a38] file:text-white hover:file:bg-[#09864a] cursor-pointer">
+            <p class="font-manrope text-xs text-[#888888] mt-1">JPEG, PNG, GIF or WebP • max 4 MB each • up to 6 images</p>
 
             {{-- New image previews --}}
             <div id="newImagePreviews" class="flex flex-wrap gap-3 mt-3"></div>
@@ -205,13 +205,13 @@
             reader.onload = e => {
                 const img = document.createElement('img');
                 img.src = e.target.result;
-                img.className = 'w-24 h-24 object-cover border border-[var(--reloop-primary-container)]';
+                img.className = 'w-24 h-24 object-cover border-2 border-[var(--reloop-border)]';
                 wrapper.appendChild(img);
 
                 // Remove button
                 const btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = 'absolute top-0 right-0 bg-red-500 text-white w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition';
+                btn.className = 'absolute top-0 right-0 bg-[#ba1a1a] text-white w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition';
                 btn.innerHTML = '×';
                 btn.addEventListener('click', () => removeFile(index));
                 wrapper.appendChild(btn);

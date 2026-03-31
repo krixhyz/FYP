@@ -12,6 +12,7 @@ use App\Models\RentedRentals;
 use App\Models\Swap;
 use App\Models\SwapRequest;
 use App\Services\EsewaService;
+use App\Services\KhaltiService;
 use App\Services\InventoryReservationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,8 +22,51 @@ use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
-    public function createOrderPayment(Order $order, EsewaService $esewaService)
+    public function createDirectOrderPayment(
+        Request $request,
+        Product $product,
+        EsewaService $esewaService,
+        KhaltiService $khaltiService,
+        InventoryReservationService $inventory
+    ) {
+        $provider = $this->resolveProvider($request);
+
+        if ($product->user_id === Auth::id()) {
+            return redirect()->route('products.show', $product->id)->with('error', 'You cannot buy your own product.');
+        }
+
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:1',
+        ]);
+
+        $quantity = (int) $validated['quantity'];
+
+        try {
+            DB::transaction(function () use ($product, $quantity, $inventory) {
+                $lockedProduct = Product::where('id', $product->id)->lockForUpdate()->firstOrFail();
+                $inventory->ensurePurchasableQuantity($lockedProduct, $quantity, now());
+            });
+        } catch (\RuntimeException $e) {
+            return redirect()->route('products.show', $product->id)->with('error', $e->getMessage());
+        }
+
+        $unitPrice = (float) ($product->price ?? 0);
+        $items = [[
+            'product_id' => $product->id,
+            'quantity' => $quantity,
+            'unit_price' => $unitPrice,
+            'total_price' => $unitPrice * $quantity,
+        ]];
+
+        $payment = $this->createPaymentForOrderItems($items, 'order', $provider);
+
+        return $this->initiatePayment($payment, $provider, $esewaService, $khaltiService, 'Order Payment');
+    }
+
+    public function createOrderPayment(Request $request, Order $order, EsewaService $esewaService, KhaltiService $khaltiService)
     {
+        $provider = $this->resolveProvider($request);
+
         if ($order->buyer_id !== Auth::id()) {
             abort(403);
         }
@@ -37,13 +81,15 @@ class PaymentController extends Controller
             return redirect()->route('products.index')->with('error', 'Order reservation expired.');
         }
 
-        $payment = $this->createPaymentForOrders([$order], $esewaService, 'order');
+        $payment = $this->createPaymentForOrders([$order], 'order', $provider);
 
-        return $this->renderEsewaForm($payment, $esewaService);
+        return $this->initiatePayment($payment, $provider, $esewaService, $khaltiService, 'Order Payment');
     }
 
-    public function createCartPayment(EsewaService $esewaService, InventoryReservationService $inventory)
+    public function createCartPayment(Request $request, EsewaService $esewaService, KhaltiService $khaltiService, InventoryReservationService $inventory)
     {
+        $provider = $this->resolveProvider($request);
+
         $cartItems = Auth::user()->cartItems()->with('product')->get();
 
         if ($cartItems->isEmpty()) {
@@ -51,10 +97,9 @@ class PaymentController extends Controller
         }
 
         try {
-            $orders = DB::transaction(function () use ($cartItems) {
-                $orders = [];
+            $items = DB::transaction(function () use ($cartItems, $inventory) {
+                $items = [];
                 $now = now();
-                $reservationUntil = $now->copy()->addMinutes(config('esewa.reservation_minutes'));
 
                 $cartItems = $cartItems->sortBy('product_id')->values();
 
@@ -71,30 +116,24 @@ class PaymentController extends Controller
                         throw new \RuntimeException(($product->title ?? 'Product') . ': ' . $e->getMessage());
                     }
 
-                    $unitPrice = $product->price ?? 0;
-                    $totalPrice = $unitPrice * $item->quantity;
-
-                    $orders[] = Order::create([
-                        'buyer_id' => Auth::id(),
+                    $unitPrice = (float) ($product->price ?? 0);
+                    $items[] = [
                         'product_id' => $product->id,
-                        'transaction_type' => 'buy',
-                        'quantity' => $item->quantity,
+                        'quantity' => (int) $item->quantity,
                         'unit_price' => $unitPrice,
-                        'total_price' => $totalPrice,
-                        'status' => 'pending',
-                        'reserved_until' => $reservationUntil,
-                    ]);
+                        'total_price' => $unitPrice * (int) $item->quantity,
+                    ];
                 }
 
-                return $orders;
+                return $items;
             });
         } catch (\RuntimeException $e) {
             return redirect()->route('cart.checkout')->with('error', $e->getMessage());
         }
 
-        $payment = $this->createPaymentForOrders($orders, $esewaService, 'cart');
+        $payment = $this->createPaymentForOrderItems($items, 'cart', $provider);
 
-        return $this->renderEsewaForm($payment, $esewaService);
+        return $this->initiatePayment($payment, $provider, $esewaService, $khaltiService, 'Cart Checkout');
     }
 
     public function esewaSuccess(Request $request, EsewaService $esewaService, InventoryReservationService $inventory)
@@ -114,183 +153,42 @@ class PaymentController extends Controller
             return redirect()->route('products.index')->with('error', 'Payment not found.');
         }
 
+        if ($payment->provider !== 'esewa') {
+            return redirect()->route('products.index')->with('error', 'Payment provider mismatch.');
+        }
+
+        if ($payment->status === 'complete') {
+            return $this->alreadyProcessedRedirect($payment);
+        }
+
         $secretKey = config('esewa.secret_key');
         if (!$esewaService->verifySignature($payload, $secretKey)) {
-            $payment->status = 'failed';
-            $payment->response_payload = $payload;
-            $payment->save();
+            $this->failPaymentBySource($payment, [
+                'callback' => $payload,
+                'reason' => 'signature_mismatch',
+            ], $inventory);
             return redirect()->route('products.index')->with('error', 'Payment signature mismatch.');
         }
 
         $statusResponse = $this->checkEsewaStatus($payment);
-        $payment->response_payload = [
+        $responsePayload = [
             'callback' => $payload,
             'status' => $statusResponse,
         ];
 
         if (($statusResponse['status'] ?? '') !== 'COMPLETE') {
             $payment->status = 'pending';
+            $payment->response_payload = $responsePayload;
             $payment->save();
             return redirect()->route('products.index')->with('info', 'Payment pending verification.');
         }
 
-        $source = $payment->request_payload['source'] ?? 'order';
-
-        if ($source === 'swap') {
-            DB::transaction(function () use ($payment, $payload, $statusResponse, $inventory) {
-                $payment->status = 'complete';
-                $payment->transaction_code = $payload['transaction_code'] ?? ($statusResponse['ref_id'] ?? null);
-                $payment->save();
-
-                $swapRequestId = $payment->request_payload['swap_request_id'] ?? null;
-                $swapRequest = SwapRequest::with(['product', 'offeredProduct'])
-                    ->lockForUpdate()
-                    ->find($swapRequestId);
-
-                if (!$swapRequest || $swapRequest->status !== 'awaiting_payment') {
-                    return;
-                }
-
-                $swapRequest->status = 'accepted';
-                $swapRequest->reserved_until = null;
-                $swapRequest->save();
-
-                if ($swapRequest->product) {
-                    $inventory->normalizeAvailableStatus($swapRequest->product);
-                    if ($swapRequest->product->quantity <= 0) {
-                        $swapRequest->product->status = 'swapped';
-                    }
-                    $swapRequest->product->save();
-                }
-
-                if ($swapRequest->offeredProduct) {
-                    $inventory->normalizeAvailableStatus($swapRequest->offeredProduct);
-                    if ($swapRequest->offeredProduct->quantity <= 0) {
-                        $swapRequest->offeredProduct->status = 'swapped';
-                    }
-                    $swapRequest->offeredProduct->save();
-                }
-
-                Swap::create([
-                    'swap_request_id' => $swapRequest->id,
-                    'product_a_id' => $swapRequest->product_id,
-                    'product_b_id' => $swapRequest->offered_product_id,
-                    'owner_a_id' => $swapRequest->owner_id,
-                    'owner_b_id' => $swapRequest->requester_id,
-                    'offered_amount' => $swapRequest->offered_amount,
-                    'notes' => $swapRequest->message,
-                    'status' => 'completed',
-                ]);
-            });
-
-            return redirect()->route('dashboard')->with('success', 'Swap payment completed successfully.');
-        }
-
-        if ($source === 'rental') {
-            $rentalCompleted = false;
-
-            DB::transaction(function () use ($payment, $payload, $statusResponse, &$rentalCompleted, $inventory) {
-                $payment->status = 'complete';
-                $payment->transaction_code = $payload['transaction_code'] ?? ($statusResponse['ref_id'] ?? null);
-                $payment->save();
-
-                $rentalRequestId = $payment->request_payload['rental_request_id'] ?? null;
-                $rentalRequest = RentalRequest::with(['product', 'rental'])->lockForUpdate()->find($rentalRequestId);
-                if (!$rentalRequest || $rentalRequest->status !== 'approved') {
-                    return;
-                }
-
-                if ($rentalRequest->reserved_until && $rentalRequest->reserved_until->isPast()) {
-                    $inventory->releaseRentalReservation($rentalRequest);
-                    $payment->status = 'failed';
-                    $payment->save();
-                    return;
-                }
-
-                if (!$rentalRequest->stock_reserved) {
-                    $product = Product::lockForUpdate()->find($rentalRequest->product_id);
-                    if (!$product || $product->quantity < 1) {
-                        $payment->status = 'failed';
-                        $payment->save();
-                        return;
-                    }
-
-                    $inventory->consumeProductQuantity($product, 1, 'rented');
-
-                    $rentalRequest->stock_reserved = true;
-                }
-
-                $rental = $rentalRequest->rental;
-                if (!$rental) {
-                    $rental = Rental::create([
-                        'product_id' => $rentalRequest->product_id,
-                        'owner_id' => $rentalRequest->owner_id,
-                        'rent_fare' => $rentalRequest->product->rent_fare ?? 0,
-                        'rent_deposit' => $rentalRequest->rent_deposit ?? 0,
-                        'status' => 'rented',
-                    ]);
-                }
-
-                RentedRentals::create([
-                    'rental_id' => $rental->id,
-                    'product_id' => $rentalRequest->product_id,
-                    'owner_id' => $rentalRequest->owner_id,
-                    'renter_id' => $rentalRequest->renter_id,
-                    'rent_fare' => $rental->rent_fare ?? 0,
-                    'rent_deposit' => $rentalRequest->rent_deposit ?? 0,
-                    'rent_type' => $rental->rent_type ?? 'daily',
-                    'duration' => $rentalRequest->duration,
-                    'start_date' => $rentalRequest->start_date,
-                    'end_date' => $rentalRequest->end_date,
-                    'total_amount' => $rentalRequest->total_amount,
-                    'payment_status' => 'paid',
-                    'payment_reference' => $payment->transaction_code,
-                    'status' => 'active',
-                ]);
-
-                $rentalRequest->delete();
-                $rentalCompleted = true;
-            });
-
-            if (!$rentalCompleted) {
-                return redirect()->route('products.index')->with('error', 'Rental payment could not be completed. Reservation expired or stock unavailable.');
-            }
-
-            return redirect()->route('products.index')->with('success', 'Rental payment completed successfully.');
-        }
-
-        DB::transaction(function () use ($payment, $payload, $statusResponse, $inventory) {
-            $payment->status = 'complete';
-            $payment->transaction_code = $payload['transaction_code'] ?? ($statusResponse['ref_id'] ?? null);
-            $payment->save();
-
-            $orders = $payment->orders()->with('product')->lockForUpdate()->get();
-
-            foreach ($orders as $order) {
-                if ($order->status === 'completed') {
-                    continue;
-                }
-
-                $product = Product::where('id', $order->product_id)->lockForUpdate()->first();
-                if ($product) {
-                    $inventory->consumeProductQuantity($product, (int) $order->quantity, 'sold');
-                }
-
-                $order->status = 'completed';
-                $order->save();
-            }
-        });
-
-        if ($source === 'cart') {
-            $productIds = $payment->orders()->pluck('product_id')->all();
-            if (!empty($productIds)) {
-                CartItem::where('user_id', $payment->user_id)
-                    ->whereIn('product_id', $productIds)
-                    ->delete();
-            }
-        }
-
-        return redirect()->route('products.myPurchases')->with('success', 'Payment completed successfully.');
+        return $this->completePaymentBySource(
+            $payment,
+            $payload['transaction_code'] ?? ($statusResponse['ref_id'] ?? null),
+            $inventory,
+            $responsePayload
+        );
     }
 
     public function esewaFailure(Request $request, InventoryReservationService $inventory)
@@ -301,42 +199,92 @@ class PaymentController extends Controller
         if ($transactionUuid) {
             $payment = Payment::where('transaction_uuid', $transactionUuid)->first();
             if ($payment) {
-                $payment->status = 'failed';
-                $payment->response_payload = $payload;
-                $payment->save();
-
-                $source = $payment->request_payload['source'] ?? null;
-
-                if ($source === 'swap') {
-                    $swapRequestId = $payment->request_payload['swap_request_id'] ?? null;
-                    if ($swapRequestId) {
-                        $swapRequest = SwapRequest::find($swapRequestId);
-                        if ($swapRequest && $swapRequest->status === 'awaiting_payment') {
-                            $inventory->releaseSwapReservation($swapRequest);
-                        }
-                    }
-                } elseif ($source === 'rental') {
-                    $rentalRequestId = $payment->request_payload['rental_request_id'] ?? null;
-                    if ($rentalRequestId) {
-                        $rentalRequest = RentalRequest::find($rentalRequestId);
-                        if ($rentalRequest && $rentalRequest->status === 'approved') {
-                            $inventory->releaseRentalReservation($rentalRequest);
-                        }
-                    }
-                } else {
-                    $payment->orders()->where('status', 'pending')->update([
-                        'status' => 'cancelled',
-                        'reserved_until' => now(),
-                    ]);
-                }
+                $this->failPaymentBySource($payment, $payload, $inventory);
+                return $this->redirectBySource($payment, 'error', 'eSewa payment failed or was cancelled.');
             }
         }
 
         return redirect()->route('products.index')->with('error', 'Payment failed or was cancelled.');
     }
 
-    public function createRentalPayment(RentalRequest $rentalRequest, EsewaService $esewaService, InventoryReservationService $inventory)
+    public function khaltiReturn(Request $request, KhaltiService $khaltiService, InventoryReservationService $inventory)
     {
+        $transactionUuid = (string) ($request->input('purchase_order_id') ?? $request->input('transaction_uuid'));
+        if ($transactionUuid === '') {
+            return redirect()->route('products.index')->with('error', 'Missing purchase order identifier.');
+        }
+
+        $payment = Payment::where('transaction_uuid', $transactionUuid)->first();
+        if (!$payment) {
+            return redirect()->route('products.index')->with('error', 'Payment not found.');
+        }
+
+        if ($payment->provider !== 'khalti') {
+            return redirect()->route('products.index')->with('error', 'Payment provider mismatch.');
+        }
+
+        if ($payment->status === 'complete') {
+            return $this->alreadyProcessedRedirect($payment);
+        }
+
+        $callbackPayload = $request->all();
+        $pidx = (string) ($request->input('pidx') ?? ($payment->request_payload['khalti']['pidx'] ?? ''));
+        if ($pidx === '') {
+            $this->failPaymentBySource($payment, [
+                'callback' => $callbackPayload,
+                'reason' => 'missing_pidx',
+            ], $inventory);
+
+            return $this->redirectBySource($payment, 'error', 'Missing Khalti payment identifier.');
+        }
+
+        $lookupResponse = $khaltiService->lookupPayment($pidx);
+        $lookupBody = is_array($lookupResponse['body'] ?? null) ? $lookupResponse['body'] : [];
+
+        $responsePayload = [
+            'callback' => $callbackPayload,
+            'lookup' => $lookupBody,
+            'lookup_http_status' => $lookupResponse['status'] ?? null,
+        ];
+
+        $lookupStatus = strtolower((string) ($lookupBody['status'] ?? ''));
+        if (($lookupResponse['ok'] ?? false) && $lookupStatus === 'completed') {
+            $receivedAmountPaisa = (int) ($lookupBody['total_amount'] ?? 0);
+            $expectedAmountPaisa = $khaltiService->toPaisa((float) $payment->total_amount);
+
+            if ($receivedAmountPaisa !== $expectedAmountPaisa) {
+                $responsePayload['reason'] = 'amount_mismatch';
+                $responsePayload['expected_amount_paisa'] = $expectedAmountPaisa;
+                $responsePayload['received_amount_paisa'] = $receivedAmountPaisa;
+                $this->failPaymentBySource($payment, $responsePayload, $inventory);
+
+                return $this->redirectBySource($payment, 'error', 'Khalti amount verification failed.');
+            }
+
+            return $this->completePaymentBySource(
+                $payment,
+                (string) ($lookupBody['transaction_id'] ?? $request->input('transaction_id') ?? ''),
+                $inventory,
+                $responsePayload
+            );
+        }
+
+        if ($lookupStatus === 'pending' || $lookupStatus === 'initiated') {
+            $payment->status = 'pending';
+            $payment->response_payload = $responsePayload;
+            $payment->save();
+
+            return $this->redirectBySource($payment, 'info', 'Khalti payment is pending verification.');
+        }
+
+        $this->failPaymentBySource($payment, $responsePayload, $inventory);
+        return $this->redirectBySource($payment, 'error', 'Khalti payment failed or was cancelled.');
+    }
+
+    public function createRentalPayment(Request $request, RentalRequest $rentalRequest, EsewaService $esewaService, KhaltiService $khaltiService, InventoryReservationService $inventory)
+    {
+        $provider = $this->resolveProvider($request);
+
         if ($rentalRequest->renter_id !== Auth::id()) {
             abort(403);
         }
@@ -354,11 +302,11 @@ class PaymentController extends Controller
         $totalAmount = $this->formatAmount($totalAmount);
 
         $transactionUuid = (string) Str::uuid();
-        $productCode = config('esewa.product_code');
+        $productCode = $provider === 'esewa' ? config('esewa.product_code') : 'KHALTI';
 
         $payment = Payment::create([
             'user_id' => Auth::id(),
-            'provider' => 'esewa',
+            'provider' => $provider,
             'transaction_uuid' => $transactionUuid,
             'product_code' => $productCode,
             'amount' => $totalAmount,
@@ -369,15 +317,18 @@ class PaymentController extends Controller
             'status' => 'pending',
             'request_payload' => [
                 'source' => 'rental',
+                'gateway' => $provider,
                 'rental_request_id' => $rentalRequest->id,
             ],
         ]);
 
-        return $this->renderEsewaForm($payment, $esewaService);
+        return $this->initiatePayment($payment, $provider, $esewaService, $khaltiService, 'Rental Checkout');
     }
 
-    public function createSwapPayment(SwapRequest $swapRequest, EsewaService $esewaService, InventoryReservationService $inventory)
+    public function createSwapPayment(Request $request, SwapRequest $swapRequest, EsewaService $esewaService, KhaltiService $khaltiService, InventoryReservationService $inventory)
     {
+        $provider = $this->resolveProvider($request);
+
         if ($swapRequest->requester_id !== Auth::id()) {
             abort(403);
         }
@@ -402,11 +353,11 @@ class PaymentController extends Controller
 
         $totalAmount = $this->formatAmount($totalAmount);
         $transactionUuid = (string) Str::uuid();
-        $productCode = config('esewa.product_code');
+        $productCode = $provider === 'esewa' ? config('esewa.product_code') : 'KHALTI';
 
         $payment = Payment::create([
             'user_id' => Auth::id(),
-            'provider' => 'esewa',
+            'provider' => $provider,
             'transaction_uuid' => $transactionUuid,
             'product_code' => $productCode,
             'amount' => $totalAmount,
@@ -417,16 +368,17 @@ class PaymentController extends Controller
             'status' => 'pending',
             'request_payload' => [
                 'source' => 'swap',
+                'gateway' => $provider,
                 'swap_request_id' => $swapRequest->id,
                 'product_id' => $swapRequest->product_id,
                 'offered_product_id' => $swapRequest->offered_product_id,
             ],
         ]);
 
-        return $this->renderEsewaForm($payment, $esewaService);
+        return $this->initiatePayment($payment, $provider, $esewaService, $khaltiService, 'Swap Checkout');
     }
 
-    private function createPaymentForOrders(array $orders, EsewaService $esewaService, string $source): Payment
+    private function createPaymentForOrders(array $orders, string $source, string $provider): Payment
     {
         $totalAmount = 0;
         foreach ($orders as $order) {
@@ -435,11 +387,11 @@ class PaymentController extends Controller
 
         $totalAmount = $this->formatAmount($totalAmount);
         $transactionUuid = (string) Str::uuid();
-        $productCode = config('esewa.product_code');
+        $productCode = $provider === 'esewa' ? config('esewa.product_code') : 'KHALTI';
 
         $payment = Payment::create([
             'user_id' => Auth::id(),
-            'provider' => 'esewa',
+            'provider' => $provider,
             'transaction_uuid' => $transactionUuid,
             'product_code' => $productCode,
             'amount' => $totalAmount,
@@ -451,6 +403,7 @@ class PaymentController extends Controller
             'request_payload' => [
                 'orders' => collect($orders)->pluck('id')->all(),
                 'source' => $source,
+                'gateway' => $provider,
             ],
         ]);
 
@@ -460,6 +413,102 @@ class PaymentController extends Controller
         }
 
         return $payment;
+    }
+
+    private function createPaymentForOrderItems(array $items, string $source, string $provider): Payment
+    {
+        $totalAmount = 0;
+        foreach ($items as $item) {
+            $totalAmount += (float) ($item['total_price'] ?? 0);
+        }
+
+        $totalAmount = $this->formatAmount($totalAmount);
+        $transactionUuid = (string) Str::uuid();
+        $productCode = $provider === 'esewa' ? config('esewa.product_code') : 'KHALTI';
+
+        return Payment::create([
+            'user_id' => Auth::id(),
+            'provider' => $provider,
+            'transaction_uuid' => $transactionUuid,
+            'product_code' => $productCode,
+            'amount' => $totalAmount,
+            'tax_amount' => 0,
+            'service_charge' => 0,
+            'delivery_charge' => 0,
+            'total_amount' => $totalAmount,
+            'status' => 'pending',
+            'request_payload' => [
+                'source' => $source,
+                'gateway' => $provider,
+                'order_items' => $items,
+            ],
+        ]);
+    }
+
+    private function initiatePayment(Payment $payment, string $provider, EsewaService $esewaService, KhaltiService $khaltiService, string $purchaseOrderName)
+    {
+        if ($provider === 'khalti') {
+            return $this->renderKhaltiRedirect($payment, $khaltiService, $purchaseOrderName);
+        }
+
+        return $this->renderEsewaForm($payment, $esewaService);
+    }
+
+    private function renderKhaltiRedirect(Payment $payment, KhaltiService $khaltiService, string $purchaseOrderName)
+    {
+        $secretKey = config('khalti.secret_key');
+        $initiateUrl = config('khalti.initiate_url');
+
+        if (blank($secretKey) || blank($initiateUrl)) {
+            return redirect()
+                ->route('products.index')
+                ->with('error', 'Khalti payment is not configured. Please set KHALTI_SECRET_KEY and KHALTI_INITIATE_URL.');
+        }
+
+        $user = Auth::user();
+        $payload = [
+            'return_url' => config('khalti.return_url'),
+            'website_url' => config('khalti.website_url'),
+            'amount' => $khaltiService->toPaisa((float) $payment->total_amount),
+            'purchase_order_id' => $payment->transaction_uuid,
+            'purchase_order_name' => $purchaseOrderName,
+            'customer_info' => array_filter([
+                'name' => $user->name ?? null,
+                'email' => $user->email ?? null,
+                'phone' => $user->phone ?? null,
+            ]),
+        ];
+
+        $response = $khaltiService->initiatePayment($payload);
+        $responseBody = is_array($response['body'] ?? null) ? $response['body'] : [];
+        $paymentUrl = $responseBody['payment_url'] ?? null;
+
+        $payment->request_payload = array_merge($payment->request_payload ?? [], [
+            'khalti_initiate_payload' => $payload,
+            'khalti_initiate_response' => $responseBody,
+        ]);
+
+        if (!($response['ok'] ?? false) || blank($paymentUrl)) {
+            $payment->status = 'failed';
+            $payment->response_payload = [
+                'initiate_response' => $responseBody,
+                'http_status' => $response['status'] ?? null,
+            ];
+            $payment->save();
+
+            return redirect()->route('products.index')->with('error', 'Unable to initiate Khalti payment. Please try again.');
+        }
+
+        $payment->request_payload = array_merge($payment->request_payload, [
+            'khalti' => [
+                'pidx' => $responseBody['pidx'] ?? null,
+                'payment_url' => $paymentUrl,
+                'expires_at' => $responseBody['expires_at'] ?? null,
+            ],
+        ]);
+        $payment->save();
+
+        return redirect()->away($paymentUrl);
     }
 
     private function renderEsewaForm(Payment $payment, EsewaService $esewaService)
@@ -545,5 +594,272 @@ class PaymentController extends Controller
     private function formatAmount($amount): string
     {
         return number_format((float) $amount, 2, '.', '');
+    }
+
+    private function completePaymentBySource(
+        Payment $payment,
+        ?string $transactionCode,
+        InventoryReservationService $inventory,
+        array $responsePayload = []
+    ) {
+        $source = $payment->request_payload['source'] ?? 'order';
+
+        if ($source === 'swap') {
+            DB::transaction(function () use ($payment, $transactionCode, $responsePayload, $inventory) {
+                $payment->status = 'complete';
+                $payment->transaction_code = $transactionCode;
+                $payment->response_payload = $responsePayload;
+                $payment->save();
+
+                $swapRequestId = $payment->request_payload['swap_request_id'] ?? null;
+                $swapRequest = SwapRequest::with(['product', 'offeredProduct'])
+                    ->lockForUpdate()
+                    ->find($swapRequestId);
+
+                if (!$swapRequest || $swapRequest->status !== 'awaiting_payment') {
+                    return;
+                }
+
+                $swapRequest->status = 'accepted';
+                $swapRequest->reserved_until = null;
+                $swapRequest->save();
+
+                if ($swapRequest->product) {
+                    $inventory->normalizeAvailableStatus($swapRequest->product);
+                    if ($swapRequest->product->quantity <= 0) {
+                        $swapRequest->product->status = 'swapped';
+                    }
+                    $swapRequest->product->save();
+                }
+
+                if ($swapRequest->offeredProduct) {
+                    $inventory->normalizeAvailableStatus($swapRequest->offeredProduct);
+                    if ($swapRequest->offeredProduct->quantity <= 0) {
+                        $swapRequest->offeredProduct->status = 'swapped';
+                    }
+                    $swapRequest->offeredProduct->save();
+                }
+
+                Swap::create([
+                    'swap_request_id' => $swapRequest->id,
+                    'product_a_id' => $swapRequest->product_id,
+                    'product_b_id' => $swapRequest->offered_product_id,
+                    'owner_a_id' => $swapRequest->owner_id,
+                    'owner_b_id' => $swapRequest->requester_id,
+                    'offered_amount' => $swapRequest->offered_amount,
+                    'notes' => $swapRequest->message,
+                    'status' => 'completed',
+                ]);
+            });
+
+            return redirect()->route('dashboard')->with('success', 'Swap payment completed successfully.');
+        }
+
+        if ($source === 'rental') {
+            $rentalCompleted = false;
+
+            DB::transaction(function () use ($payment, $transactionCode, $responsePayload, &$rentalCompleted, $inventory) {
+                $payment->status = 'complete';
+                $payment->transaction_code = $transactionCode;
+                $payment->response_payload = $responsePayload;
+                $payment->save();
+
+                $rentalRequestId = $payment->request_payload['rental_request_id'] ?? null;
+                $rentalRequest = RentalRequest::with(['product', 'rental'])->lockForUpdate()->find($rentalRequestId);
+                if (!$rentalRequest || $rentalRequest->status !== 'approved') {
+                    return;
+                }
+
+                if ($rentalRequest->reserved_until && $rentalRequest->reserved_until->isPast()) {
+                    $inventory->releaseRentalReservation($rentalRequest);
+                    $payment->status = 'failed';
+                    $payment->save();
+                    return;
+                }
+
+                if (!$rentalRequest->stock_reserved) {
+                    $product = Product::lockForUpdate()->find($rentalRequest->product_id);
+                    if (!$product || $product->quantity < 1) {
+                        $payment->status = 'failed';
+                        $payment->save();
+                        return;
+                    }
+
+                    $inventory->consumeProductQuantity($product, 1, 'rented');
+
+                    $rentalRequest->stock_reserved = true;
+                }
+
+                $rental = $rentalRequest->rental;
+                if (!$rental) {
+                    $rental = Rental::create([
+                        'product_id' => $rentalRequest->product_id,
+                        'owner_id' => $rentalRequest->owner_id,
+                        'rent_fare' => $rentalRequest->product->rent_fare ?? 0,
+                        'rent_deposit' => $rentalRequest->rent_deposit ?? 0,
+                        'status' => 'rented',
+                    ]);
+                }
+
+                RentedRentals::create([
+                    'rental_id' => $rental->id,
+                    'product_id' => $rentalRequest->product_id,
+                    'owner_id' => $rentalRequest->owner_id,
+                    'renter_id' => $rentalRequest->renter_id,
+                    'rent_fare' => $rental->rent_fare ?? 0,
+                    'rent_deposit' => $rentalRequest->rent_deposit ?? 0,
+                    'rent_type' => $rental->rent_type ?? 'daily',
+                    'duration' => $rentalRequest->duration,
+                    'start_date' => $rentalRequest->start_date,
+                    'end_date' => $rentalRequest->end_date,
+                    'total_amount' => $rentalRequest->total_amount,
+                    'payment_status' => 'paid',
+                    'payment_reference' => $payment->transaction_code,
+                    'status' => 'active',
+                ]);
+
+                $rentalRequest->delete();
+                $rentalCompleted = true;
+            });
+
+            if (!$rentalCompleted) {
+                return redirect()->route('products.index')->with('error', 'Rental payment could not be completed. Reservation expired or stock unavailable.');
+            }
+
+            return redirect()->route('products.index')->with('success', 'Rental payment completed successfully.');
+        }
+
+        DB::transaction(function () use ($payment, $transactionCode, $responsePayload, $inventory, $source) {
+            $orderItems = $payment->request_payload['order_items'] ?? [];
+            $legacyOrders = $payment->orders()->with('product')->lockForUpdate()->get();
+
+            if (!empty($orderItems)) {
+                $orderedItems = collect($orderItems)->sortBy('product_id')->values();
+
+                foreach ($orderedItems as $item) {
+                    $product = Product::where('id', $item['product_id'] ?? 0)->lockForUpdate()->first();
+                    if (!$product) {
+                        throw new \RuntimeException('Product no longer exists.');
+                    }
+
+                    $quantity = (int) ($item['quantity'] ?? 0);
+                    $inventory->ensurePurchasableQuantity($product, $quantity, now());
+                    $inventory->consumeProductQuantity($product, $quantity, 'sold');
+
+                    Order::create([
+                        'buyer_id' => $payment->user_id,
+                        'product_id' => $product->id,
+                        'payment_id' => $payment->id,
+                        'transaction_type' => 'buy',
+                        'quantity' => $quantity,
+                        'unit_price' => (float) ($item['unit_price'] ?? ($product->price ?? 0)),
+                        'total_price' => (float) ($item['total_price'] ?? 0),
+                        'status' => 'completed',
+                        'reserved_until' => null,
+                    ]);
+                }
+            } else {
+                foreach ($legacyOrders as $order) {
+                    if ($order->status === 'completed') {
+                        continue;
+                    }
+
+                    $product = Product::where('id', $order->product_id)->lockForUpdate()->first();
+                    if ($product) {
+                        $inventory->consumeProductQuantity($product, (int) $order->quantity, 'sold');
+                    }
+
+                    $order->status = 'completed';
+                    $order->save();
+                }
+            }
+
+            $payment->status = 'complete';
+            $payment->transaction_code = $transactionCode;
+            $payment->response_payload = $responsePayload;
+            $payment->save();
+
+            if ($source === 'cart') {
+                $productIds = collect($orderItems)->pluck('product_id')->filter()->all();
+                if (!empty($productIds)) {
+                    CartItem::where('user_id', $payment->user_id)
+                        ->whereIn('product_id', $productIds)
+                        ->delete();
+                }
+            }
+        });
+
+        return redirect()->route('products.myPurchases')->with('success', 'Payment completed successfully.');
+    }
+
+    private function failPaymentBySource(Payment $payment, array $responsePayload, InventoryReservationService $inventory): void
+    {
+        if ($payment->status === 'complete') {
+            return;
+        }
+
+        $payment->status = 'failed';
+        $payment->response_payload = $responsePayload;
+        $payment->save();
+
+        $source = $payment->request_payload['source'] ?? null;
+
+        if ($source === 'swap') {
+            $swapRequestId = $payment->request_payload['swap_request_id'] ?? null;
+            if ($swapRequestId) {
+                $swapRequest = SwapRequest::find($swapRequestId);
+                if ($swapRequest && $swapRequest->status === 'awaiting_payment') {
+                    $inventory->releaseSwapReservation($swapRequest);
+                }
+            }
+            return;
+        }
+
+        if ($source === 'rental') {
+            $rentalRequestId = $payment->request_payload['rental_request_id'] ?? null;
+            if ($rentalRequestId) {
+                $rentalRequest = RentalRequest::find($rentalRequestId);
+                if ($rentalRequest && $rentalRequest->status === 'approved') {
+                    $inventory->releaseRentalReservation($rentalRequest);
+                }
+            }
+            return;
+        }
+
+        if ($payment->orders()->exists()) {
+            $payment->orders()->where('status', 'pending')->update([
+                'status' => 'cancelled',
+                'reserved_until' => now(),
+            ]);
+        }
+    }
+
+    private function alreadyProcessedRedirect(Payment $payment)
+    {
+        return $this->redirectBySource($payment, 'info', 'Payment already processed.');
+    }
+
+    private function resolveProvider(Request $request): string
+    {
+        $validated = $request->validate([
+            'payment_gateway' => ['required', 'in:esewa,khalti'],
+        ]);
+
+        return strtolower((string) $validated['payment_gateway']);
+    }
+
+    private function redirectBySource(Payment $payment, string $level, string $message)
+    {
+        $source = $payment->request_payload['source'] ?? 'order';
+
+        if ($source === 'swap') {
+            return redirect()->route('dashboard')->with($level, $message);
+        }
+
+        if ($source === 'rental') {
+            return redirect()->route('products.index')->with($level, $message);
+        }
+
+        return redirect()->route('products.myPurchases')->with($level, $message);
     }
 }

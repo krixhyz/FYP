@@ -2,8 +2,8 @@
 
 @php
 $classes = ($active ?? false)
-            ? 'inline-flex items-center border-b-2 border-[var(--reloop-primary)] px-1 pt-1 text-sm font-semibold leading-5 text-[var(--reloop-primary-dark)] transition'
-            : 'inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium leading-5 text-[var(--reloop-ink-soft)] transition hover:text-[var(--reloop-ink)] hover:border-[var(--reloop-border)] focus:outline-none';
+            ? 'font-space text-xs font-medium uppercase tracking-wider text-[#006a38] px-3 py-2 border-b-2 border-[#006a38] transition-colors'
+            : 'font-space text-xs font-medium uppercase tracking-wider text-[#444746] px-3 py-2 hover:text-[#006a38] transition-colors';
 @endphp
 
 <a {{ $attributes->merge(['class' => $classes]) }}>

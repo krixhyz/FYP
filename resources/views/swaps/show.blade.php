@@ -3,8 +3,8 @@
 @section('content')
 <div class="mx-auto max-w-4xl space-y-8">
     <section class="surface-card-strong p-6 sm:p-8">
-        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Swap Workflow</p>
-        <h1 class="mt-4 text-4xl font-bold">Swap Request Details</h1>
+        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Swap Workflow</p>
+        <h1 class="mt-4 font-space text-4xl font-bold text-[#1a1c1c]">Swap Request Details</h1>
     </section>
 
     <section class="surface-card p-5 sm:p-6 space-y-4">
@@ -18,10 +18,10 @@
         </div>
 
         @if($swapRequest->status === 'countered')
-            <div class="bg-primary-800 p-4 text-white text-sm">
-                <p class="text-xs uppercase tracking-[0.08em]">Counter Offer</p>
-                <p class="mt-2">Counter Amount: Rs. {{ number_format($swapRequest->counter_amount ?? 0, 2) }}</p>
-                <p>Counter Message: {{ $swapRequest->counter_message ?: 'No message' }}</p>
+            <div class="bg-[#006a38] p-4 text-white text-sm">
+                <p class="font-space text-[10px] font-bold uppercase tracking-widest">Counter Offer</p>
+                <p class="mt-2 font-manrope">Counter Amount: Rs. {{ number_format($swapRequest->counter_amount ?? 0, 2) }}</p>
+                <p class="font-manrope">Counter Message: {{ $swapRequest->counter_message ?: 'No message' }}</p>
             </div>
         @endif
     </section>

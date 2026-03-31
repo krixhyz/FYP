@@ -8,9 +8,9 @@
     <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
             <a href="{{ route('admin.products') }}" class="btn-pill btn-pill-soft !px-3 !py-1">← Back</a>
-            <h1 class="text-3xl font-bold">{{ $product->title }}</h1>
+            <h1 class="font-space text-3xl font-bold text-[#1a1c1c]">{{ $product->title }}</h1>
         </div>
-        <span class="badge {{ $product->flagged ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700' }}">
+        <span class="font-space text-xs font-bold uppercase tracking-widest {{ $product->flagged ? 'border-2 border-[#ba1a1a] bg-[#fee2e2] text-[#ba1a1a]' : 'border-2 border-[#10b981] bg-[#d1fae5] text-[#10b981]' }}">
             {{ $product->flagged ? 'Flagged' : 'Not Flagged' }}
         </span>
     </div>
@@ -25,55 +25,55 @@
                 <div class="space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <p class="text-sm text-neutral-500 uppercase tracking-wide">Product ID</p>
+                            <p class="text-sm font-space font-bold uppercase tracking-wider text-[#888888]">Product ID</p>
                             <p class="mt-1 font-monospace text-lg font-semibold">{{ $product->id }}</p>
                         </div>
                         <div>
-                            <p class="text-sm text-neutral-500 uppercase tracking-wide">Owner</p>
+                            <p class="text-sm font-space font-bold uppercase tracking-wider text-[#888888]">Owner</p>
                             <p class="mt-1">
-                                <a href="{{ route('admin.users.show', $product->user) }}" class="text-blue-600 hover:underline">
+                                <a href="{{ route('admin.users.show', $product->user) }}" class="text-[#006a38] hover:underline font-semibold">
                                     {{ $product->user->name ?? 'Unknown User' }}
                                 </a>
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm text-neutral-500 uppercase tracking-wide">Category</p>
+                            <p class="text-sm font-space font-bold uppercase tracking-wider text-[#888888]">Category</p>
                             <p class="mt-1 capitalize font-semibold">{{ $product->category }}</p>
                         </div>
                         <div>
-                            <p class="text-sm text-neutral-500 uppercase tracking-wide">Status</p>
+                            <p class="text-sm font-space font-bold uppercase tracking-wider text-[#888888]">Status</p>
                             <p class="mt-1 capitalize font-semibold text-green-600">{{ $product->status }}</p>
                         </div>
                     </div>
 
-                    <div class="border-t pt-4">
-                        <p class="text-sm text-neutral-500 uppercase tracking-wide">Description</p>
-                        <p class="mt-2 text-neutral-700 leading-relaxed">{{ $product->description }}</p>
+                    <div class="bg-[#f3f3f3] p-4">
+                        <p class="text-sm font-space font-bold uppercase tracking-wider text-[#888888]">Description</p>
+                        <p class="mt-2 font-manrope text-[#444746] leading-relaxed">{{ $product->description }}</p>
                     </div>
 
-                    <div class="border-t pt-4">
+                    <div class="bg-[#f3f3f3] p-4">
                         <div class="grid grid-cols-3 gap-4">
                             <div>
-                                <p class="text-sm text-neutral-500 uppercase tracking-wide">Quantity</p>
+                                <p class="text-sm font-space font-bold uppercase tracking-wider text-[#888888]">Quantity</p>
                                 <p class="mt-1 text-2xl font-bold">{{ $product->quantity ?? 1 }}</p>
                             </div>
                             <div>
-                                <p class="text-sm text-neutral-500 uppercase tracking-wide">Price</p>
-                                <p class="mt-1 text-2xl font-bold text-primary-600">Rs. {{ number_format($product->price ?? 0, 2) }}</p>
+                                <p class="text-sm font-space font-bold uppercase tracking-wider text-[#888888]">Price</p>
+                                <p class="mt-1 text-2xl font-bold text-[#006a38]">Rs. {{ number_format($product->price ?? 0, 2) }}</p>
                             </div>
                             <div>
-                                <p class="text-sm text-neutral-500 uppercase tracking-wide">Posted</p>
-                                <p class="mt-1 text-sm">{{ $product->created_at->format('M j, Y \a\t H:i') }}</p>
+                                <p class="text-sm font-space font-bold uppercase tracking-wider text-[#888888]">Posted</p>
+                                <p class="mt-1 font-manrope text-sm text-[#444746]">{{ $product->created_at->format('M j, Y \a\t H:i') }}</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="border-t pt-4">
-                        <p class="text-sm text-neutral-500 uppercase tracking-wide">Listing Type</p>
+                    <div class="bg-[#f3f3f3] p-4">
+                        <p class="text-sm font-space font-bold uppercase tracking-wider text-[#888888]">Listing Type</p>
                         <div class="mt-2 flex flex-wrap gap-2">
                             @if($product->type)
                                 @foreach((array) $product->type as $type)
-                                    <span class="badge bg-blue-100 text-blue-700">{{ ucfirst($type) }}</span>
+                                    <span class="font-space text-xs font-bold uppercase tracking-widest border-2 border-blue-300 bg-blue-50 text-blue-700">{{ ucfirst($type) }}</span>
                                 @endforeach
                             @endif
                         </div>
@@ -81,17 +81,17 @@
 
                     <!-- Images -->
                     @if($product->images || $product->image)
-                    <div class="border-t pt-4">
-                        <p class="text-sm text-neutral-500 uppercase tracking-wide mb-3">Images</p>
+                    <div class="bg-[#f3f3f3] p-4">
+                        <p class="text-sm font-space font-bold uppercase tracking-wider text-[#888888] mb-3">Images</p>
                         <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
                             @if($product->image)
-                            <div class="overflow-hidden rounded border border-neutral-200">
+                            <div class="overflow-hidden border-2 border-[#bdbdbd]">
                                 <img src="{{ asset('storage/' . $product->image) }}" alt="Cover" class="h-32 w-full object-cover">
                             </div>
                             @endif
                             @if($product->images)
                                 @foreach((array) $product->images as $image)
-                                <div class="overflow-hidden rounded border border-neutral-200">
+                                <div class="overflow-hidden border-2 border-[#bdbdbd]">
                                     <img src="{{ asset('storage/' . $image) }}" alt="Product" class="h-32 w-full object-cover">
                                 </div>
                                 @endforeach
@@ -112,21 +112,21 @@
                 <div class="space-y-3 pb-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <p class="text-sm text-neutral-500 uppercase tracking-wide">Rent Fare</p>
+                            <p class="font-space text-sm font-bold uppercase tracking-wider text-[#888888]">Rent Fare</p>
                             <p class="mt-1 font-semibold">Rs. {{ number_format($rentalInfo->rent_fare ?? 0, 2) }}/{{ $rentalInfo->rent_type ?? 'day' }}</p>
                         </div>
                         <div>
-                            <p class="text-sm text-neutral-500 uppercase tracking-wide">Security Deposit</p>
+                            <p class="font-space text-sm font-bold uppercase tracking-wider text-[#888888]">Security Deposit</p>
                             <p class="mt-1 font-semibold">Rs. {{ number_format($rentalInfo->rent_deposit ?? 0, 2) }}</p>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <p class="text-sm text-neutral-500 uppercase tracking-wide">From</p>
+                            <p class="font-space text-sm font-bold uppercase tracking-wider text-[#888888]">From</p>
                             <p class="mt-1">{{ $rentalInfo->available_from?->format('M j, Y') ?? 'N/A' }}</p>
                         </div>
                         <div>
-                            <p class="text-sm text-neutral-500 uppercase tracking-wide">Available Duration</p>
+                            <p class="font-space text-sm font-bold uppercase tracking-wider text-[#888888]">Available Duration</p>
                             <p class="mt-1">{{ $rentalInfo->available_duration ? $rentalInfo->available_duration . ' day(s)' : 'N/A' }}</p>
                         </div>
                     </div>
@@ -139,8 +139,8 @@
             <div class="surface-card p-6">
                 <h2 class="mb-4 text-xl font-bold">Buy Orders ({{ $product->orders->count() }})</h2>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-neutral-100 text-neutral-700 uppercase text-xs tracking-[0.12em]">
+                    <table class="editorial-table">
+                        <thead>
                             <tr>
                                 <th class="p-3 text-left">Buyer</th>
                                 <th class="p-3 text-left">Quantity</th>
@@ -149,7 +149,7 @@
                                 <th class="p-3 text-left">Date</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-neutral-200">
+                        <tbody>
                             @foreach($product->orders as $order)
                             <tr>
                                 <td class="p-3 font-semibold">{{ $order->buyer?->name ?? 'Unknown' }}</td>
@@ -160,7 +160,7 @@
                                         {{ ucfirst($order->status) }}
                                     </span>
                                 </td>
-                                <td class="p-3 text-sm text-neutral-600">{{ $order->created_at?->format('M j, Y') }}</td>
+                                <td class="p-3 font-manrope text-sm text-[#444746]">{{ $order->created_at?->format('M j, Y') }}</td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -173,19 +173,19 @@
             @if($reviews->count() > 0)
             <div class="surface-card p-6">
                 <h2 class="mb-4 text-xl font-bold">Reviews ({{ $reviews->count() }})</h2>
-                <div class="space-y-4">
+                <div class="editorial-list">
                     @foreach($reviews as $review)
-                    <div class="border-b py-3 last:border-b-0">
+                    <div class="bg-[#f3f3f3] px-4 py-3">
                         <div class="flex items-start justify-between gap-3">
                             <div>
                                 <p class="font-semibold">{{ $review->reviewer?->name ?? 'Anonymous' }}</p>
-                                <p class="text-sm text-neutral-600">{{ $review->created_at?->format('M j, Y') }}</p>
+                                <p class="font-manrope text-sm text-[#444746]">{{ $review->created_at?->format('M j, Y') }}</p>
                             </div>
                             <div class="text-right">
                                 <p class="text-sm font-semibold">★ {{ $review->rating }}/5</p>
                             </div>
                         </div>
-                        <p class="mt-2 text-neutral-700">{{ $review->body ?: 'No comment provided.' }}</p>
+                        <p class="mt-2 font-manrope text-[#1a1c1c]">{{ $review->body ?: 'No comment provided.' }}</p>
                     </div>
                     @endforeach
                 </div>
@@ -196,14 +196,14 @@
             @if($disputes->count() > 0)
             <div class="surface-card border-2 border-red-200 p-6">
                 <h2 class="mb-4 text-xl font-bold text-red-700">Disputes ({{ $disputes->count() }})</h2>
-                <div class="space-y-4">
+                <div class="editorial-list">
                     @foreach($disputes as $dispute)
-                    <div class="border-b border-red-100 py-3 last:border-b-0">
+                    <div class="bg-red-50 px-4 py-3">
                         <div class="flex items-start justify-between gap-3">
                             <div>
                                 <p class="font-semibold">{{ $dispute->reporter?->name ?? 'Unknown' }}</p>
-                                <p class="text-sm text-neutral-600">{{ $dispute->subject }}</p>
-                                <p class="mt-1 text-sm text-neutral-700">{{ $dispute->description }}</p>
+                                <p class="font-manrope text-sm text-[#444746]">{{ $dispute->subject }}</p>
+                                <p class="mt-1 font-manrope text-sm text-[#1a1c1c]">{{ $dispute->description }}</p>
                             </div>
                             <span class="badge bg-red-100 text-red-700">{{ ucfirst($dispute->status) }}</span>
                         </div>
@@ -221,8 +221,8 @@
             <div class="surface-card p-6">
                 <h2 class="mb-4 text-xl font-bold">Rental Requests ({{ $rentalRequests->count() }})</h2>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-neutral-100 text-neutral-700 uppercase text-xs tracking-[0.12em]">
+                    <table class="editorial-table">
+                        <thead>
                             <tr>
                                 <th class="p-3 text-left">Requester</th>
                                 <th class="p-3 text-left">Duration</th>
@@ -230,7 +230,7 @@
                                 <th class="p-3 text-left">Date</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-neutral-200">
+                        <tbody>
                             @foreach($rentalRequests as $request)
                             <tr>
                                 <td class="p-3 font-semibold">{{ $request->renter?->name ?? 'Unknown' }}</td>
@@ -240,7 +240,7 @@
                                         {{ ucfirst($request->status) }}
                                     </span>
                                 </td>
-                                <td class="p-3 text-sm text-neutral-600">{{ $request->created_at?->format('M j, Y') }}</td>
+                                <td class="p-3 font-manrope text-sm text-[#444746]">{{ $request->created_at?->format('M j, Y') }}</td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -254,15 +254,15 @@
             <div class="surface-card p-6">
                 <h2 class="mb-4 text-xl font-bold">Swap Requests ({{ $swapRequests->count() }})</h2>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-neutral-100 text-neutral-700 uppercase text-xs tracking-[0.12em]">
+                    <table class="editorial-table">
+                        <thead>
                             <tr>
                                 <th class="p-3 text-left">Requester</th>
                                 <th class="p-3 text-left">Status</th>
                                 <th class="p-3 text-left">Date</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-neutral-200">
+                        <tbody>
                             @foreach($swapRequests as $swap)
                             <tr>
                                 <td class="p-3 font-semibold">{{ $swap->requester?->name ?? 'Unknown' }}</td>
@@ -271,7 +271,7 @@
                                         {{ ucfirst(str_replace('_', ' ', $swap->status)) }}
                                     </span>
                                 </td>
-                                <td class="p-3 text-sm text-neutral-600">{{ $swap->created_at?->format('M j, Y') }}</td>
+                                <td class="p-3 font-manrope text-sm text-[#444746]">{{ $swap->created_at?->format('M j, Y') }}</td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -326,7 +326,7 @@
                         <span class="text-neutral-600">Total Orders:</span>
                         <span class="font-semibold">{{ $product->orders->count() }}</span>
                     </div>
-                    <div class="flex justify-between border-t pt-2">
+                    <div class="flex justify-between pt-2 bg-[var(--reloop-surface-low)] px-2">
                         <span class="text-neutral-600">Reviews:</span>
                         <span class="font-semibold">{{ $reviews->count() }}</span>
                     </div>

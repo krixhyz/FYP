@@ -5,30 +5,12 @@ use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\SwapRequestController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\LocationController;
 
 
 // Route::get('/', function () {
 //     return view('welcome');
 // });
-
-
-
-use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\Auth\RegisterController;
-use App\Http\Controllers\Auth\LogoutController;
-
-Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
-Route::post('/login', [LoginController::class, 'login']);
-
-Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
-Route::post('/register', [RegisterController::class, 'register']);
-
-//Route::post('/logout', [LogoutController::class, 'logout'])->name('logout');
-
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware('auth');
-
 
 use App\Events\MessageSent;
 
@@ -57,8 +39,11 @@ use App\Http\Controllers\PaymentController;
 
  Route::middleware(['auth', 'user_only'])->group(function () {
      Route::post('/order/{product}', [OrderController::class, 'store'])->name('order.store');
+     Route::get('/order/product/{product}/checkout', [OrderController::class, 'checkoutProduct'])->name('order.checkout.product');
+     Route::post('/order/product/{product}/confirm', [PaymentController::class, 'createDirectOrderPayment'])->name('order.confirm.product');
      Route::get('/order/{order}/checkout', [OrderController::class, 'checkout'])->name('order.checkout');
      Route::post('/order/{order}/confirm', [PaymentController::class, 'createOrderPayment'])->name('order.confirm');
+     Route::post('/order/{order}/cancel-checkout', [OrderController::class, 'cancelFromCheckout'])->name('order.cancelCheckout');
  });
 
 
@@ -104,6 +89,7 @@ Route::middleware(['auth', 'user_only'])->group(function () {
 
 Route::get('/payment/esewa/success', [PaymentController::class, 'esewaSuccess'])->name('payments.esewa.success');
 Route::get('/payment/esewa/failure', [PaymentController::class, 'esewaFailure'])->name('payments.esewa.failure');
+Route::get('/payment/khalti/return', [PaymentController::class, 'khaltiReturn'])->name('payments.khalti.return');
 
 
 // Rental routes
@@ -214,6 +200,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::delete('/users/{user}', [AdminController::class, 'userDelete'])->name('users.delete');
     Route::patch('/users/{user}/status', [AdminController::class, 'userStatus'])->name('users.status');
     Route::post('/users/{user}/reset-password', [AdminController::class, 'userResetPassword'])->name('users.resetPassword');
+    Route::post('/locations/cache-clear', [LocationController::class, 'clearCache'])->name('locations.cache.clear');
 
     Route::get('/products', [AdminController::class, 'products'])->name('products');
     Route::patch('/products/{product}/flag', [AdminController::class, 'productFlag'])->name('products.flag');
