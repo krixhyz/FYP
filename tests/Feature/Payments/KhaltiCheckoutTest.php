@@ -8,7 +8,7 @@ use App\Models\Product;
 use App\Models\Rental;
 use App\Models\RentalRequest;
 use App\Models\SwapRequest;
-use App\Models\User;
+use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;

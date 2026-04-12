@@ -19,6 +19,7 @@
             @php
                 $navUnreadCount = auth()->user()->unreadNotifications()->count();
                 $navDropdownNotifs = auth()->user()->notifications()->latest()->take(10)->get();
+                $cartCount = auth()->user()->cartItems()->sum('quantity');
             @endphp
         @endauth
 
@@ -28,9 +29,12 @@
                     <x-nav-link href="{{ route('wishlist.index') }}" :active="request()->routeIs('wishlist.*')">
                         Wishlist
                     </x-nav-link>
-                    <x-nav-link href="{{ route('cart.index') }}" :active="request()->routeIs('cart.*')">
+                    <a href="{{ route('cart.index') }}" class="relative font-space text-xs font-medium uppercase tracking-wider {{ request()->routeIs('cart.*') ? 'text-[#006a38] border-b-2 border-[#006a38]' : 'text-[#444746] hover:text-[#006a38]' }} px-3 py-2 transition-colors">
                         Cart
-                    </x-nav-link>
+                        <span id="cart-count" class="{{ $cartCount > 0 ? '' : 'hidden' }} absolute -top-1 -right-2 bg-[#e2e2e2] text-[#1a1c1c] text-[10px] font-space font-bold px-2 py-0.5">
+                            {{ $cartCount > 0 ? ($cartCount > 99 ? '99+' : $cartCount) : '' }}
+                        </span>
+                    </a>
                 @endif
 
                 <div class="relative" x-data="{ open: false }" @click.outside="open = false">
@@ -140,7 +144,13 @@
             @endauth
             @auth
                 @if(!auth()->user()->isAdmin())
-                    <a href="{{ route('cart.index') }}" class="font-space text-xs font-medium uppercase tracking-wider text-[#444746] px-3 py-2 hover:text-[#006a38]">Cart</a>
+                    <a href="{{ route('cart.index') }}" class="relative font-space text-xs font-medium uppercase tracking-wider text-[#444746] px-3 py-2 hover:text-[#006a38]">Cart
+                        @if($cartCount > 0)
+                            <span class="absolute -top-1 -right-1 bg-[#e2e2e2] text-[#1a1c1c] text-[10px] font-space font-bold px-2 py-0.5">
+                                {{ $cartCount > 99 ? '99+' : $cartCount }}
+                            </span>
+                        @endif
+                    </a>
                 @endif
             @endauth
 

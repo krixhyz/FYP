@@ -136,8 +136,8 @@
                             <span class="font-space font-bold text-xs px-2 py-1 bg-[#f59e0b] text-white">Pending</span>
                         </div>
                         <div class="mt-3 grid grid-cols-2 gap-2">
-                            <form method="POST" action="{{ route('admin.users.status', $candidate) }}" class="w-full">@csrf @method('PATCH')<input type="hidden" name="account_status" value="active"><button class="w-full bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-4 py-2 font-space font-bold text-xs uppercase tracking-wider hover:brightness-110">Verify</button></form>
-                            <form method="POST" action="{{ route('admin.users.status', $candidate) }}" class="w-full">@csrf @method('PATCH')<input type="hidden" name="account_status" value="suspended"><button class="w-full border-2 border-[#006a38] text-[#006a38] px-4 py-2 font-space font-bold text-xs uppercase tracking-wider hover:bg-[rgba(0,106,56,0.06)]">Reject</button></form>
+                            <form method="POST" action="{{ route('admin.users.verify', $candidate) }}" class="w-full">@csrf<button type="submit" class="w-full bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-4 py-2 font-space font-bold text-xs uppercase tracking-wider hover:brightness-110">Verify</button></form>
+                            <form method="POST" action="{{ route('admin.users.status', $candidate) }}" class="w-full">@csrf @method('PATCH')<input type="hidden" name="account_status" value="suspended"><button type="submit" class="w-full border-2 border-[#006a38] text-[#006a38] px-4 py-2 font-space font-bold text-xs uppercase tracking-wider hover:bg-[rgba(0,106,56,0.06)]">Reject</button></form>
                         </div>
                     </article>
                 @empty

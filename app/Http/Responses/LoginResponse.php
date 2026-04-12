@@ -1,37 +1,28 @@
 <?php
 
-namespace App\Http\Middleware;
+namespace App\Http\Responses;
 
-use Closure;
-use Illuminate\Http\Request;
+use Illuminate\Contracts\Auth\StatefulGuard;
+use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 
-class RedirectIfAuthenticated
+class LoginResponse implements LoginResponseContract
 {
     /**
-     * Handle an incoming request.
+     * Create an HTTP response that represents the object.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure  $next
-     * @return mixed
-     */
-    public function handle(Request $request, Closure $next)
-    {
-        // ...existing code...
-
-        return $next($request);
-    }
-
-    /**
-     * Get the response for the given request.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
+     * @return \Symfony\Component\HttpFoundation\Response
      */
     public function toResponse($request)
     {
         $user = $request->user();
-        return redirect()->intended($user->isAdmin()
-            ? route('admin.dashboard')
-            : route('dashboard'));
+        
+        return redirect()->intended(
+            $user->isSuperAdmin()
+                ? route('admin.dashboard')
+                : ($user->isAdmin()
+                    ? route('admin.dashboard')
+                    : route('dashboard'))
+        );
     }
 }

@@ -29,7 +29,7 @@
                             <h3 class="text-xl font-extrabold">{{ $product->title }}</h3>
                             <span class="status-chip status-error {{ $product->flagged ? '' : 'opacity-0' }}">High Priority</span>
                         </div>
-                        <p class="meta-text mt-1">Seller: {{ $product->user?->name ?? 'N/A' }} | Category: {{ ucfirst($product->category ?? 'general') }}</p>
+                        <p class="meta-text mt-1">Seller: {{ $product->user?->name ?? 'N/A' }} | Category: {{ ucfirst($product->category?->name ?? 'general') }}</p>
                     </div>
                 </div>
 

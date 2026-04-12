@@ -10,10 +10,66 @@
             <a href="{{ route('admin.products') }}" class="btn-pill btn-pill-soft !px-3 !py-1">← Back</a>
             <h1 class="font-space text-3xl font-bold text-[#1a1c1c]">{{ $product->title }}</h1>
         </div>
-        <span class="font-space text-xs font-bold uppercase tracking-widest {{ $product->flagged ? 'border-2 border-[#ba1a1a] bg-[#fee2e2] text-[#ba1a1a]' : 'border-2 border-[#10b981] bg-[#d1fae5] text-[#10b981]' }}">
-            {{ $product->flagged ? 'Flagged' : 'Not Flagged' }}
-        </span>
+        <div class="flex items-center gap-2">
+            <span class="font-space text-xs font-bold uppercase tracking-widest {{ $product->flagged ? 'border-2 border-[#ba1a1a] bg-[#fee2e2] text-[#ba1a1a]' : 'border-2 border-[#10b981] bg-[#d1fae5] text-[#10b981]' }}">
+                {{ $product->flagged ? 'Flagged' : 'Not Flagged' }}
+            </span>
+            @if($product->approval_status === 'APPROVED')
+                <span class="font-space text-xs font-bold uppercase tracking-widest border-2 border-[#10b981] bg-[#d1fae5] text-[#10b981]">Approved</span>
+            @elseif($product->approval_status === 'PENDING')
+                <span class="font-space text-xs font-bold uppercase tracking-widest border-2 border-[#f59e0b] bg-[#fef3c7] text-[#b45309]">Pending</span>
+            @elseif($product->approval_status === 'REJECTED')
+                <span class="font-space text-xs font-bold uppercase tracking-widest border-2 border-[#ba1a1a] bg-[#fee2e2] text-[#ba1a1a]">Rejected</span>
+            @endif
+        </div>
     </div>
+
+    <!-- Product Approval Actions (if PENDING) -->
+    @if($product->approval_status === 'PENDING')
+        <div class="surface-card p-6 border-l-4 border-[#f59e0b]">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="font-extrabold text-[#b45309]">Awaiting Approval</p>
+                    <p class="text-sm text-[#888888] mt-1">This product listing is pending approval. Review and approve or reject it.</p>
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" class="btn-pill !px-6 !border-[#10b981] !text-[#10b981] hover:!bg-[#10b981] hover:!text-white" x-data x-on:click="$dispatch('open-modal', { id: 'approve-modal' })">Approve</button>
+                    <button type="button" class="btn-pill !px-6 !border-[#ba1a1a] !text-[#ba1a1a] hover:!bg-[#ba1a1a] hover:!text-white" x-data x-on:click="$dispatch('open-modal', { id: 'reject-modal' })">Reject</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Approve Modal -->
+        <div x-cloak x-data @open-modal.window="open = $event.detail.id === 'approve-modal'" @keydown.escape.window="open = false" x-show="open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div @click.outside="open = false" class="surface-card p-6 max-w-md w-full mx-4">
+                <h3 class="text-xl font-bold mb-4">Approve Product?</h3>
+                <p class="text-sm text-[#888888] mb-6">The seller will be notified that their product "{{ $product->title }}" has been approved.</p>
+                <div class="flex gap-2 justify-end">
+                    <button @click="open = false" class="btn-pill btn-pill-soft !px-6">Cancel</button>
+                    <form action="{{ route('admin.products.approve', $product->id) }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="btn-pill !px-6 !border-[#10b981] !text-[#10b981] hover:!bg-[#10b981] hover:!text-white">Confirm Approval</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reject Modal -->
+        <div x-cloak x-data @open-modal.window="open = $event.detail.id === 'reject-modal'" @keydown.escape.window="open = false" x-show="open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div @click.outside="open = false" class="surface-card p-6 max-w-md w-full mx-4">
+                <h3 class="text-xl font-bold mb-4">Reject Product?</h3>
+                <p class="text-sm text-[#888888] mb-4">Provide an optional reason for rejection. The seller will be notified.</p>
+                <form action="{{ route('admin.products.reject', $product->id) }}" method="POST">
+                    @csrf
+                    <textarea name="reason" placeholder="Optional: Explain why this product is rejected..." class="w-full p-3 bg-[#f3f3f3] border-0 border-b-2 border-gray-400 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 mb-4" rows="3"></textarea>
+                    <div class="flex gap-2 justify-end">
+                        <button type="button" @click="open = false" class="btn-pill btn-pill-soft !px-6">Cancel</button>
+                        <button type="submit" class="btn-pill !px-6 !border-[#ba1a1a] !text-[#ba1a1a] hover:!bg-[#ba1a1a] hover:!text-white">Confirm Rejection</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
 
     <!-- Product Details Grid -->
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -38,7 +94,7 @@
                         </div>
                         <div>
                             <p class="text-sm font-space font-bold uppercase tracking-wider text-[#888888]">Category</p>
-                            <p class="mt-1 capitalize font-semibold">{{ $product->category }}</p>
+                            <p class="mt-1 capitalize font-semibold">{{ $product->category?->name ?? 'General' }}</p>
                         </div>
                         <div>
                             <p class="text-sm font-space font-bold uppercase tracking-wider text-[#888888]">Status</p>
@@ -291,7 +347,7 @@
                         @csrf
                         @method('PATCH')
                         <button type="submit" class="btn-pill w-full justify-center !border-amber-600 !text-amber-600 hover:!bg-amber-600 hover:!text-white">
-                            🚩 Flag Product
+                            Flag Product
                         </button>
                     </form>
                     @else
@@ -299,7 +355,7 @@
                         @csrf
                         @method('PATCH')
                         <button type="submit" class="btn-pill btn-pill-soft w-full justify-center">
-                            ✓ Unflag Product
+                            Unflag Product
                         </button>
                     </form>
                     @endif
@@ -308,12 +364,12 @@
                         @csrf
                         @method('DELETE')
                         <button type="submit" class="btn-pill w-full justify-center !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">
-                            🗑️ Delete Product
+                            Delete Product
                         </button>
                     </form>
 
                     <a href="{{ route('admin.users.show', $product->user) }}" class="btn-pill btn-pill-soft w-full justify-center text-center">
-                        👤 View Seller
+                        View Seller
                     </a>
                 </div>
             </div>

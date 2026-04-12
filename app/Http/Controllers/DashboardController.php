@@ -96,6 +96,13 @@ class DashboardController extends Controller
             'total_earnings' => $salesRevenue + $rentalRevenueOwner,
         ];
 
-        return view('dashboard', compact('sellerMetrics','buyerMetrics','workspaceMetrics','user'));
+        // Eco Score Metrics
+        $ecoMetrics = [
+            'total_eco_score' => $user->getTotalEcoScore(),
+            'current_eco_level' => $user->getCurrentEcoLevel(),
+            'eco_stats' => $user->getEcoStats(),
+        ];
+
+        return view('dashboard', compact('sellerMetrics','buyerMetrics','workspaceMetrics','ecoMetrics','user'));
     }
 }

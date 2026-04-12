@@ -14,9 +14,58 @@
             <div class="flex items-center gap-2">
                 <span class="status-chip {{ $user->role === 'super_admin' ? 'status-info' : ($user->role === 'admin' ? 'status-success' : 'status-neutral') }}">{{ $user->role }}</span>
                 <span class="status-chip {{ ($user->account_status ?? 'active') === 'active' ? 'status-success' : 'status-error' }}">{{ $user->account_status ?? 'active' }}</span>
+                <span class="status-chip {{ $profileStatus === 'VERIFIED' ? 'status-success' : 'status-neutral' }}">{{ $profileStatus === 'VERIFIED' ? 'Verified Seller' : 'Unverified' }}</span>
             </div>
         </div>
     </div>
+
+    <!-- Profile Verification Metrics -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="surface-card p-6">
+            <p class="text-sm font-space font-bold uppercase tracking-widest text-[#888888]">Average Rating</p>
+            <p class="text-3xl font-bold text-[#006a38] mt-2">{{ $averageRating > 0 ? number_format($averageRating, 2) : '-' }}/5</p>
+            <p class="text-xs text-[#888888] mt-1">Based on product reviews</p>
+        </div>
+        <div class="surface-card p-6">
+            <p class="text-sm font-space font-bold uppercase tracking-widest text-[#888888]">Total Disputes</p>
+            <p class="text-3xl font-bold text-[#006a38] mt-2">{{ $totalDisputes }}</p>
+            <p class="text-xs text-[#888888] mt-1">Open, in_review, resolved</p>
+        </div>
+        <div class="surface-card p-6">
+            <p class="text-sm font-space font-bold uppercase tracking-widest text-[#888888]">Total Products</p>
+            <p class="text-3xl font-bold text-[#006a38] mt-2">{{ $totalProducts }}</p>
+            <p class="text-xs text-[#888888] mt-1">All listings</p>
+        </div>
+    </div>
+
+    <!-- Profile Verification Actions -->
+    @if($profileStatus === 'VERIFIED')
+        <div class="surface-card p-6 border-l-4 border-[#10b981]">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="font-extrabold text-[#006a38]">Profile Verified</p>
+                    <p class="text-sm text-[#888888] mt-1">This user's profile has been verified and their new products are approved instantly.</p>
+                </div>
+                <form action="{{ route('admin.users.revokeVerification', $user->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to revoke verification?')">
+                    @csrf
+                    <button type="submit" class="btn-pill !px-6 !border-[#ba1a1a] !text-[#ba1a1a] hover:!bg-[#ba1a1a] hover:!text-white whitespace-nowrap">Revoke</button>
+                </form>
+            </div>
+        </div>
+    @else
+        <div class="surface-card p-6 border-l-4 border-[#d97706]">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="font-extrabold text-[#ca8a04]">Profile Unverified</p>
+                    <p class="text-sm text-[#888888] mt-1">This user needs verification. Their products require manual approval. Rating: {{ $averageRating > 0 ? number_format($averageRating, 2) : '—'  }}, Disputes: {{ $totalDisputes }}</p>
+                </div>
+                <form action="{{ route('admin.users.verify', $user->id) }}" method="POST">
+                    @csrf
+                    <button type="submit" class="btn-pill !px-6 !border-[#10b981] !text-[#10b981] hover:!bg-[#10b981] hover:!text-white whitespace-nowrap">Verify Now</button>
+                </form>
+            </div>
+        </div>
+    @endif
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="surface-card lg:col-span-2">
@@ -26,7 +75,7 @@
                     <li class="bg-white p-4 border-b border-[rgba(189,202,189,0.2)] flex items-center justify-between">
                         <div>
                             <p class="font-medium">{{ $product->title }}</p>
-                            <p class="text-xs text-[#888888]">{{ $product->category }} | {{ $product->status }}</p>
+                            <p class="text-xs text-[#888888]">{{ $product->category?->name ?? 'General' }} | {{ $product->status }}</p>
                         </div>
                         <span class="text-sm text-[#1a1c1c] font-semibold">Rs. {{ number_format((float)$product->price, 2) }}</span>
                     </li>

@@ -31,6 +31,43 @@
 
         <form method="POST" action="{{ route('swap.pay', $swapRequest) }}" class="space-y-6">
             @csrf
+            
+            <!-- Buyer Details Section -->
+            <div class="mb-6 p-6 bg-[#f3f3f3]">
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-4">Delivery Details</p>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="buyer_name" class="block font-manrope text-sm font-medium text-[#1a1c1c] mb-2">Full Name *</label>
+                        <input type="text" id="buyer_name" name="buyer_name" value="{{ old('buyer_name', Auth::user()->name) }}" required class="w-full px-4 py-2 border-2 border-gray-300 font-manrope text-sm focus:border-[#006a38] focus:outline-none">
+                        @error('buyer_name')
+                            <p class="font-manrope text-xs text-[#ba1a1a] mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="buyer_phone" class="block font-manrope text-sm font-medium text-[#1a1c1c] mb-2">Phone Number</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2 font-manrope text-sm text-[#666666] pointer-events-none">+977</span>
+                            <input type="tel" id="buyer_phone" name="buyer_phone" value="{{ old('buyer_phone') ? substr(preg_replace('/[^0-9]+/', '', old('buyer_phone', Auth::user()->phone_number ?? '')), -10) : substr(preg_replace('/[^0-9]+/', '', Auth::user()->phone_number ?? ''), -10) }}" placeholder="10 digits" maxlength="10" pattern="[0-9]{10}" class="w-full px-4 py-2 pl-14 border-2 border-gray-300 font-manrope text-sm focus:border-[#006a38] focus:outline-none" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)">
+                        </div>
+                        @error('buyer_phone')
+                            <p class="font-manrope text-xs text-[#ba1a1a] mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="buyer_email" class="block font-manrope text-sm font-medium text-[#1a1c1c] mb-2">Email Address *</label>
+                        <input type="email" id="buyer_email" name="buyer_email" value="{{ old('buyer_email', Auth::user()->email) }}" required class="w-full px-4 py-2 border-2 border-gray-300 font-manrope text-sm focus:border-[#006a38] focus:outline-none">
+                        @error('buyer_email')
+                            <p class="font-manrope text-xs text-[#ba1a1a] mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label for="buyer_address" class="block font-manrope text-sm font-medium text-[#1a1c1c] mb-2">Delivery Address (Auto-filled)</label>
+                        <input type="hidden" id="buyer_address" name="buyer_address" value="{{ Auth::user()->province?->name }}, {{ Auth::user()->city?->name }}">
+                        <p class="w-full px-4 py-2 border-2 border-gray-300 font-manrope text-sm bg-gray-100 text-gray-700 rounded">{{ Auth::user()->province?->name }}, {{ Auth::user()->city?->name }}</p>
+                    </div>
+                </div>
+            </div>
+
             <div class="space-y-3">
                 <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Choose Payment Method</p>
                 <label class="flex items-center gap-3 bg-[#f3f3f3] px-4 py-3 cursor-pointer hover:bg-[#e8e8e8]">

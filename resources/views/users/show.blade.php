@@ -11,6 +11,9 @@
                     @if($user->email_verified_at)
                         <span class="status-chip status-success">Verified</span>
                     @endif
+                    @if($user->profile_status === 'VERIFIED')
+                        <span class="bg-[#d1fae5] text-[#065f46] text-xs font-space font-bold uppercase tracking-[0.05em] px-3 py-1 rounded-full">★ Verified Seller</span>
+                    @endif
                 </div>
 
                 <div class="mb-3 flex flex-wrap items-center gap-2 text-[var(--reloop-ink-soft)]">
@@ -24,7 +27,17 @@
                     <span class="text-sm">({{ $reviewsCount }} {{ \Illuminate\Support\Str::plural('review', $reviewsCount) }})</span>
                 </div>
 
-                <p class="text-sm text-[var(--reloop-ink-soft)]">{{ $location ?: 'Location not specified' }}</p>
+                <p class="text-sm text-[var(--reloop-ink-soft)]">
+                    @if ($user->city && $user->province)
+                        {{ $user->city->name }}, {{ $user->province->name }}
+                    @elseif ($user->city)
+                        {{ $user->city->name }}
+                    @elseif ($user->province)
+                        {{ $user->province->name }}
+                    @else
+                        Location not specified
+                    @endif
+                </p>
             </div>
         </div>
     </section>

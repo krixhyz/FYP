@@ -1,26 +1,31 @@
-@extends('layouts.app')
+@extends('layouts.dashboard')
 
 @section('content')
-<div class="max-w-4xl mx-auto px-8 md:px-16 py-12 space-y-8">
-    <section class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)] p-6 md:p-8">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">Activity Feed</p>
-                <h1 class="font-space font-bold text-3xl text-[#1a1c1c]">Notifications</h1>
-            </div>
-            @if($notifications->where('read_at', null)->count())
-                <form method="POST" action="{{ route('notifications.markAllRead') }}">
-                    @csrf
-                    <button type="submit" class="bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-4 py-2 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110">Mark all as read</button>
-                </form>
-            @endif
+<!-- Header Section -->
+<section class="px-0 md:px-8 py-8">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <p class="font-space text-[12px] font-bold uppercase tracking-widest text-[#888] mb-2">Activity Feed</p>
+            <h1 class="font-space font-bold text-4xl text-[#1a1c1c]">Notifications</h1>
         </div>
-    </section>
+        @if($notifications->where('read_at', null)->count())
+            <form method="POST" action="{{ route('notifications.markAllRead') }}">
+                @csrf
+                <button type="submit" class="bg-[#006a38] text-white px-4 py-2 font-space font-bold text-[10px] uppercase tracking-wider hover:bg-[#004a29] transition-all">Mark all as read</button>
+            </form>
+        @endif
+    </div>
+</section>
 
+<!-- Notifications List -->
+<section class="px-0 md:px-8 py-6">
     @if($notifications->isEmpty())
-        <div id="notification-empty-state" class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)] p-12 text-center">
-            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">No notifications yet</p>
-            <p class="font-manrope text-xs text-[#888888] mt-1">New updates will appear here.</p>
+        <div id="notification-empty-state" class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-12 text-center">
+            <svg class="w-16 h-16 text-[#ccc] mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+            </svg>
+            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888]">No notifications yet</p>
+            <p class="font-manrope text-sm text-[#888] mt-2">New updates will appear here.</p>
         </div>
     @else
         <div id="notification-page-list" class="space-y-3">
@@ -60,8 +65,8 @@
                     $icon = $iconMap[$type] ?? ['bg' => 'bg-[#f3f4f6]', 'text' => 'text-[#374151]', 'label' => 'N'];
                 @endphp
 
-                <div class="group relative flex items-start gap-4 p-4 {{ $isUnread ? 'bg-[#f3f3f3]' : 'bg-white' }} shadow-[0_20px_40px_rgba(26,28,28,0.06)]" data-id="{{ $notification->id }}">
-                    <div class="shrink-0 flex h-10 min-w-10 items-center justify-center text-[10px] font-bold uppercase tracking-[0.08em] {{ $icon['bg'] }} {{ $icon['text'] }}">
+                <div class="group relative flex items-start gap-4 p-4 {{ $isUnread ? 'bg-[#f9f9f9] border-l-4 border-l-[#006a38]' : 'bg-white' }} border border-[rgba(189,202,189,0.1)] rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] hover:shadow-[0_8px_12px_rgba(0,0,0,0.1)] transition-all" data-id="{{ $notification->id }}">
+                    <div class="shrink-0 flex h-10 min-w-10 items-center justify-center text-[10px] font-bold uppercase tracking-[0.08em] rounded {{ $icon['bg'] }} {{ $icon['text'] }}">
                         {{ $icon['label'] }}
                     </div>
 
@@ -69,14 +74,17 @@
                         <div class="flex items-start justify-between gap-2">
                             <p class="font-manrope text-sm {{ $isUnread ? 'font-bold text-[#1a1c1c]' : 'text-[#444746]' }}">{{ $message }}</p>
                             @if($isUnread)
-                                <span class="shrink-0 bg-[#006a38] px-2 py-0.5 text-[10px] font-space font-bold uppercase tracking-widest text-white">New</span>
+                                <span class="shrink-0 bg-[#006a38] px-2 py-0.5 text-[10px] font-space font-bold uppercase tracking-widest text-white rounded">New</span>
                             @endif
                         </div>
-                        <p class="font-manrope text-xs text-[#888888] mt-1">{{ $notification->created_at->diffForHumans() }}</p>
+                        <p class="font-manrope text-xs text-[#888] mt-1">{{ $notification->created_at->diffForHumans() }}</p>
 
-                        <div class="mt-2 flex items-center gap-3">
+                        <div class="mt-3 flex items-center gap-3">
+                            @if($canView)
+                                <a href="{{ $redirectUrl }}" class="text-xs font-space font-bold text-[#006a38] hover:text-[#004a29] transition-colors" onclick="markNotifReadAndGo(event, '{{ $notification->id }}', '{{ $redirectUrl }}')">View</a>
+                            @endif
                             @if($isUnread)
-                                <button type="button" onclick="markNotifReadOnly(event, '{{ $notification->id }}', this)" class="font-manrope text-xs text-[#888888] hover:text-[#444746]">Mark as read</button>
+                                <button type="button" onclick="markNotifReadOnly(event, '{{ $notification->id }}', this)" class="font-manrope text-xs text-[#888] hover:text-[#1a1c1c] transition-colors">Mark as read</button>
                             @endif
                         </div>
                     </div>
@@ -85,10 +93,12 @@
         </div>
 
         @if($notifications->hasPages())
-            <div class="mt-8">{{ $notifications->links() }}</div>
+            <div class="mt-8 px-0 md:px-8">{{ $notifications->links() }}</div>
         @endif
     @endif
-</div>
+</section>
+
+<div class="h-8"></div>
 
 <script>
 const MARK_READ_URL = '{{ route('notifications.markRead') }}';
@@ -102,7 +112,7 @@ function prependNotificationToPage(message, redirectUrl, id, type = 'general') {
             empty.remove();
             list = document.createElement('div');
             list.id = 'notification-page-list';
-            list.className = 'space-y-3';
+            list.className = 'space-y-3 px-0 md:px-8 py-6';
             const wrapper = document.querySelector('.max-w-4xl.space-y-8');
             if (wrapper) wrapper.appendChild(list);
         }
@@ -123,24 +133,24 @@ function prependNotificationToPage(message, redirectUrl, id, type = 'general') {
     const label = iconMap[type] ?? 'N';
 
     const card = document.createElement('div');
-    card.className = 'group relative flex items-start gap-4 p-4 bg-[#f3f3f3] shadow-[0_20px_40px_rgba(26,28,28,0.06)]';
+    card.className = 'group relative flex items-start gap-4 p-4 bg-[#f9f9f9] border-l-4 border-l-[#006a38] border border-[rgba(189,202,189,0.1)] rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)]';
 
     const safeMessage = escapeHtml(message || 'Notification');
     const isViewable = redirectUrl && redirectUrl !== '#';
 
     card.innerHTML = `
-        <div class="shrink-0 flex h-10 min-w-10 items-center justify-center text-[10px] font-bold uppercase tracking-[0.08em] bg-[#f3f4f6] text-[#374151]">${label}</div>
+        <div class="shrink-0 flex h-10 min-w-10 items-center justify-center text-[10px] font-bold uppercase tracking-[0.08em] bg-[#f3f4f6] text-[#374151] rounded">${label}</div>
         <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-2">
                 <p class="text-sm font-bold text-[#1a1c1c] font-manrope">${safeMessage}</p>
-                <span class="shrink-0 bg-[#006a38] px-2 py-0.5 text-[10px] font-space font-bold uppercase tracking-widest text-white">New</span>
+                <span class="shrink-0 bg-[#006a38] px-2 py-0.5 text-[10px] font-space font-bold uppercase tracking-widest text-white rounded">New</span>
             </div>
-            <p class="text-xs text-[#888888] mt-1 font-manrope">just now</p>
-            <div class="mt-2 flex items-center gap-3">
+            <p class="text-xs text-[#888] mt-1 font-manrope">just now</p>
+            <div class="mt-3 flex items-center gap-3">
                 ${isViewable
-                    ? `<a href="${redirectUrl}" class="text-xs font-manrope font-bold text-[#006a38]" onclick="markNotifReadAndGo(event, '${id}', '${redirectUrl}')">View</a>`
-                    : `<span class="text-xs font-manrope font-medium text-[#ccc] cursor-not-allowed">View</span>`}
-                <button type="button" class="text-xs font-manrope text-[#888888] hover:text-[#444746]" onclick="markNotifReadOnly(event, '${id}', this)">Mark as read</button>
+                    ? `<a href="${redirectUrl}" class="text-xs font-space font-bold text-[#006a38] hover:text-[#004a29]" onclick="markNotifReadAndGo(event, '${id}', '${redirectUrl}')">View</a>`
+                    : ``}
+                <button type="button" class="text-xs font-manrope text-[#888] hover:text-[#1a1c1c]" onclick="markNotifReadOnly(event, '${id}', this)">Mark as read</button>
             </div>
         </div>
     `;
@@ -166,11 +176,12 @@ function markNotifReadOnly(e, id, btn) {
     }).then(r => r.json()).then(() => {
         const card = btn.closest('[data-id]');
         if (card) {
-            card.classList.remove('bg-[#f3f3f3]');
+            card.classList.remove('bg-[#f9f9f9]', 'border-l-4', 'border-l-[#006a38]');
             card.classList.add('bg-white');
             const msgEl = card.querySelector('p');
-            if (msgEl) { msgEl.classList.remove('font-bold', 'text-[#1a1c1c]'); msgEl.classList.add('text-[#444746]'); }
-            card.querySelector('.bg-[#006a38]')?.remove();
+            if (msgEl && msgEl.textContent.trim().length > 0) { msgEl.classList.remove('font-bold', 'text-[#1a1c1c]'); msgEl.classList.add('text-[#444746]'); }
+            const newBadge = card.querySelector('.bg-\\[\\#006a38\\]');
+            if (newBadge) newBadge.remove();
         }
         btn.remove();
     });

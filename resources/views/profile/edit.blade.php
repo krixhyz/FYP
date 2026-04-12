@@ -1,29 +1,53 @@
-@extends('layouts.app')
+@extends('layouts.dashboard')
 
 @section('content')
-<div class="mx-auto max-w-5xl space-y-6">
-    <section class="surface-card-strong p-6 sm:p-8">
-        <p class="section-kicker">Account</p>
-        <h1 class="section-title mt-1">Profile Settings</h1>
-        <p class="meta-text mt-2">Manage account details, password, and account lifecycle controls.</p>
-    </section>
+<!-- Header Section -->
+<section class="px-0 md:px-8 py-8">
+    <div>
+        <p class="font-space text-[12px] font-bold uppercase tracking-widest text-[#888] mb-2">Account Management</p>
+        <h1 class="font-space font-bold text-4xl text-[#1a1c1c] mb-2">Profile Settings</h1>
+        <p class="font-manrope text-base text-[#444746]">Manage your account details, password, and security settings.</p>
+    </div>
+</section>
 
-    <section class="surface-card p-6 sm:p-8">
+<!-- Profile Information Card -->
+<section class="px-0 md:px-8 py-6">
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6 md:p-8">
+        <div class="mb-6 pb-6 border-b border-[rgba(189,202,189,0.1)]">
+            <p class="font-space text-[12px] font-bold uppercase tracking-widest text-[#888] mb-2">Personal Information</p>
+            <h2 class="font-space font-bold text-2xl text-[#1a1c1c]">Profile Information</h2>
+        </div>
         <div class="max-w-2xl">
             @include('profile.partials.update-profile-information-form')
         </div>
-    </section>
+    </div>
+</section>
 
-    <section class="surface-card p-6 sm:p-8">
+<!-- Password Management Card -->
+<section class="px-0 md:px-8 py-6">
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6 md:p-8">
+        <div class="mb-6 pb-6 border-b border-[rgba(189,202,189,0.1)]">
+            <p class="font-space text-[12px] font-bold uppercase tracking-widest text-[#888] mb-2">Security</p>
+            <h2 class="font-space font-bold text-2xl text-[#1a1c1c]">Update Password</h2>
+        </div>
         <div class="max-w-2xl">
             @include('profile.partials.update-password-form')
         </div>
-    </section>
+    </div>
+</section>
 
-    <section class="surface-card p-6 sm:p-8">
+<!-- Account Deletion Card -->
+<section class="px-0 md:px-8 py-6">
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] border-l-4 border-l-[#d97706] p-6 md:p-8">
+        <div class="mb-6 pb-6 border-b border-[rgba(189,202,189,0.1)]">
+            <p class="font-space text-[12px] font-bold uppercase tracking-widest text-[#d97706] mb-2">Danger Zone</p>
+            <h2 class="font-space font-bold text-2xl text-[#1a1c1c]">Delete Account</h2>
+        </div>
         <div class="max-w-2xl">
             @include('profile.partials.delete-user-form')
         </div>
-    </section>
-</div>
+    </div>
+</section>
+
+<div class="h-8"></div>
 @endsection

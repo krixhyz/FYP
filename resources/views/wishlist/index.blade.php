@@ -49,7 +49,7 @@
 
                         <!-- Wishlist Remove Button (top-right) -->
                         <div class="absolute right-3 top-3 z-10">
-                            <form action="{{ route('wishlist.toggle', $product->id) }}" method="POST">
+                            <form action="{{ route('wishlist.toggle', $product->id) }}" method="POST" data-wishlist-action data-product-id="{{ $product->id }}">
                                 @csrf
                                 <button type="submit" title="Remove from wishlist" class="flex h-8 w-8 items-center justify-center bg-[#006a38] text-white hover:brightness-110 transition">
                                     <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">

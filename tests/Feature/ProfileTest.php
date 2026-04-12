@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\City;
 use App\Models\Province;
-use App\Models\User;
+use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

@@ -1,143 +1,150 @@
 /**
- * Cart AJAX Handler
- * Handles add-to-cart, update-quantity, and remove-from-cart via AJAX
- * Shows toast notifications on success/error
+ * Cart Management
+ * Handles AJAX cart operations with real-time badge updates
  */
 
+// Make functions globally accessible
+window.cartModule = {
+    updateBadge: function(count) {
+        // Ensure count is a number
+        const numCount = parseInt(count, 10);
+        
+        const badge = document.getElementById('cart-count');
+        if (!badge) return;
+        
+        if (numCount > 0) {
+            badge.textContent = numCount > 99 ? '99+' : numCount;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+            badge.textContent = '';
+        }
+    },
+    
+    fetchCount: async function() {
+        try {
+            const response = await fetch('/cart/count', {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                this.updateBadge(data.count);
+            }
+        } catch (error) {
+            console.error('[Cart] Fetch count error:', error);
+        }
+    }
+};
+
+// Setup handlers on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Store add-to-cart forms
-    document.querySelectorAll('form[data-cart-action="add"]').forEach(form => {
-        form.addEventListener('submit', handleAddToCartSubmit);
-    });
-
-    // Cart index update forms
-    document.querySelectorAll('form[data-cart-action="update"]').forEach(form => {
-        form.addEventListener('submit', handleCartUpdateSubmit);
-    });
-
-    // Cart index remove forms
-    document.querySelectorAll('form[data-cart-action="remove"]').forEach(form => {
-        form.addEventListener('submit', handleCartRemoveSubmit);
-    });
-
-    // Cart checkout update forms
-    document.querySelectorAll('form[data-cart-action="checkout-update"]').forEach(form => {
-        form.addEventListener('submit', handleCheckoutUpdateSubmit);
-    });
+    // Initial load on page load
+    window.cartModule.fetchCount();
+    
+    // Setup all cart forms
+    setupFormHandlers();
 });
 
-/**
- * Handle add-to-cart form submission
- */
-async function handleAddToCartSubmit(e) {
-    e.preventDefault();
-
-    const form = e.target;
-    const formData = new FormData(form);
-
-    // Add Accept header to get JSON response
-    try {
-        const response = await fetch(form.action, {
-            method: form.method,
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-                'Accept': 'application/json',
-            },
-            body: formData,
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-            showCartSuccessToast(data.message);
-        } else {
-            showCartErrorToast(data.message || 'Failed to add to cart');
-        }
-    } catch (error) {
-        console.error('Cart error:', error);
-        showCartErrorToast('An error occurred. Please try again.');
-    }
-}
-
-/**
- * Handle cart item update (quantity change)
- */
-async function handleCartUpdateSubmit(e) {
-    e.preventDefault();
-
-    const form = e.target;
-    const formData = new FormData(form);
-
-    try {
-        const response = await fetch(form.action, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-                'Accept': 'application/json',
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams(formData),
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-            showCartSuccessToast(data.message);
-        } else {
-            showCartErrorToast(data.message || 'Failed to update cart');
-        }
-    } catch (error) {
-        console.error('Cart error:', error);
-        showCartErrorToast('An error occurred. Please try again.');
-    }
-}
-
-/**
- * Handle cart item removal
- */
-async function handleCartRemoveSubmit(e) {
-    e.preventDefault();
-
-    const form = e.target;
-    const formData = new FormData(form);
-
-    try {
-        const response = await fetch(form.action, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-                'Accept': 'application/json',
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-HTTP-Method-Override': 'DELETE',
-            },
-            body: new URLSearchParams(formData),
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-            showCartSuccessToast(data.message);
-            // Remove the item row from DOM
-            const itemRow = form.closest('[data-cart-item]');
-            if (itemRow) {
-                itemRow.style.opacity = '0';
-                itemRow.style.transform = 'translateX(100px)';
-                setTimeout(() => itemRow.remove(), 300);
+function setupFormHandlers() {
+    // Add to cart
+    document.querySelectorAll('form[data-cart-action="add"]').forEach(form => {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            try {
+                const response = await fetch(form.action, {
+                    method: form.method,
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                        'Accept': 'application/json',
+                    },
+                    body: new FormData(form),
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.cartCount !== undefined) {
+                    if (window.toastr) window.toastr.success(data.message);
+                    window.cartModule.updateBadge(data.cartCount);
+                } else {
+                    if (window.toastr) window.toastr.error(data.message || 'Error');
+                }
+            } catch (error) {
+                console.error('[Cart] Add error:', error);
+                if (window.toastr) window.toastr.error('Error adding to cart');
             }
-        } else {
-            showCartErrorToast(data.message || 'Failed to remove from cart');
-        }
-    } catch (error) {
-        console.error('Cart error:', error);
-        showCartErrorToast('An error occurred. Please try again.');
-    }
-}
-
-/**
- * Handle checkout page quantity updates (pure form submission, no AJAX)
- */
-async function handleCheckoutUpdateSubmit(e) {
-    // Keep this as regular form submission since checkout page handles it server-side
-    // Just show toast on redirect (handled by form action)
-    return true;
+        });
+    });
+    
+    // Update quantity
+    document.querySelectorAll('form[data-cart-action="update"]').forEach(form => {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams(new FormData(form)),
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.cartCount !== undefined) {
+                    if (window.toastr) window.toastr.success(data.message);
+                    window.cartModule.updateBadge(data.cartCount);
+                } else {
+                    if (window.toastr) window.toastr.error(data.message || 'Error');
+                }
+            } catch (error) {
+                console.error('[Cart] Update error:', error);
+                if (window.toastr) window.toastr.error('Error updating cart');
+            }
+        });
+    });
+    
+    // Remove from cart
+    document.querySelectorAll('form[data-cart-action="remove"]').forEach(form => {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-HTTP-Method-Override': 'DELETE',
+                    },
+                    body: new URLSearchParams(new FormData(form)),
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.cartCount !== undefined) {
+                    if (window.toastr) window.toastr.success(data.message);
+                    window.cartModule.updateBadge(data.cartCount);
+                    
+                    // Remove row if present
+                    const row = form.closest('[data-cart-item]');
+                    if (row) {
+                        row.style.opacity = '0';
+                        setTimeout(() => row.remove(), 300);
+                    }
+                } else {
+                    if (window.toastr) window.toastr.error(data.message || 'Error');
+                }
+            } catch (error) {
+                console.error('[Cart] Remove error:', error);
+                if (window.toastr) window.toastr.error('Error removing from cart');
+            }
+        });
+    });
 }

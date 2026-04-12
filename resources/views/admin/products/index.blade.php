@@ -14,6 +14,7 @@
                     <th class="p-3 text-left">Title</th>
                     <th class="p-3 text-left">Owner</th>
                     <th class="p-3 text-left">Flagged</th>
+                    <th class="p-3 text-left">Approval</th>
                     <th class="p-3 text-left">Actions</th>
                 </tr>
             </thead>
@@ -27,6 +28,15 @@
                                 <span class="status-chip status-error">Yes</span>
                             @else
                                 <span class="status-chip status-neutral">No</span>
+                            @endif
+                        </td>
+                        <td class="p-3">
+                            @if($product->approval_status === 'APPROVED')
+                                <span class="status-chip status-success">Approved</span>
+                            @elseif($product->approval_status === 'PENDING')
+                                <span class="status-chip status-neutral">Pending</span>
+                            @elseif($product->approval_status === 'REJECTED')
+                                <span class="status-chip status-error">Rejected</span>
                             @endif
                         </td>
                         <td class="p-3">

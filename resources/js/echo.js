@@ -113,33 +113,79 @@ function stopPollingFallback() {
  * @param {string}      message      Text to show.
  * @param {string|null} redirectUrl  Where to navigate when clicked.
  * @param {string|null} notifId      Database notification UUID (for mark-read).
+ * @param {string}      type         Notification type: 'info', 'success', 'error', 'warning' (default: 'info').
  */
-function showToast(message, redirectUrl = null, notifId = null) {
+function showToast(message, redirectUrl = null, notifId = null, type = 'info') {
     const container = getOrCreateToastContainer();
+
+    // Define type-specific styling and icons
+    const typeConfig = {
+        success: {
+            bgColor: 'bg-green-50',
+            iconBg: 'bg-green-100 text-green-600',
+            borderColor: 'border-green-200',
+            textColor: 'text-green-900',
+            linkColor: 'text-green-600',
+            icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>`
+        },
+        error: {
+            bgColor: 'bg-red-50',
+            iconBg: 'bg-red-100 text-red-600',
+            borderColor: 'border-red-200',
+            textColor: 'text-red-900',
+            linkColor: 'text-red-600',
+            icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>`
+        },
+        warning: {
+            bgColor: 'bg-amber-50',
+            iconBg: 'bg-amber-100 text-amber-600',
+            borderColor: 'border-amber-200',
+            textColor: 'text-amber-900',
+            linkColor: 'text-amber-600',
+            icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>`
+        },
+        info: {
+            bgColor: 'bg-blue-50',
+            iconBg: 'bg-blue-100 text-blue-600',
+            borderColor: 'border-blue-200',
+            textColor: 'text-blue-900',
+            linkColor: 'text-blue-600',
+            icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+            </svg>`
+        }
+    };
+
+    const config = typeConfig[type] || typeConfig['info'];
 
     const toast = document.createElement('div');
     toast.className = [
         'toast-item',
         'flex items-start gap-3',
-        'rounded-2xl shadow-lg border border-gray-200',
-        'bg-white px-4 py-3 max-w-sm w-full',
+        'rounded-2xl shadow-lg border',
+        config.borderColor,
+        config.bgColor,
+        'px-4 py-3 max-w-sm w-full',
         'cursor-pointer select-none',
         'transition-all duration-300 ease-out',
         'opacity-0 translate-y-2',
     ].join(' ');
 
     toast.innerHTML = `
-        <div class="shrink-0 mt-0.5 h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-            </svg>
+        <div class="shrink-0 mt-0.5 h-8 w-8 rounded-full ${config.iconBg} flex items-center justify-center">
+            ${config.icon}
         </div>
         <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900 leading-snug line-clamp-3">${escapeHtml(message)}</p>
-            ${redirectUrl ? '<p class="text-xs text-blue-600 mt-0.5">Click to view →</p>' : ''}
+            <p class="text-sm font-medium ${config.textColor} leading-snug line-clamp-3">${escapeHtml(message)}</p>
+            ${redirectUrl ? `<p class="text-xs ${config.linkColor} mt-0.5">Click to view →</p>` : ''}
         </div>
-        <button class="toast-close shrink-0 text-gray-400 hover:text-gray-600 ml-1 -mt-0.5"
+        <button class="toast-close shrink-0 ${config.textColor} opacity-40 hover:opacity-70 ml-1 -mt-0.5 transition-opacity"
                 aria-label="Dismiss">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -386,7 +432,8 @@ function hasNotificationInDom(id) {
     );
 }
 
-// Expose cart notification functions to window for global access
+// Expose toast and cart notification functions to window for global access
+window.showToast = showToast;
 window.showCartSuccessToast = showCartSuccessToast;
 window.showCartErrorToast = showCartErrorToast;
 window.getOrCreateToastContainer = getOrCreateToastContainer;

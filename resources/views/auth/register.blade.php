@@ -72,6 +72,18 @@
         </div>
 
         <div>
+            <label for="phone_number" class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] block mb-1.5">Phone Number (optional)</label>
+            <div class="relative">
+                <span class="absolute left-3 top-3 font-manrope text-sm text-[#666666] pointer-events-none">+977</span>
+                <input id="phone_number" name="phone_number" type="tel" value="{{ old('phone_number') ? substr(preg_replace('/[^0-9]+/', '', old('phone_number')), -10) : '' }}" placeholder="10 digits"
+                       maxlength="10" pattern="[0-9]{10}"
+                       class="bg-[#f3f3f3] border-0 border-b-2 border-gray-400 px-3 py-2.5 pl-14 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 w-full" 
+                       oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)">
+            </div>
+            @error('phone_number')<p class="font-manrope text-sm text-[#ba1a1a] mt-1">{{ $message }}</p>@enderror
+        </div>
+
+        <div>
             <label for="password" class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] block mb-1.5">Password</label>
             <input id="password" name="password" type="password" required
                    class="bg-[#f3f3f3] border-0 border-b-2 border-gray-400 px-3 py-2.5 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 w-full">

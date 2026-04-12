@@ -41,70 +41,11 @@
     </div>
 
     <!-- Right Column — Detail Panel -->
-    <div class="bg-white p-8 md:p-12">
-        <!-- Header -->
-        <a href="{{ route('products.index') }}" class="font-space text-xs font-bold uppercase tracking-widest text-[#444746] hover:text-[#006a38] flex items-center gap-1.5 mb-8 hidden lg:flex">
-            ← Back to Gallery
-        </a>
-
-        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">Listing</p>
-        <h1 class="font-space font-bold text-3xl text-[#1a1c1c] mb-1">{{ $product->title }}</h1>
-        <p class="font-manrope text-sm text-[#444746] mb-3">Category: {{ ucfirst($product->category) }}</p>
-
-        <!-- Type Chips (now mode selector) -->
-        <div class="flex gap-2 mb-6" x-data="{ mode: 'buy' }">
-            @if(in_array('sell', $product->type))
-                <button @click="mode='buy'" :class="mode==='buy' ? 'bg-[#006a38] text-white' : 'bg-[#e2e2e2] text-[#1a1c1c]'" class="text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5 border-0 transition-colors">Buy</button>
-            @endif
-            @if(in_array('rent', $product->type))
-                <button @click="mode='rent'" :class="mode==='rent' ? 'bg-[#006a38] text-white' : 'bg-[#e2e2e2] text-[#1a1c1c]'" class="text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5 border-0 transition-colors">Rent</button>
-            @endif
-            @if(in_array('swap', $product->type))
-                <button @click="mode='swap'" :class="mode==='swap' ? 'bg-[#006a38] text-white' : 'bg-[#e2e2e2] text-[#1a1c1c]'" class="text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5 border-0 transition-colors">Swap</button>
-            @endif
-        </div>
-
-        <!-- Price Display -->
-        @if(in_array('sell', $product->type))
-            <p class="font-space font-bold text-2xl text-[#006a38] mb-6">Rs. {{ number_format($product->price, 2) }}</p>
-        @endif
-
-        <!-- Metadata Table -->
-        <div class="bg-[#f3f3f3] mb-6">
-            <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
-                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Available Qty</p>
-                <p class="font-manrope text-sm text-[#1a1c1c]">{{ $product->quantity }}</p>
-            </div>
-            <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
-                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Owner</p>
-                <a href="{{ route('users.show', $product->user->id) }}" class="font-manrope text-sm text-[#006a38] hover:text-[#004a29]">{{ $product->user->name }}</a>
-            </div>
-            @php
-                $ownerAvg = \App\Models\Review::where('reviewee_id', $product->user_id)->avg('rating');
-                $ownerCount = \App\Models\Review::where('reviewee_id', $product->user_id)->count();
-            @endphp
-            @if($ownerAvg)
-                <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
-                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Seller Rating</p>
-                    <p class="font-manrope text-sm text-[#1a1c1c]">{{ number_format($ownerAvg, 1) }}/5 ({{ $ownerCount }})</p>
-                </div>
-            @endif
-            <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
-                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Listed</p>
-                <p class="font-manrope text-sm text-[#1a1c1c]">{{ $product->created_at->diffForHumans() }}</p>
-            </div>
-        </div>
-
-        <!-- Description -->
-        <div class="mb-8">
-            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">Description</p>
-            <p class="font-manrope text-base text-[#1a1c1c] leading-relaxed">{{ $product->description }}</p>
-        </div>
-
+    <div class="bg-white p-8 md:p-12 relative">
         <!-- Wishlist Icon (top-right) -->
         @auth
             @if(Auth::id() !== $product->user_id)
-                <form action="{{ route('wishlist.toggle', $product->id) }}" method="POST" class="absolute top-8 md:top-12 right-8 md:right-12 md:hidden lg:block">
+                <form action="{{ route('wishlist.toggle', $product->id) }}" method="POST" class="absolute top-8 md:top-12 right-8 md:right-12">
                     @csrf
                     <button type="submit"
                             title="{{ $isWishlisted ? 'Remove from wishlist' : 'Add to wishlist' }}"
@@ -118,55 +59,180 @@
             @endif
         @endauth
 
-        <!-- Transaction Area (Alpine.js) -->
-        @auth
-            @if(Auth::id() !== $product->user_id && $product->status === 'available')
-                <div x-data="{ mode: 'buy' }" class="space-y-4">
-                    <!-- Single Shared Quantity Input (hidden for swap) -->
-                    <div x-show="mode !== 'swap'">
-                        <label class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] block mb-1.5">Quantity</label>
-                        <div class="flex items-center gap-0">
-                            <button type="button" class="w-10 h-10 bg-white border-2 border-gray-300 font-space font-bold text-lg flex items-center justify-center hover:border-[#006a38]">−</button>
-                            <input type="number" id="quantityInput" name="quantity" value="1" min="1" max="{{ $product->quantity }}" class="w-20 h-10 bg-[#f3f3f3] border-0 border-b-2 border-gray-400 text-center font-manrope text-sm focus:border-[#006a38] focus:outline-none">
-                            <button type="button" class="w-10 h-10 bg-white border-2 border-gray-300 font-space font-bold text-lg flex items-center justify-center hover:border-[#006a38]">+</button>
+        <!-- Header -->
+        <a href="{{ route('products.index') }}" class="font-space text-xs font-bold uppercase tracking-widest text-[#444746] hover:text-[#006a38] flex items-center gap-1.5 mb-8 hidden lg:flex">
+            ← Back to Gallery
+        </a>
+
+        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">Listing</p>
+        <h1 class="font-space font-bold text-3xl text-[#1a1c1c] mb-1">{{ $product->title }}</h1>
+        <p class="font-manrope text-sm text-[#444746] mb-3">Category: {{ ucfirst($product->category->name ?? 'General') }}</p>
+
+        <!-- Product Detail Container with Alpine.js State -->
+        <div x-data="{ mode: @json(in_array('sell', $product->type) ? 'buy' : (in_array('rent', $product->type) ? 'rent' : 'swap')) }">
+
+            <!-- Type Chips (now mode selector) -->
+            @if(count($product->type) > 1)
+                <div class="flex gap-2 mb-6">
+                    @if(in_array('sell', $product->type))
+                        <button @click="mode='buy'" :class="mode==='buy' ? 'bg-[#006a38] text-white' : 'bg-[#e2e2e2] text-[#1a1c1c]'" class="text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5 border-0 transition-colors">Buy</button>
+                    @endif
+                    @if(in_array('rent', $product->type))
+                        <button @click="mode='rent'" :class="mode==='rent' ? 'bg-[#006a38] text-white' : 'bg-[#e2e2e2] text-[#1a1c1c]'" class="text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5 border-0 transition-colors">Rent</button>
+                    @endif
+                    @if(in_array('swap', $product->type))
+                        <button @click="mode='swap'" :class="mode==='swap' ? 'bg-[#006a38] text-white' : 'bg-[#e2e2e2] text-[#1a1c1c]'" class="text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5 border-0 transition-colors">Swap</button>
+                    @endif
+                </div>
+            @endif
+            
+            <!-- Section Heading for Rental Products (only visible in rent mode) -->
+            @if(in_array('rent', $product->type))
+                <p :style="mode==='rent' ? '' : 'display: none'" class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">{{ count($product->type) > 1 ? 'Rent Option' : 'Rent' }}</p>
+            @endif
+
+            <!-- Price Display (buy mode only, sell products only) -->
+            @if(in_array('sell', $product->type))
+                <div :style="mode==='buy' ? '' : 'display: none'">
+                    <p class="font-space font-bold text-2xl text-[#006a38] mb-6">Rs. {{ number_format($product->price, 2) }}</p>
+                </div>
+            @endif
+
+            <!-- Rent Deposit Display (rent mode only) -->
+            @if(in_array('rent', $product->type) && $product->rentals)
+                <div :style="mode==='rent' ? '' : 'display: none'">
+                    <p class="font-space font-bold text-2xl text-[#006a38] mb-6">Security Deposit: Rs. {{ number_format($product->rentals->rent_deposit ?? 0, 2) }}</p>
+                </div>
+            @endif
+
+            <!-- Swap Base Price Display (swap mode only) -->
+            @if(in_array('swap', $product->type))
+                <div :style="mode==='swap' ? '' : 'display: none'">
+                    <p class="font-space font-bold text-2xl text-[#006a38] mb-6">Base Price: Rs. {{ number_format($product->swap_base_price ?? 0, 2) }}</p>
+                </div>
+            @endif
+
+            <!-- Rental Info Display -->
+            @if(in_array('rent', $product->type) && $product->rentals)
+                <div :style="mode==='rent' ? '' : 'display: none'" class="mb-6">
+                    <div class="bg-[#f3f3f3] divide-y divide-[rgba(189,202,189,0.2)]">
+                        <div class="flex justify-between px-4 py-3">
+                            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Daily Rent</p>
+                            <p class="font-space font-bold text-lg text-[#006a38]">Rs. {{ number_format($product->rentals->rent_fare ?? 0, 2) }}</p>
                         </div>
-                        <p class="font-manrope text-xs text-[#444746] mt-1">{{ $product->quantity }} available</p>
-                    </div>
-
-                    <!-- BUY Actions -->
-                    <div x-show="mode==='buy'" class="flex flex-col gap-3">
-                        <form action="{{ route('order.store', $product->id) }}" method="POST" class="space-y-3">
-                            @csrf
-                            <input type="hidden" name="quantity" id="buyQuantity" value="1">
-                            <button type="submit" class="w-full bg-gradient-to-br from-[#006a38] to-[#09864a] text-white py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 active:brightness-95 transition-all">Buy Now</button>
-                        </form>
-                        <form action="{{ route('cart.store', $product->id) }}" method="POST" data-cart-action="add">
-                            @csrf
-                            <input type="hidden" name="quantity" id="cartQuantity" value="1">
-                            <button type="submit" class="w-full bg-transparent border-2 border-[#006a38] text-[#006a38] py-[10px] font-space font-bold text-sm uppercase tracking-wider hover:bg-[rgba(0,106,56,0.06)] transition-all">Add to Cart</button>
-                        </form>
-                    </div>
-
-                    <!-- RENT Action -->
-                    <div x-show="mode==='rent'">
-                        <a href="{{ route('rental.create', $product->id) }}" class="w-full block bg-gradient-to-br from-[#006a38] to-[#09864a] text-white py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 active:brightness-95 transition-all text-center">Request Rental</a>
-                    </div>
-
-                    <!-- SWAP Action -->
-                    <div x-show="mode==='swap'">
-                        <form action="{{ route('swap.request.form', $product->id) }}" method="POST">
-                            @csrf
-                            <button type="submit" class="w-full bg-gradient-to-br from-[#006a38] to-[#09864a] text-white py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 active:brightness-95 transition-all">Propose Swap</button>
-                        </form>
+                        <div class="flex justify-between px-4 py-3">
+                            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Security Deposit</p>
+                            <p class="font-manrope text-sm text-[#1a1c1c]">Rs. {{ number_format($product->rentals->rent_deposit ?? 0, 2) }}</p>
+                        </div>
+                        <div class="flex justify-between px-4 py-3">
+                            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Max Duration</p>
+                            <p class="font-manrope text-sm text-[#1a1c1c]">{{ $product->rent_duration ?? $product->rentals->available_duration ?? 'N/A' }} days</p>
+                        </div>
+                        <div class="flex justify-between px-4 py-3">
+                            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Available From</p>
+                            <p class="font-manrope text-sm text-[#1a1c1c]">{{ $product->rentals->available_from ? \Carbon\Carbon::parse($product->rentals->available_from)->format('M d, Y') : 'N/A' }}</p>
+                        </div>
                     </div>
                 </div>
             @endif
-        @else
-            <div class="bg-[#ba1a1a] text-white p-4 rounded-none">
-                <p class="font-manrope font-medium">Please log in to buy, rent, or swap this listing.</p>
-                <a href="{{ route('login') }}" class="mt-2 inline-block font-space font-bold uppercase text-sm hover:opacity-80">Go to Login</a>
+
+            <!-- Metadata Table -->
+            <div class="bg-[#f3f3f3] mb-6">
+                <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
+                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Available Qty</p>
+                    <p class="font-manrope text-sm text-[#1a1c1c]">{{ $product->quantity }}</p>
+                </div>
+                <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
+                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Owner</p>
+                    <div class="flex flex-col items-end gap-1">
+                        <div class="flex items-center gap-2">
+                            <a href="{{ route('users.show', $product->user->id) }}" class="font-manrope text-sm text-[#006a38] hover:text-[#004a29]">{{ $product->user->name }}</a>
+                            @if($product->user->profile_status === 'VERIFIED')
+                                <span class="bg-[#d1fae5] text-[#065f46] text-[10px] font-space font-bold uppercase tracking-[0.05em] px-2 py-1">Verified</span>
+                            @endif
+                        </div>
+                        <p class="font-manrope text-sm text-[#1a1c1c]">{{ number_format($ownerAvg, 1) }}/5 ({{ $ownerCount }})</p>
+                    </div>
+                </div>
+                <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
+                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Listed</p>
+                    <p class="font-manrope text-sm text-[#1a1c1c]">{{ $product->created_at->diffForHumans() }}</p>
+                </div>
             </div>
-        @endauth
+
+            <!-- Description -->
+            <div class="mb-8">
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">Description</p>
+                <p class="font-manrope text-base text-[#1a1c1c] leading-relaxed">{{ $product->description }}</p>
+            </div>
+
+            <!-- Transaction Area (Alpine.js) -->
+            @if($product->status === 'available')
+                @if(Auth::check() && Auth::id() !== $product->user_id)
+                    <div class="space-y-4">
+                        <!-- Single Shared Quantity Input (hidden for swap) -->
+                        <div :style="mode !== 'swap' ? '' : 'display: none'">
+                            <label class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] block mb-1.5">Quantity</label>
+                            <div class="flex items-center gap-0">
+                                <button type="button" class="qty-minus w-10 h-10 bg-white border-2 border-gray-300 font-space font-bold text-lg flex items-center justify-center hover:border-[#006a38]">−</button>
+                                <input type="number" id="quantityInput" name="quantity" value="1" min="1" max="{{ $product->quantity }}" class="w-20 h-10 bg-[#f3f3f3] border-0 border-b-2 border-gray-400 text-center font-manrope text-sm focus:border-[#006a38] focus:outline-none">
+                                <button type="button" class="qty-plus w-10 h-10 bg-white border-2 border-gray-300 font-space font-bold text-lg flex items-center justify-center hover:border-[#006a38]">+</button>
+                            </div>
+                            <p class="font-manrope text-xs text-[#444746] mt-1">{{ $product->quantity }} available</p>
+                        </div>
+
+                        <!-- BUY Actions (only for sell-type products) -->
+                        @if(in_array('sell', $product->type))
+                            <div :style="mode==='buy' ? '' : 'display: none'" class="flex flex-col gap-3">
+                                <form action="{{ route('order.store', $product->id) }}" method="POST" class="space-y-3">
+                                    @csrf
+                                    <input type="hidden" name="quantity" id="buyQuantity" value="1">
+                                    <button type="submit" class="w-full bg-gradient-to-br from-[#006a38] to-[#09864a] text-white py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 active:brightness-95 transition-all">Buy Now</button>
+                                </form>
+                                <form action="{{ route('cart.store', $product->id) }}" method="POST" data-cart-action="add">
+                                    @csrf
+                                    <input type="hidden" name="quantity" id="cartQuantity" value="1">
+                                    <button type="submit" class="w-full bg-transparent border-2 border-[#006a38] text-[#006a38] py-[10px] font-space font-bold text-sm uppercase tracking-wider hover:bg-[rgba(0,106,56,0.06)] transition-all">Add to Cart</button>
+                                </form>
+                            </div>
+                        @endif
+
+                        <!-- RENT Action -->
+                        @if(in_array('rent', $product->type))
+                            <div :style="mode==='rent' ? '' : 'display: none'">
+                                <a href="{{ route('rental.create', $product->id) }}" class="w-full block bg-gradient-to-br from-[#006a38] to-[#09864a] text-white py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 active:brightness-95 transition-all text-center">Request Rental</a>
+                            </div>
+                        @endif
+
+                        <!-- SWAP Action -->
+                        @if(in_array('swap', $product->type))
+                            <div :style="mode==='swap' ? '' : 'display: none'">
+                                <form action="{{ route('swap.request.form', $product->id) }}" method="POST">
+                                    @csrf
+                                    <button type="submit" class="w-full bg-gradient-to-br from-[#006a38] to-[#09864a] text-white py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 active:brightness-95 transition-all">Propose Swap</button>
+                                </form>
+                            </div>
+                        @endif
+                    </div>
+                @elseif(!Auth::check())
+                    <div class="bg-[#ba1a1a] text-white p-4 rounded-none">
+                        <p class="font-manrope font-medium">Please log in to buy, rent, or swap this listing.</p>
+                        <a href="{{ route('login') }}" class="mt-2 inline-block font-space font-bold uppercase text-sm hover:opacity-80">Go to Login</a>
+                    </div>
+                @elseif(Auth::id() === $product->user_id)
+                    <div class="bg-[#006a38] text-white p-4 rounded-none">
+                        <p class="font-manrope font-medium">This is your listing. You can't transact with your own products.</p>
+                        <a href="{{ route('products.edit', $product->id) }}" class="mt-2 inline-block font-space font-bold uppercase text-sm hover:opacity-80 underline">Edit Listing</a>
+                    </div>
+                @endif
+            @else
+                <div class="bg-[#fbbf24] text-[#663c00] p-4 rounded-none">
+                    <p class="font-manrope font-medium">This product is no longer available.</p>
+                </div>
+            @endif
+
+        </div>
+        <!-- End Product Detail Container -->
     </div>
 </div>
 
@@ -175,30 +241,37 @@
         const quantityInput = document.getElementById('quantityInput');
         const buyQuantity = document.getElementById('buyQuantity');
         const cartQuantity = document.getElementById('cartQuantity');
+        const minusBtn = document.querySelector('.qty-minus');
+        const plusBtn = document.querySelector('.qty-plus');
 
         if (quantityInput) {
             quantityInput.addEventListener('input', function() {
-                buyQuantity.value = this.value;
-                cartQuantity.value = this.value;
+                if (buyQuantity) buyQuantity.value = this.value;
+                if (cartQuantity) cartQuantity.value = this.value;
             });
 
             // Quantity stepper buttons
-            const stepperButtons = document.querySelectorAll('[class*="border-gray-300"]');
-            stepperButtons.forEach((btn, index) => {
-                btn.addEventListener('click', function() {
-                    if (index === 0) { // Minus button
-                        if (quantityInput.value > quantityInput.min) {
-                            quantityInput.value = parseInt(quantityInput.value) - 1;
-                        }
-                    } else { // Plus button
-                        if (quantityInput.value < quantityInput.max) {
-                            quantityInput.value = parseInt(quantityInput.value) + 1;
-                        }
+            if (minusBtn) {
+                minusBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (parseInt(quantityInput.value) > parseInt(quantityInput.min)) {
+                        quantityInput.value = parseInt(quantityInput.value) - 1;
+                        if (buyQuantity) buyQuantity.value = quantityInput.value;
+                        if (cartQuantity) cartQuantity.value = quantityInput.value;
                     }
-                    buyQuantity.value = quantityInput.value;
-                    cartQuantity.value = quantityInput.value;
                 });
-            });
+            }
+
+            if (plusBtn) {
+                plusBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (parseInt(quantityInput.value) < parseInt(quantityInput.max)) {
+                        quantityInput.value = parseInt(quantityInput.value) + 1;
+                        if (buyQuantity) buyQuantity.value = quantityInput.value;
+                        if (cartQuantity) cartQuantity.value = quantityInput.value;
+                    }
+                });
+            }
         }
     });
 </script>

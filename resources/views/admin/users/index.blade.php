@@ -30,21 +30,72 @@
         </div>
     @endif
 
-    @if($admin->isSuperAdmin())
+    @if($admin->isAdmin())
         <details class="mb-5 bg-[#f3f3f3] p-4">
-            <summary class="cursor-pointer font-space font-bold text-[#006a38]">Create User</summary>
-            <form method="POST" action="{{ route('admin.users.store') }}" class="mt-4 grid grid-cols-1 md:grid-cols-5 gap-3">
+            <summary class="cursor-pointer font-space font-bold text-[#006a38]">Create {{ $admin->isSuperAdmin() ? 'User or Admin' : 'User' }}</summary>
+            <form method="POST" action="{{ route('admin.users.store') }}" class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 @csrf
                 <input name="name" placeholder="Full name" class="input-field !py-2" required>
                 <input type="email" name="email" placeholder="Email" class="input-field !py-2" required>
                 <input type="password" name="password" placeholder="Password" class="input-field !py-2" required>
-                <select name="role" class="input-field !py-2">
+                <div class="relative">
+                    <span class="absolute left-3 top-2 font-manrope text-sm text-[#666666] pointer-events-none">+977</span>
+                    <input type="tel" name="phone_number" placeholder="10 digits" value="" maxlength="10" pattern="[0-9]{10}"
+                           class="input-field !py-2 !pl-14" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)">
+                </div>
+                <select name="role" class="input-field !py-2" required>
+                    <option value="">Select Role</option>
                     <option value="user">user</option>
-                    <option value="admin">admin</option>
-                    <option value="super_admin">super_admin</option>
+                    @if($admin->isSuperAdmin())
+                        <option value="admin">admin</option>
+                    @endif
                 </select>
-                <button class="btn-pill btn-pill-dark !px-4 !py-2">Create</button>
+                
+                <select name="province_id" id="province_select" class="input-field !py-2">
+                    <option value="">Select Province (optional)</option>
+                    @foreach($provinces as $province)
+                        <option value="{{ $province->id }}">{{ $province->name }}</option>
+                    @endforeach
+                </select>
+                
+                <select name="city_id" id="city_select" class="input-field !py-2" disabled>
+                    <option value="">Select City (optional)</option>
+                </select>
+                
+                <div class="lg:col-span-4">
+                    <button type="submit" class="btn-pill btn-pill-dark !px-4 !py-2 w-full">Create</button>
+                </div>
             </form>
+            
+            <script>
+                document.getElementById('province_select').addEventListener('change', async function() {
+                    const provinceId = this.value;
+                    const citySelect = document.getElementById('city_select');
+                    
+                    if (!provinceId) {
+                        citySelect.innerHTML = '<option value="">Select City (optional)</option>';
+                        citySelect.disabled = true;
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch(`/api/cities/${provinceId}`);
+                        const cities = await response.json();
+                        
+                        citySelect.innerHTML = '<option value="">Select City (optional)</option>';
+                        cities.forEach(city => {
+                            const option = document.createElement('option');
+                            option.value = city.id;
+                            option.textContent = city.name;
+                            citySelect.appendChild(option);
+                        });
+                        citySelect.disabled = false;
+                    } catch (error) {
+                        console.error('Error loading cities:', error);
+                        citySelect.disabled = true;
+                    }
+                });
+            </script>
         </details>
     @endif
 

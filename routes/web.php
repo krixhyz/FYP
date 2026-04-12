@@ -1,10 +1,10 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\UserProfileController;
-use App\Http\Controllers\SwapRequestController;
+use App\Http\Controllers\User\ProfileController;
+use App\Http\Controllers\User\UserProfileController;
+use App\Http\Controllers\User\SwapRequestController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ProductController;
+use App\Http\Controllers\User\ProductController;
 use App\Http\Controllers\LocationController;
 
 
@@ -34,10 +34,10 @@ Route::middleware('auth')->group(function () {
 
 
 //order routes
-use App\Http\Controllers\OrderController;
-use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\User\OrderController;
+use App\Http\Controllers\User\PaymentController;
 
- Route::middleware(['auth', 'user_only'])->group(function () {
+ Route::middleware(['auth', 'verified', 'user_only'])->group(function () {
      Route::post('/order/{product}', [OrderController::class, 'store'])->name('order.store');
      Route::get('/order/product/{product}/checkout', [OrderController::class, 'checkoutProduct'])->name('order.checkout.product');
      Route::post('/order/product/{product}/confirm', [PaymentController::class, 'createDirectOrderPayment'])->name('order.confirm.product');
@@ -68,17 +68,18 @@ Route::get('/products/{id}', [ProductController::class, 'show'])->name('products
 
 
 // Protect buy/rent/swap routes:
-Route::middleware(['auth', 'user_only'])->group(function () {
+Route::middleware(['auth', 'verified', 'user_only'])->group(function () {
     Route::get('/products/{id}/buy', [ProductController::class, 'buy'])->name('products.buy');
     Route::get('/products/{id}/rent', [ProductController::class, 'rent'])->name('products.rent');
     Route::get('/products/{id}/swap', [ProductController::class, 'swap'])->name('products.swap');
 });
 
 //cart routes
-use App\Http\Controllers\CartController;
+use App\Http\Controllers\User\CartController;
 
-Route::middleware(['auth', 'user_only'])->group(function () {
+Route::middleware(['auth', 'verified', 'user_only'])->group(function () {
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+    Route::get('/cart/count', [CartController::class, 'getCount'])->name('cart.count');
     Route::post('/cart/add/{productId}', [CartController::class, 'store'])->name('cart.store');
     Route::patch('/cart/{id}', [CartController::class, 'update'])->name('cart.update');
     Route::delete('/cart/{id}', [CartController::class, 'destroy'])->name('cart.destroy');
@@ -93,41 +94,49 @@ Route::get('/payment/khalti/return', [PaymentController::class, 'khaltiReturn'])
 
 
 // Rental routes
-use App\Http\Controllers\RentalController;
+use App\Http\Controllers\User\RentalController;
 
 Route::middleware(['auth'])->group(function () {
     // renter side
-    Route::middleware(['user_only'])->group(function () {
+    Route::middleware(['verified', 'user_only'])->group(function () {
         Route::get('/rent/{product}', [RentalController::class, 'create'])->name('rental.create');
         Route::post('/rental/request/{product}', [RentalController::class, 'store'])->name('rental.store');
         Route::get('/rental/checkout/{rentalRequest}', [RentalController::class, 'checkout'])->name('rental.checkout');
         Route::get('/rental/payment/{rentalRequest}', [RentalController::class, 'payment'])->name('rental.payment');
         Route::post('/rental/{rentalRequest}/pay', [PaymentController::class, 'createRentalPayment'])->name('rental.pay');
+        Route::get('/rental/{rental}', [RentalController::class, 'show'])->name('rental.show');
         Route::patch('/rental/{rentedRental}/return', [RentalController::class, 'returnRental'])->name('rental.return'); // NEW
     });
 
     // owner side (reviewing rental requests)
     Route::get('/rental/request/{rentalRequest}/review', [RentalController::class, 'review'])->name('rental.review');
+    Route::get('/rental/requests', [RentalController::class, 'incoming'])->name('rental.incoming');
     Route::patch('/rental/request/{rentalRequest}/approve', [RentalController::class, 'approveRequest'])->name('rental.approve');
     Route::patch('/rental/request/{rentalRequest}/reject', [RentalController::class, 'reject'])->name('rental.reject');
 
 });
 
-//my purchases route
 Route::middleware(['auth', 'user_only'])->group(function () {
     Route::get('/my-purchases', [ProductController::class, 'myPurchases'])->name('products.myPurchases');
+    Route::get('/my-rentals', [RentalController::class, 'myRentals'])->name('rental.myRentals');
     Route::post('/order/{order}/cancel', [OrderController::class, 'cancel'])->name('order.cancel');
 });
 
-// Cancellation routes for rental requests and swap requests
+// Seller orders routes - view incoming orders with buyer details
 Route::middleware(['auth', 'user_only'])->group(function () {
+    Route::get('/my-orders', [OrderController::class, 'sellerIncoming'])->name('orders.incoming');
+    Route::get('/my-orders/{order}', [OrderController::class, 'sellerOrderDetail'])->name('orders.detail');
+});
+
+// Cancellation routes for rental requests and swap requests
+Route::middleware(['auth', 'verified', 'user_only'])->group(function () {
     Route::delete('/rental/request/{rentalRequest}/cancel', [RentalController::class, 'cancelRequest'])->name('rental.cancel');
     Route::post('/swap/{swapRequest}/cancel', [SwapRequestController::class, 'cancel'])->name('swap.request.cancel');
 });
 
 
 
-use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\User\NotificationController;
 Route::middleware('auth')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/latest', [NotificationController::class, 'latest'])->name('notifications.latest');
@@ -136,7 +145,7 @@ Route::middleware('auth')->group(function () {
 });
 
 // Wishlist routes
-use App\Http\Controllers\WishlistController;
+use App\Http\Controllers\User\WishlistController;
 Route::middleware(['auth', 'user_only'])->group(function () {
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
     Route::post('/wishlist/{product}/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
@@ -147,7 +156,7 @@ Route::middleware(['auth', 'user_only'])->group(function () {
 
 Route::middleware(['auth'])->group(function () {
     // Show request form
-    Route::middleware(['user_only'])->group(function () {
+    Route::middleware(['verified', 'user_only'])->group(function () {
         Route::post('/swap/request/{product}', [SwapRequestController::class, 'showRequestForm'])
         ->name('swap.request.form');
 
@@ -158,6 +167,10 @@ Route::middleware(['auth'])->group(function () {
     // Show incoming swap requests (for owners)
     Route::get('/swap/requests', [SwapRequestController::class, 'incoming'])
         ->name('swap.request.incoming');
+        
+    // View my completed/active swaps (for both parties)
+    Route::get('/my-swaps', [SwapRequestController::class, 'mySwaps'])
+        ->name('swap.mySwaps');
        
        
     Route::get('/swap/request/{swapRequest}', [SwapRequestController::class, 'show'])
@@ -188,23 +201,27 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
-use App\Http\Controllers\AdminController;
+use App\Http\Controllers\Admin\AdminController;
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
 
     Route::get('/users', [AdminController::class, 'users'])->name('users');
-    Route::post('/users', [AdminController::class, 'userStore'])->middleware('super_admin')->name('users.store');
+    Route::post('/users', [AdminController::class, 'userStore'])->name('users.store');
     Route::get('/users/{id}', [AdminController::class, 'userShow'])->name('users.show');
     Route::put('/users/{user}', [AdminController::class, 'userUpdate'])->name('users.update');
     Route::delete('/users/{user}', [AdminController::class, 'userDelete'])->name('users.delete');
     Route::patch('/users/{user}/status', [AdminController::class, 'userStatus'])->name('users.status');
     Route::post('/users/{user}/reset-password', [AdminController::class, 'userResetPassword'])->name('users.resetPassword');
+    Route::post('/users/{user}/verify', [AdminController::class, 'userVerify'])->name('users.verify');
+    Route::post('/users/{user}/revoke-verification', [AdminController::class, 'userRevokeVerification'])->name('users.revokeVerification');
     Route::post('/locations/cache-clear', [LocationController::class, 'clearCache'])->name('locations.cache.clear');
 
     Route::get('/products', [AdminController::class, 'products'])->name('products');
     Route::patch('/products/{product}/flag', [AdminController::class, 'productFlag'])->name('products.flag');
     Route::patch('/products/{product}/unflag', [AdminController::class, 'productUnflag'])->name('products.unflag');
+    Route::post('/products/{product}/approve', [AdminController::class, 'productApprove'])->name('products.approve');
+    Route::post('/products/{product}/reject', [AdminController::class, 'productReject'])->name('products.reject');
     Route::delete('/products/{product}', [AdminController::class, 'productDelete'])->name('products.delete');
     Route::get('/products/{product}', [AdminController::class, 'productShow'])->name('products.show');
 
@@ -231,7 +248,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 });
 
 // Reviews
-use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\User\ReviewController;
 Route::middleware('auth')->group(function () {
     Route::get('/review/create', [ReviewController::class, 'create'])->name('review.create');
     Route::post('/review', [ReviewController::class, 'store'])->name('review.store');
@@ -240,7 +257,7 @@ Route::get('/users/{user}', [UserProfileController::class, 'show'])->name('users
 Route::get('/user/{user}/reviews', [ReviewController::class, 'userReviews'])->name('user.reviews');
 
 // Disputes
-use App\Http\Controllers\DisputeController;
+use App\Http\Controllers\User\DisputeController;
 Route::middleware('auth')->group(function () {
     Route::get('/dispute/create', [DisputeController::class, 'create'])->name('dispute.create');
     Route::post('/dispute', [DisputeController::class, 'store'])->name('dispute.store');

@@ -51,5 +51,6 @@ Schedule::command('notifications:prune')->daily();
 Schedule::command('disputes:prune')->daily();
 Schedule::command('listings:prune')->daily();
 Schedule::command('reviews:prune')->daily();
+Schedule::command('rental:check-expiry')->dailyAt('01:00');
 
 Schedule::command('inventory:cleanup-expired-reservations')->everyMinute();

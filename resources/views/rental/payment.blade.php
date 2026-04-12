@@ -1,10 +1,12 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="mx-auto max-w-3xl space-y-8">
-    <section class="surface-card-strong p-6 sm:p-8">
-        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Rent Workflow</p>
-        <h1 class="mt-4 font-space text-4xl font-bold text-[#1a1c1c]">Rental Payment</h1>
+<div class="max-w-3xl mx-auto px-8 md:px-16 py-12 space-y-8">
+    <!-- Hero Section -->
+    <section class="bg-[#f3f3f3] px-6 md:px-8 py-8 border-b border-[rgba(189,202,189,0.3)]">
+        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">Rent Workflow</p>
+        <h1 class="font-space font-bold text-3xl text-[#1a1c1c] mb-1">Rental Payment</h1>
+        <p class="font-manrope text-base text-[#444746]">Review rental details and complete your payment.</p>
     </section>
 
     @php
@@ -14,22 +16,123 @@
         $totalAmount = ($rentalRequest->total_amount ?? 0) + $rentDeposit;
     @endphp
 
-    <section class="surface-card p-5 sm:p-6 space-y-4">
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
-            <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Product</p><p class="mt-1 font-semibold">{{ $rentalRequest->product->title }}</p></div>
-            <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Rent Type</p><p class="mt-1 font-semibold">{{ ucfirst($rentType) }}</p></div>
-            <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Duration</p><p class="mt-1 font-semibold">{{ $rentalRequest->duration }} {{ $rentType == 'hourly' ? 'hours' : 'days' }}</p></div>
-            <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Fare</p><p class="mt-1 font-semibold">Rs. {{ number_format($rentFare, 2) }}</p></div>
-            <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Deposit</p><p class="mt-1 font-semibold">Rs. {{ number_format($rentDeposit, 2) }}</p></div>
-            <div class="bg-[#006a38] p-3 text-white"><p class="font-space text-[10px] font-bold uppercase tracking-widest">Total Amount</p><p class="mt-1 font-manrope text-xl font-bold">Rs. {{ number_format($totalAmount, 2) }}</p></div>
+    <!-- Rental Details and Payment Section -->
+    <section class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)] p-6 md:p-8">
+        
+        <!-- Rental Details Grid -->
+        <div class="mb-8 pb-8 border-b border-[rgba(189,202,189,0.2)]">
+            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-4">Rental Details</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-0 bg-[#f3f3f3]">
+                <div class="flex justify-between px-4 py-3 border-b border-r border-[rgba(189,202,189,0.2)] last:border-b-0">
+                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Product</p>
+                    <p class="font-manrope text-sm text-[#1a1c1c]">{{ $rentalRequest->product->title }}</p>
+                </div>
+                <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
+                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Rent Type</p>
+                    <p class="font-manrope text-sm text-[#1a1c1c]">{{ ucfirst($rentType) }}</p>
+                </div>
+                <div class="flex justify-between px-4 py-3 border-b border-r border-[rgba(189,202,189,0.2)] last:border-b-0">
+                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Duration</p>
+                    <p class="font-manrope text-sm text-[#1a1c1c]">{{ $rentalRequest->duration }} {{ $rentType == 'hourly' ? 'hour(s)' : 'day(s)' }}</p>
+                </div>
+                <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
+                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Status</p>
+                    <p class="font-manrope text-sm text-[#1a1c1c]">{{ ucfirst($rentalRequest->status) }}</p>
+                </div>
+            </div>
         </div>
 
-        <form method="POST" action="{{ route('rental.pay', $rentalRequest->id) }}" class="mt-2">
-            @csrf
-            <button type="submit" class="btn-pill btn-pill-dark w-full justify-center">Pay with eSewa</button>
-        </form>
+        <!-- Pricing Summary -->
+        <div class="mb-8 pb-8 border-b border-[rgba(189,202,189,0.2)]">
+            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-4">Pricing Summary</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-0 bg-[#f3f3f3]">
+                <div class="flex justify-between px-4 py-3 border-b border-r border-[rgba(189,202,189,0.2)] last:border-b-0">
+                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">{{ $rentType == 'hourly' ? 'Hourly' : 'Daily' }} Fare</p>
+                    <p class="font-manrope text-sm text-[#1a1c1c]">Rs. {{ number_format($rentFare, 2) }}</p>
+                </div>
+                <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
+                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Rental Cost</p>
+                    <p class="font-manrope text-sm text-[#1a1c1c]">Rs. {{ number_format($rentalRequest->total_amount ?? 0, 2) }}</p>
+                </div>
+                <div class="flex justify-between px-4 py-3 border-b border-r border-[rgba(189,202,189,0.2)] last:border-b-0">
+                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Security Deposit</p>
+                    <p class="font-manrope text-sm text-[#1a1c1c]">Rs. {{ number_format($rentDeposit, 2) }}</p>
+                </div>
+                <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
+                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Total</p>
+                    <p class="font-space font-bold text-lg text-[#006a38]">Rs. {{ number_format($totalAmount, 2) }}</p>
+                </div>
+            </div>
+        </div>
 
-        <a href="{{ route('products.index') }}" class="btn-pill btn-pill-soft">Back to Products</a>
+        <!-- Payment Form -->
+        <form method="POST" action="{{ route('rental.pay', $rentalRequest->id) }}" class="space-y-6">
+            @csrf
+            
+            <!-- Buyer Details Section -->
+            <div class="mb-6 p-6 bg-[#f3f3f3]">
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-4">Delivery & Contact Details</p>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="buyer_name" class="block font-manrope text-sm font-medium text-[#1a1c1c] mb-2">Full Name *</label>
+                        <input type="text" id="buyer_name" name="buyer_name" value="{{ old('buyer_name', Auth::user()->name) }}" required class="w-full px-4 py-2 border-2 border-gray-300 font-manrope text-sm focus:border-[#006a38] focus:outline-none">
+                        @error('buyer_name')
+                            <p class="font-manrope text-xs text-[#ba1a1a] mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="buyer_phone" class="block font-manrope text-sm font-medium text-[#1a1c1c] mb-2">Phone Number</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2 font-manrope text-sm text-[#666666] pointer-events-none">+977</span>
+                            <input type="tel" id="buyer_phone" name="buyer_phone" value="{{ old('buyer_phone') ? substr(preg_replace('/[^0-9]+/', '', old('buyer_phone', Auth::user()->phone_number ?? '')), -10) : substr(preg_replace('/[^0-9]+/', '', Auth::user()->phone_number ?? ''), -10) }}" placeholder="10 digits" maxlength="10" pattern="[0-9]{10}" class="w-full px-4 py-2 pl-14 border-2 border-gray-300 font-manrope text-sm focus:border-[#006a38] focus:outline-none" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)">
+                        </div>
+                        @error('buyer_phone')
+                            <p class="font-manrope text-xs text-[#ba1a1a] mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="buyer_email" class="block font-manrope text-sm font-medium text-[#1a1c1c] mb-2">Email Address *</label>
+                        <input type="email" id="buyer_email" name="buyer_email" value="{{ old('buyer_email', Auth::user()->email) }}" required class="w-full px-4 py-2 border-2 border-gray-300 font-manrope text-sm focus:border-[#006a38] focus:outline-none">
+                        @error('buyer_email')
+                            <p class="font-manrope text-xs text-[#ba1a1a] mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="buyer_address" class="block font-manrope text-sm font-medium text-[#1a1c1c] mb-2">Delivery Address (Auto-filled)</label>
+                        <input type="hidden" id="buyer_address" name="buyer_address" value="{{ Auth::user()->province?->name }}, {{ Auth::user()->city?->name }}">
+                        <p class="w-full px-4 py-2 border-2 border-gray-300 font-manrope text-sm bg-gray-100 text-gray-700">{{ Auth::user()->province?->name }}, {{ Auth::user()->city?->name }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Gateway Selection -->
+            <div class="space-y-3">
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Choose Payment Method</p>
+                <label class="flex items-center gap-3 bg-[#f3f3f3] px-4 py-3 cursor-pointer hover:bg-[#e8e8e8] transition border-2 border-transparent hover:border-[#006a38]">
+                    <input type="radio" name="payment_gateway" value="esewa" {{ old('payment_gateway') === 'esewa' ? 'checked' : 'checked' }} class="w-4 h-4 accent-[#006a38]">
+                    <div class="flex-1">
+                        <p class="font-manrope text-sm font-medium text-[#1a1c1c]">eSewa</p>
+                        <p class="font-manrope text-xs text-[#666666] mt-0.5">Instant payment via eSewa wallet</p>
+                    </div>
+                </label>
+                <label class="flex items-center gap-3 bg-[#f3f3f3] px-4 py-3 cursor-pointer hover:bg-[#e8e8e8] transition border-2 border-transparent hover:border-[#006a38]">
+                    <input type="radio" name="payment_gateway" value="khalti" {{ old('payment_gateway') === 'khalti' ? 'checked' : '' }} class="w-4 h-4 accent-[#006a38]">
+                    <div class="flex-1">
+                        <p class="font-manrope text-sm font-medium text-[#1a1c1c]">Khalti</p>
+                        <p class="font-manrope text-xs text-[#666666] mt-0.5">Fast & secure payment with Khalti</p>
+                    </div>
+                </label>
+                @error('payment_gateway')
+                    <p class="font-manrope text-xs text-[#ba1a1a]">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="space-y-3">
+                <button type="submit" class="w-full bg-gradient-to-br from-[#006a38] to-[#09864a] text-white py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 active:brightness-95 transition-all">Proceed to Payment</button>
+                <a href="{{ route('rental.checkout', $rentalRequest->id) }}" class="w-full block bg-transparent border-2 border-[#006a38] text-[#006a38] py-[10px] font-space font-bold text-sm uppercase tracking-wider hover:bg-[rgba(0,106,56,0.06)] text-center transition-all">Back to Checkout</a>
+            </div>
+        </form>
     </section>
 </div>
 @endsection

@@ -30,7 +30,7 @@
             <p class="mt-1 font-manrope text-sm text-[#444746]">{{ Str::limit($product->description, 120) }}</p>
 
             <div class="mt-4 space-y-2 bg-[#f3f3f3] p-4 text-sm">
-                <div class="flex justify-between"><span>Category</span><span class="font-semibold">{{ $product->category ?? 'General' }}</span></div>
+                <div class="flex justify-between"><span>Category</span><span class="font-semibold">{{ $product->category?->name ?? 'General' }}</span></div>
                 <div class="flex justify-between"><span>Available Quantity</span><span class="font-semibold">{{ $product->quantity }}</span></div>
                 @if($rental)
                     <div class="flex justify-between"><span>Rent Fare</span><span class="font-semibold">Rs. {{ $rental->rent_fare }} / day</span></div>
@@ -47,7 +47,7 @@
             <form action="{{ route('rental.store', $product->id) }}" method="POST" id="rentalForm"
                   data-rent-fare="{{ $rental ? $rental->rent_fare : 0 }}"
                   data-rent-deposit="{{ $rental ? $rental->rent_deposit : 0 }}"
-                  data-max-duration="{{ $rental ? $rental->duration : 100 }}"
+                  data-max-duration="{{ $product->rent_duration ?? ($rental ? $rental->available_duration : 100) }}"
                   data-owner-start-date="{{ $rental && $rental->available_from ? \Carbon\Carbon::parse($rental->available_from)->format('Y-m-d') : '' }}"
                   data-owner-end-date="{{ $ownerEndDate }}"
                   class="space-y-4">

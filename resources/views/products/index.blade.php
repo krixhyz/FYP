@@ -30,9 +30,15 @@
                 <label for="category" class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] block mb-1.5">Category</label>
                 <select id="category" name="category" class="bg-[#f3f3f3] border-0 border-b-2 border-gray-400 px-3 py-2.5 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 w-full">
                     <option value="">All</option>
-                    @foreach (['electronics', 'clothing', 'furniture', 'general'] as $option)
-                        <option value="{{ $option }}" @selected(($category ?? request('category')) === $option)>{{ ucfirst($option) }}</option>
-                    @endforeach
+                    @forelse ($parentCategories ?? [] as $cat)
+                        <option value="{{ $cat->id }}" @selected(($parentCategoryId ?? request('category')) == $cat->id)>
+                            {{ $cat->name }}
+                        </option>
+                    @empty
+                        @foreach (['Clothing', 'Electronics', 'Furniture', 'Books', 'Toys & Games', 'Home Appliances', 'Sports Equipment'] as $cat)
+                            <option value="{{ $cat }}">{{ $cat }}</option>
+                        @endforeach
+                    @endforelse
                 </select>
             </div>
 
@@ -73,6 +79,7 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         @forelse ($products as $product)
             <div class="group bg-white shadow-none hover:shadow-[0_20px_40px_rgba(26,28,28,0.06)] outline outline-1 outline-transparent hover:outline-[rgba(189,202,189,0.5)] transition-all duration-150 flex flex-col">
+                <!-- Image with Wishlist Heart -->
                 <div class="relative aspect-[4/3] bg-[#f3f3f3] overflow-hidden">
                     <a href="{{ route('products.show', $product->id) }}" class="absolute inset-0">
                         @if($product->image)
@@ -89,103 +96,95 @@
                         @endif
                     </a>
 
-                    <!-- Chips Row -->
-                    <div class="absolute left-3 top-2.5 flex flex-wrap gap-1.5 z-10">
-                        @if(in_array('sell', $product->type))
-                            <span class="bg-[#e2e2e2] text-[#1a1c1c] text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5">Buy</span>
-                        @endif
-                        @if(in_array('rent', $product->type))
-                            <span class="bg-[#e2e2e2] text-[#1a1c1c] text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5">Rent</span>
-                        @endif
-                        @if(in_array('swap', $product->type))
-                            <span class="bg-[#e2e2e2] text-[#1a1c1c] text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5">Swap</span>
-                        @endif
-                    </div>
-
-                    <!-- Action Buttons Row (always visible) -->
+                    <!-- Wishlist Heart Overlay (Top Right) -->
                     @auth
-                        <div class="absolute bottom-0 left-0 right-0 flex gap-2 p-2 bg-gradient-to-t from-black/30 to-transparent z-20">
-                            <!-- Wishlist Button -->
-                            <form action="{{ route('wishlist.toggle', $product->id) }}" method="POST" class="flex-shrink-0">
+                        <div class="absolute right-2 top-2 z-20">
+                            <form action="{{ route('wishlist.toggle', $product->id) }}" method="POST" class="inline" data-wishlist-action data-product-id="{{ $product->id }}">
                                 @csrf
                                 <button type="submit"
                                         title="{{ in_array($product->id, $wishlistedIds) ? 'Remove from wishlist' : 'Save to wishlist' }}"
-                                        class="flex h-9 w-9 items-center justify-center bg-[#006a38] text-white hover:brightness-110 transition">
-                                    <svg class="h-4 w-4"
-                                         fill="{{ in_array($product->id, $wishlistedIds) ? 'white' : 'none' }}"
-                                         stroke="white" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        class="flex h-9 w-9 items-center justify-center bg-white/90 text-[#006a38] hover:bg-white hover:brightness-110 transition rounded-full shadow-sm">
+                                    <svg class="h-5 w-5"
+                                         fill="{{ in_array($product->id, $wishlistedIds) ? 'currentColor' : 'none' }}"
+                                         stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
                                               d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                                     </svg>
                                 </button>
                             </form>
-
-                            <!-- Add to Cart Button -->
-                            <form action="{{ route('cart.store', $product->id) }}" method="POST" class="flex-1" data-cart-action="add">
-                                @csrf
-                                <button type="submit" title="Add to cart" class="w-full flex h-9 items-center justify-center gap-1.5 bg-white text-[#006a38] font-space text-xs font-bold uppercase tracking-wider hover:bg-[#f9f9f9] transition">
-                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                              d="M12 4v16m8-8H4" />
-                                    </svg>
-                                    Cart
-                                </button>
-                            </form>
-
-                            <!-- Buy Button -->
-                            <a href="{{ route('products.show', $product->id) }}" class="flex-shrink-0">
-                                <button type="button" title="View & Buy" class="flex h-9 px-3 items-center justify-center gap-1 bg-[#006a38] text-white font-space text-xs font-bold uppercase tracking-wider hover:brightness-110 transition">
-                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                              d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                    </svg>
-                                    Get
-                                </button>
-                            </a>
                         </div>
                     @endauth
-
-                    <!-- Action Buttons for Guests -->
-                    @guest
-                        <div class="absolute bottom-0 left-0 right-0 flex gap-2 p-2 bg-gradient-to-t from-black/30 to-transparent z-20">
-                            <!-- Add to Cart Button (Guest) -->
-                            <form action="{{ route('cart.store', $product->id) }}" method="POST" class="flex-1" data-cart-action="add">
-                                @csrf
-                                <button type="submit" title="Add to cart" class="w-full flex h-9 items-center justify-center gap-1.5 bg-white text-[#006a38] font-space text-xs font-bold uppercase tracking-wider hover:bg-[#f9f9f9] transition">
-                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                              d="M12 4v16m8-8H4" />
-                                    </svg>
-                                    Cart
-                                </button>
-                            </form>
-
-                            <!-- Buy Button (Guest) -->
-                            <a href="{{ route('products.show', $product->id) }}" class="flex-shrink-0">
-                                <button type="button" title="View & Buy" class="flex h-9 px-3 items-center justify-center gap-1 bg-[#006a38] text-white font-space text-xs font-bold uppercase tracking-wider hover:brightness-110 transition">
-                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                              d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                    </svg>
-                                    Get
-                                </button>
-                            </a>
-                        </div>
-                    @endguest
                 </div>
 
-                <!-- Card Body -->
-                <div class="px-3 pt-2.5">
-                    <h3 class="font-space font-bold text-sm text-[#1a1c1c]">{{ $product->title }}</h3>
-                </div>
-                <div class="px-3 pb-3">
-                    <p class="font-space text-sm font-medium text-[#006a38]">
+                <!-- Content Section -->
+                <div class="flex flex-col flex-grow px-3 py-3">
+                    <!-- Title -->
+                    <h3 class="font-space font-bold text-sm text-[#1a1c1c] mb-2 line-clamp-2">{{ $product->title }}</h3>
+
+                    <!-- Price -->
+                    <p class="font-space text-sm font-medium text-[#006a38] mb-2">
                         @if(in_array('sell', $product->type))
                             Rs. {{ number_format($product->price, 2) }}
+                        @elseif(in_array('rent', $product->type))
+                            @if($product->rentals)
+                                Deposit: Rs. {{ number_format($product->rentals->rent_deposit ?? 0, 2) }}
+                            @else
+                                -
+                            @endif
+                        @elseif(in_array('swap', $product->type))
+                            Base: Rs. {{ number_format($product->swap_base_price ?? 0, 2) }}
                         @else
                             -
                         @endif
                     </p>
+
+                    <!-- Chips and Status Row -->
+                    <div class="flex flex-wrap gap-1.5 mb-3">
+                        @if(in_array('sell', $product->type))
+                            <span class="bg-[#e2e2e2] text-[#1a1c1c] text-[10px] font-space font-bold uppercase tracking-[0.05em] px-2 py-1">Buy</span>
+                        @endif
+                        @if(in_array('rent', $product->type))
+                            <span class="bg-[#e2e2e2] text-[#1a1c1c] text-[10px] font-space font-bold uppercase tracking-[0.05em] px-2 py-1">Rent</span>
+                        @endif
+                        @if(in_array('swap', $product->type))
+                            <span class="bg-[#e2e2e2] text-[#1a1c1c] text-[10px] font-space font-bold uppercase tracking-[0.05em] px-2 py-1">Swap</span>
+                        @endif
+                        
+                        @if($product->approval_status === 'APPROVED')
+                            <span class="bg-[#d1fae5] text-[#065f46] text-[10px] font-space font-bold uppercase tracking-[0.05em] px-2 py-1">Approved</span>
+                        @elseif($product->approval_status === 'PENDING')
+                            <span class="bg-[#f3f3f3] text-[#666666] text-[10px] font-space font-bold uppercase tracking-[0.05em] px-2 py-1">Pending</span>
+                        @elseif($product->approval_status === 'REJECTED')
+                            <span class="bg-[#fee2e2] text-[#991b1b] text-[10px] font-space font-bold uppercase tracking-[0.05em] px-2 py-1">Rejected</span>
+                        @endif
+                    </div>
+
+                    <!-- Action Buttons (Push to bottom) -->
+                    <div class="flex gap-2 mt-auto">
+                        <!-- Add to Cart Button -->
+                        <form action="{{ route('cart.store', $product->id) }}" method="POST" class="flex-1" data-cart-action="add">
+                            @csrf
+                            <input type="hidden" name="quantity" value="1">
+                            <button type="submit" title="Add to cart" class="w-full flex h-8 items-center justify-center gap-1 bg-white border border-[#006a38] text-[#006a38] font-space text-xs font-bold uppercase tracking-wider hover:bg-[#f0f8f0] transition">
+                                <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M12 4v16m8-8H4" />
+                                </svg>
+                                Cart
+                            </button>
+                        </form>
+
+                        <!-- Get/View Button -->
+                        <a href="{{ route('products.show', $product->id) }}" class="flex-1">
+                            <button type="button" title="View & Get" class="w-full flex h-8 items-center justify-center gap-1 bg-[#006a38] text-white font-space text-xs font-bold uppercase tracking-wider hover:brightness-110 transition">
+                                <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                Get
+                            </button>
+                        </a>
+                    </div>
                 </div>
             </div>
         @empty

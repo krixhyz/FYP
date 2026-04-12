@@ -17,7 +17,7 @@
                 <p class="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-500">Target Listing</p>
                 <h2 class="mt-2 text-xl font-bold text-neutral-900">{{ $product->title }}</h2>
                 <p class="mt-1 text-sm text-neutral-600">{{ Str::limit($product->description, 100) }}</p>
-                <p class="mt-2 text-sm">Category: <span class="font-semibold">{{ $product->category ?? 'General' }}</span></p>
+                <p class="mt-2 text-sm">Category: <span class="font-semibold">{{ $product->category?->name ?? 'General' }}</span></p>
                 <p class="text-sm">Price: <span class="font-semibold">Rs. {{ $product->price }}</span></p>
             </div>
 

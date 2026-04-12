@@ -1,38 +1,96 @@
 <div class="space-y-5">
+        {{-- Validation Errors --}}
+        @if ($errors->any())
+            <div class="bg-red-50 border border-red-300 rounded p-4">
+                <h4 class="text-red-900 font-bold mb-2">Please fix the following errors:</h4>
+                <ul class="text-red-700 text-sm space-y-1">
+                    @foreach ($errors->all() as $error)
+                        <li>• {{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         {{-- Title --}}
         <div>
              <label class="field-label">Title</label>
             <input type="text" name="title"
                    value="{{ old('title', $product->title ?? '') }}"
-                 class="input-field" required>
+                 class="input-field @error('title') border-red-500 @enderror" required>
+            @error('title')
+                <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+            @enderror
         </div>
 
         {{-- Description --}}
         <div>
             <label class="field-label">Description</label>
             <textarea name="description" rows="3"
-                      class="input-field" required>{{ old('description', $product->description ?? '') }}</textarea>
+                      class="input-field @error('description') border-red-500 @enderror" required>{{ old('description', $product->description ?? '') }}</textarea>
+            @error('description')
+                <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+            @enderror
         </div>
 
-        {{-- Category --}}
+        {{-- Parent Category Selector --}}
         <div>
-            <label class="field-label">Category</label>
-            <select name="category" required
-                    class="input-field">
-                <option value="">Select Category</option>
-                @foreach(['electronics', 'clothing', 'furniture', 'general'] as $cat)
-                    <option value="{{ $cat }}" {{ old('category', $product->category ?? '') == $cat ? 'selected' : '' }}>
-                        {{ ucfirst($cat) }}
-                    </option>
-                @endforeach
+            <label class="field-label">Category (Step 1)</label>
+            <div id="parentCategoryContainer" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                <p class="text-gray-500 text-sm">Loading categories...</p>
+            </div>
+            @error('category_id')
+                <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+            @enderror
+        </div>
+
+        {{-- Subcategory Dropdown --}}
+        <div id="subcategorySection" class="hidden">
+            <label class="field-label">Subcategory (Step 2)</label>
+            <select id="categorySelect" name="category_id" required
+                    class="input-field @error('category_id') border-red-500 @enderror">
+                <option value="">Select Subcategory</option>
             </select>
+            @error('category_id')
+                <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+            @enderror
+        </div>
+
+        {{-- Condition Selector --}}
+        <div>
+            <label class="field-label">Condition</label>
+            <div class="flex flex-wrap gap-2">
+                @foreach (['NEW' => 'New/Unused', 'LIKE_NEW' => 'Like New', 'GOOD' => 'Good', 'FAIR' => 'Fair', 'WORN_FOR_PARTS' => 'Worn/For Parts'] as $value => $label)
+                    <label class="inline-flex items-center px-4 py-2 border-2 rounded cursor-pointer transition-all"
+                           style="border-color: #ddd; background-color: #f9f9f9;">
+                        <input type="radio" name="condition" value="{{ $value }}"
+                               {{ old('condition', $product->condition ?? 'GOOD') === $value ? 'checked' : '' }}
+                               style="margin-right: 8px;">
+                        <span>{{ $label }}</span>
+                    </label>
+                @endforeach
+            </div>
+            @error('condition')
+                <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+            @enderror
+        </div>
+
+        {{-- Eco-Points Preview --}}
+        <div id="ecoPreview" class="p-4 bg-green-50 border border-green-200 rounded hidden">
+            <p class="text-sm text-green-800">
+                <strong>Estimated Eco-Impact:</strong>
+                <span id="ecoPointsDisplay">0.00</span> points
+            </p>
+            <p class="text-xs text-green-700 mt-1">Adjusted based on transaction type when completed.</p>
         </div>
 
         {{-- Listing Type --}}
         @php
-            $selectedTypes = old('listing_type', $product->type ?? []);
+            $selectedTypes = old('listing_type', $product->type ?? ['sell']);
             if (is_string($selectedTypes)) {
                 $selectedTypes = json_decode($selectedTypes, true) ?? [$selectedTypes];
+            }
+            if (empty($selectedTypes)) {
+                $selectedTypes = ['sell'];
             }
         @endphp
         <div>
@@ -42,11 +100,14 @@
                     <label class="flex items-center space-x-1">
                         <input type="checkbox" name="listing_type[]" value="{{ $value }}"
                                {{ in_array($value, $selectedTypes) ? 'checked' : '' }}
-                               class="rounded text-[#0066cc] focus:ring-blue-500">
+                               class="rounded text-[#0066cc] focus:ring-blue-500 @error('listing_type') border-red-500 @enderror">
                         <span>{{ $label }}</span>
                     </label>
                 @endforeach
             </div>
+            @error('listing_type')
+                <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+            @enderror
         </div>
 
         {{-- Quantity --}}
@@ -54,7 +115,10 @@
              <label class="field-label">Quantity (Units Available)</label>
             <input type="number" name="quantity" min="1"
                    value="{{ old('quantity', $product->quantity ?? 1) }}"
-                 class="input-field" required>
+                 class="input-field @error('quantity') border-red-500 @enderror" required>
+            @error('quantity')
+                <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+            @enderror
         </div>
 
         {{-- Sell Price --}}
@@ -62,7 +126,10 @@
              <label class="field-label">Price (For Sale)</label>
             <input type="number" name="price" step="0.01"
                    value="{{ old('price', $product->price ?? '') }}"
-                 class="input-field">
+                 class="input-field @error('price') border-red-500 @enderror">
+            @error('price')
+                <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+            @enderror
         </div>
 
         {{-- Rent Section --}}
@@ -73,14 +140,32 @@
               <label class="field-label">Rent Deposit</label>
                 <input type="number" step="0.01" name="rent_deposit"
                        value="{{ old('rent_deposit', $product->rentals->rent_deposit ?? '') }}"
-                  class="input-field">
+                  class="input-field @error('rent_deposit') border-red-500 @enderror">
+                @error('rent_deposit')
+                    <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+                @enderror
             </div>
 
             <div>
               <label class="field-label">Rent Fare</label>
                 <input type="number" step="0.01" name="rent_fare"
                        value="{{ old('rent_fare', $product->rentals->rent_fare ?? '') }}"
-                  class="input-field">
+                  class="input-field @error('rent_fare') border-red-500 @enderror">
+                @error('rent_fare')
+                    <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div>
+              <label class="field-label">Rent Type</label>
+              <select name="rent_type" class="input-field @error('rent_type') border-red-500 @enderror">
+                <option value="">Select Rent Type</option>
+                <option value="hourly" {{ old('rent_type', $product->rentals->rent_type ?? '') === 'hourly' ? 'selected' : '' }}>Hourly</option>
+                <option value="daily" {{ old('rent_type', $product->rentals->rent_type ?? '') === 'daily' ? 'selected' : '' }}>Daily</option>
+              </select>
+              @error('rent_type')
+                    <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+              @enderror
             </div>
 
             <div class="grid grid-cols-2 gap-3">
@@ -88,22 +173,31 @@
                   <label class="field-label">Start Date</label>
                     <input type="date" name="available_from" id="startDate"
                            value="{{ old('start_date', $product->rentals->start_date ?? '') }}"
-                      class="input-field">
+                      class="input-field @error('available_from') border-red-500 @enderror">
+                    @error('available_from')
+                        <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 <div>
                   <label class="field-label">End Date</label>
                     <input type="date" name="end_date" id="endDate"
                            value="{{ old('end_date', $product->rentals->end_date ?? '') }}"
-                      class="input-field">
+                      class="input-field @error('end_date') border-red-500 @enderror">
+                    @error('end_date')
+                        <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+                    @enderror
                 </div>
             </div>
 
             <div>
               <label class="field-label">Available Duration (days)</label>
-                <input type="number" name="rent_duration" id="rentDuration"
-                       value="{{ old('rent_duration', $product->rentals->available_duration ?? '') }}"
-                  class="input-field" readonly>
+                <input type="number" name="rent_duration" id="rentDuration" min="1"
+                       value="{{ old('rent_duration', $product->rent_duration ?? $product->rentals->available_duration ?? '') }}"
+                  class="input-field @error('rent_duration') border-red-500 @enderror">
+                @error('rent_duration')
+                    <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+                @enderror
             </div>
         </div>
 
@@ -133,7 +227,10 @@
 
             <input type="file" name="images[]" multiple accept="image/*"
                    id="imageUploader"
-                   class="w-full text-sm file:mr-2 file:py-1 file:px-3 file:border-0 file:bg-[#006a38] file:text-white hover:file:bg-[#09864a] cursor-pointer">
+                   class="w-full text-sm file:mr-2 file:py-1 file:px-3 file:border-0 file:bg-[#006a38] file:text-white hover:file:bg-[#09864a] cursor-pointer @error('images') border-red-500 @enderror">
+            @error('images')
+                <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+            @enderror
             <p class="font-manrope text-xs text-[#888888] mt-1">JPEG, PNG, GIF or WebP • max 4 MB each • up to 6 images</p>
 
             {{-- New image previews --}}
@@ -239,14 +336,27 @@
 
     // Show/hide sections based on checkboxes
     function updateSections() {
-        rentSection.classList.toggle('hidden', !rentCheckbox.checked);
-        priceSection.classList.toggle('hidden', !(sellCheckbox.checked || swapCheckbox.checked));
-
+        const rentIsChecked = rentCheckbox.checked;
+        const sellIsChecked = sellCheckbox.checked;
+        const swapIsChecked = swapCheckbox.checked;
+        
+        // Show rent section if rent is checked
+        rentSection.classList.toggle('hidden', !rentIsChecked);
+        
+        // Show price section if sell OR swap is checked
+        priceSection.classList.toggle('hidden', !(sellIsChecked || swapIsChecked));
     }
+    
     rentCheckbox.addEventListener('change', updateSections);
     sellCheckbox.addEventListener('change', updateSections);
     swapCheckbox.addEventListener('change', updateSections);
-    document.addEventListener('DOMContentLoaded', updateSections);
+    
+    // Call on DOMContentLoaded AND immediately to handle initial state
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', updateSections);
+    } else {
+        updateSections();
+    }
 
     // Duration auto-calc
     function updateDuration() {
@@ -262,4 +372,141 @@
 
     // Run once on load for edit
     updateDuration();
+
+    // ─────── Category Selector ───────────────────────────────────────────────
+    let selectedParentId = null;
+
+    document.addEventListener('DOMContentLoaded', async function() {
+        await loadParentCategories();
+        
+        // Restore selected values from form submission
+        const oldCategoryId = "{{ old('category_id', $product->category_id ?? '') }}";
+        const oldCondition = "{{ old('condition', $product->condition ?? 'GOOD') }}";
+        
+        if (oldCategoryId) {
+            // Find parent of this category
+            const allParents = await fetch('/api/categories').then(r => r.json());
+            for (const parent of allParents) {
+                const subs = await fetch(`/api/categories/${parent.id}/subcategories`).then(r => r.json());
+                if (subs.some(s => s.id === parseInt(oldCategoryId))) {
+                    selectedParentId = parent.id;
+                    selectParent(parent.id, parent.name);
+                    setTimeout(() => {
+                        document.getElementById('categorySelect').value = oldCategoryId;
+                        updateEcoPreview();
+                    }, 100);
+                    break;
+                }
+            }
+        }
+        
+        if (oldCondition) {
+            document.querySelector(`input[name="condition"][value="${oldCondition}"]`)?.click();
+            updateEcoPreview();
+        }
+    });
+
+    async function loadParentCategories() {
+        try {
+            const response = await fetch('/api/categories');
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
+            
+            const parents = await response.json();
+            const container = document.getElementById('parentCategoryContainer');
+            
+            if (!parents || parents.length === 0) {
+                container.innerHTML = '<p class="text-red-600 text-sm col-span-3">No categories available. Please contact support.</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            parents.forEach(parent => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = parent.name;
+                btn.className = 'px-4 py-2 border-2 rounded font-medium transition-all cursor-pointer';
+                btn.style.borderColor = '#ddd';
+                btn.style.backgroundColor = '#f9f9f9';
+                
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    selectParent(parent.id, parent.name);
+                });
+                container.appendChild(btn);
+            });
+        } catch (error) {
+            console.error('Error loading categories:', error);
+            const container = document.getElementById('parentCategoryContainer');
+            container.innerHTML = '<p class="text-red-600 text-sm col-span-3">Error loading categories. Check browser console.</p>';
+        }
+    }
+
+    async function selectParent(parentId, parentName) {
+        selectedParentId = parentId;
+        
+        // Update button styles
+        document.querySelectorAll('#parentCategoryContainer button').forEach(btn => {
+            if (btn.textContent === parentName) {
+                btn.style.borderColor = '#006a38';
+                btn.style.backgroundColor = '#e8f5e9';
+            } else {
+                btn.style.borderColor = '#ddd';
+                btn.style.backgroundColor = '#f9f9f9';
+            }
+        });
+        
+        // Load subcategories
+        try {
+            const response = await fetch(`/api/categories/${parentId}/subcategories`);
+            const subcategories = await response.json();
+            
+            const select = document.getElementById('categorySelect');
+            select.innerHTML = '<option value="">Select Subcategory</option>';
+            
+            subcategories.forEach(sub => {
+                const option = document.createElement('option');
+                option.value = sub.id;
+                option.textContent = sub.name;
+                select.appendChild(option);
+            });
+            
+            document.getElementById('subcategorySection').classList.remove('hidden');
+            select.addEventListener('change', updateEcoPreview);
+        } catch (error) {
+            console.error('Error loading subcategories:', error);
+        }
+    }
+
+    function updateEcoPreview() {
+        const categoryId = document.getElementById('categorySelect')?.value;
+        const condition = document.querySelector('input[name="condition"]:checked')?.value || 'GOOD';
+        
+        if (!categoryId) {
+            document.getElementById('ecoPreview').classList.add('hidden');
+            return;
+        }
+        
+        const conditionMultipliers = {'NEW': 1.00, 'LIKE_NEW': 0.95, 'GOOD': 0.85, 'FAIR': 0.70, 'WORN_FOR_PARTS': 0.50};
+        const multiplier = conditionMultipliers[condition] || 0.85;
+        
+        fetch(`/api/categories/${categoryId}`)
+            .then(r => r.json())
+            .then(cat => {
+                const preview = (cat.eco_points * multiplier).toFixed(2);
+                document.getElementById('ecoPointsDisplay').textContent = preview;
+                document.getElementById('ecoPreview').classList.remove('hidden');
+            })
+            .catch(err => console.error('Error:', err));
+    }
+
+    document.addEventListener('change', function(e) {
+        if (e.target.matches('input[name="condition"]')) {
+            updateEcoPreview();
+        } else if (e.target.matches('#categorySelect')) {
+            updateEcoPreview();
+        }
+    });
 </script>
