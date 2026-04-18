@@ -22,7 +22,7 @@ class LoginResponse implements LoginResponseContract
                 ? route('admin.dashboard')
                 : ($user->isAdmin()
                     ? route('admin.dashboard')
-                    : route('dashboard'))
+                    : route('landing'))
         );
     }
 }

@@ -21,9 +21,12 @@
                     <div class="flex-1">
                         <p class="font-space font-bold text-[#1a1c1c]">{{ $dispute->subject }}</p>
                         <p class="font-manrope text-xs text-[#888888] mt-1">
-                            {{ ucfirst($dispute->transaction_type) }} #{{ $dispute->{$dispute->transaction_type === 'order' ? 'order_id' : ($dispute->transaction_type === 'rental' ? 'rental_request_id' : 'swap_id')} }} | Filed {{ $dispute->created_at->diffForHumans() }}
+                            {{ ucfirst($dispute->transaction_type) }} #{{ $dispute->{$dispute->transaction_type === 'order' ? 'order_id' : ($dispute->transaction_type === 'rental' ? ($dispute->rented_rental_id ?: $dispute->rental_request_id) : 'swap_id')} }} | Filed {{ $dispute->created_at->diffForHumans() }}
                         </p>
                         <p class="font-manrope text-sm text-[#444746] mt-2 line-clamp-2">{{ $dispute->description }}</p>
+                        @if(!empty($dispute->evidence_photos))
+                            <p class="mt-2 font-manrope text-xs text-[#006a38]">{{ count($dispute->evidence_photos) }} evidence photo(s) attached</p>
+                        @endif
                         @if($dispute->admin_notes)
                             <div class="mt-3 bg-[#f0fdf4] border-l-4 border-[#10b981] px-4 py-3">
                                 <p class="font-space font-bold text-xs text-[#065f46] uppercase tracking-widest">Admin Note</p>

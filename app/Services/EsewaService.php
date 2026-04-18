@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Http;
+
 class EsewaService
 {
     public function buildSignature(string $totalAmount, string $transactionUuid, string $productCode, string $secretKey): string
@@ -41,5 +43,27 @@ class EsewaService
         $expected = base64_encode($hash);
 
         return hash_equals($expected, (string) ($payload['signature'] ?? ''));
+    }
+
+    public function refundPayment(array $payload): array
+    {
+        $refundUrl = config('esewa.refund_url');
+
+        if (blank($refundUrl)) {
+            return [
+                'ok' => false,
+                'status' => 0,
+                'body' => [],
+                'message' => 'eSewa refund URL is not configured.',
+            ];
+        }
+
+        $response = Http::acceptJson()->post($refundUrl, $payload);
+
+        return [
+            'ok' => $response->successful(),
+            'status' => $response->status(),
+            'body' => $response->json() ?? [],
+        ];
     }
 }

@@ -11,9 +11,10 @@
 
     @php
         $rentType = $rentalRequest->rental?->rent_type ?? 'daily';
-        $rentFare = $rentalRequest->rental?->rent_fare ?? 0;
+        $rentFare = $rentalRequest->total_amount ?? ($rentalRequest->rental?->rent_fare ?? 0);
         $rentDeposit = $rentalRequest->rent_deposit ?? ($rentalRequest->rental?->rent_deposit ?? 0);
-        $totalAmount = ($rentalRequest->total_amount ?? 0) + $rentDeposit;
+        $serviceFee = $rentFare * 0.03;
+        $totalAmount = $rentFare + $rentDeposit + $serviceFee;
     @endphp
 
     <section class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)] p-6 md:p-8 space-y-6">
@@ -31,15 +32,19 @@
                 <p class="font-manrope text-sm text-[#1a1c1c] mt-2">{{ $rentalRequest->duration }} {{ $rentType == 'hourly' ? 'hours' : 'days' }}</p>
             </div>
             <div class="bg-[#f3f3f3] p-4">
-                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Fare</p>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Rent Fee</p>
                 <p class="font-manrope text-sm text-[#1a1c1c] mt-2">Rs. {{ number_format($rentFare, 2) }}</p>
             </div>
             <div class="bg-[#f3f3f3] p-4">
                 <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Deposit</p>
                 <p class="font-manrope text-sm text-[#1a1c1c] mt-2">Rs. {{ number_format($rentDeposit, 2) }}</p>
             </div>
+            <div class="bg-[#f3f3f3] p-4">
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Service Charge (3%)</p>
+                <p class="font-manrope text-sm text-[#1a1c1c] mt-2">Rs. {{ number_format($serviceFee, 2) }}</p>
+            </div>
             <div class="bg-[#006a38] p-4 text-white">
-                <p class="font-space text-[11px] font-bold uppercase tracking-widest">Total Amount</p>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest">Total Payable</p>
                 <p class="font-space font-bold text-xl text-white mt-2">Rs. {{ number_format($totalAmount, 2) }}</p>
             </div>
         </div>

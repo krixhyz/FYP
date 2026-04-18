@@ -106,6 +106,7 @@
         <div class="space-y-3">
             <a href="{{ route('products.create') }}" class="w-full block bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-4 py-3 font-space font-bold text-sm uppercase tracking-wider text-center rounded-lg hover:brightness-110 transition-all">New Listing</a>
             <a href="{{ route('products.myListings') }}" class="w-full block bg-transparent border-2 border-[#006a38] text-[#006a38] px-4 py-3 font-space font-bold text-sm uppercase tracking-wider text-center rounded-lg hover:bg-[rgba(0,106,56,0.06)] transition-all">View Listings</a>
+            <a href="{{ route('wallet.index') }}" class="w-full block bg-transparent border-2 border-[#006a38] text-[#006a38] px-4 py-3 font-space font-bold text-sm uppercase tracking-wider text-center rounded-lg hover:bg-[rgba(0,106,56,0.06)] transition-all">Open Wallet</a>
             <a href="{{ route('notifications.index') }}" class="w-full block bg-transparent border-2 border-[#006a38] text-[#006a38] px-4 py-3 font-space font-bold text-sm uppercase tracking-wider text-center rounded-lg hover:bg-[rgba(0,106,56,0.06)] transition-all">Check Inbox</a>
         </div>
     </div>

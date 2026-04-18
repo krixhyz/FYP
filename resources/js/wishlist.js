@@ -11,6 +11,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+function showWishlistToast(message, type = 'info') {
+    if (window.toastr && typeof window.toastr[type] === 'function') {
+        window.toastr[type](message);
+        return;
+    }
+
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, null, null, type);
+        return;
+    }
+
+    if (type === 'error') {
+        console.error(message);
+    } else {
+        console.log(message);
+    }
+}
+
 /**
  * Handle wishlist toggle form submission
  */
@@ -26,16 +44,22 @@ async function handleWishlistToggleSubmit(e) {
             method: form.method,
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json',
             },
             body: formData,
         });
 
-        const data = await response.json();
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+
+        const isJson = (response.headers.get('content-type') || '').includes('application/json');
+        const data = isJson ? await response.json() : {};
 
         if (response.ok && data.success) {
-            // Show toast with global function
-            showToast(data.message);
+            showWishlistToast(data.saved ? 'Added to wishlist' : 'Removed from wishlist', data.saved ? 'success' : 'info');
 
             // Update the wishlist button icon
             const button = form.querySelector('button[type="submit"]');
@@ -54,12 +78,17 @@ async function handleWishlistToggleSubmit(e) {
             // Update button title
             if (button) {
                 button.title = data.saved ? 'Remove from wishlist' : 'Save to wishlist';
+
+                const textEl = button.querySelector('span');
+                if (textEl) {
+                    textEl.textContent = data.saved ? 'Remove from Wishlist' : 'Add to Wishlist';
+                }
             }
         } else {
-            showToast(data.message || 'Failed to update wishlist', null);
+            showWishlistToast(data.message || 'Failed to update wishlist', 'error');
         }
     } catch (error) {
         console.error('Wishlist error:', error);
-        showToast('An error occurred. Please try again.', null);
+        showWishlistToast('An error occurred. Please try again.', 'error');
     }
 }

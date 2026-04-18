@@ -22,5 +22,10 @@
         <button type="submit" class="w-full bg-gradient-to-br from-[#006a38] to-[#09864a] text-white py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 active:brightness-95 transition-all">
             Email Password Reset Link
         </button>
+
+        <p class="text-center font-manrope text-sm text-[#444746]">
+            Remembered your password?
+            <a href="{{ route('login') }}" class="font-space font-bold uppercase text-[#006a38] hover:text-[#004a29] tracking-wider">Back to Login</a>
+        </p>
     </form>
 @endsection

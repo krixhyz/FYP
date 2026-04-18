@@ -28,8 +28,12 @@
                         <div class="border border-[rgba(189,202,189,0.1)] rounded-lg p-4 bg-[#f9f9f9]">
                             <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-3">Product Being Rented</p>
                             <h3 class="font-space font-bold text-base text-[#1a1c1c] mb-3">{{ $req->product->title }}</h3>
-                            @if($req->product->images && $req->product->images->first())
-                                <img src="{{ asset('storage/' . $req->product->images->first()->path) }}" alt="{{ $req->product->title }}" class="w-full h-40 object-cover rounded-lg mb-3">
+                            @php
+                                $requestProductImage = collect($req->product->images ?? [])->first();
+                                $requestProductImagePath = data_get($requestProductImage, 'path', is_string($requestProductImage) ? $requestProductImage : null) ?? $req->product->image;
+                            @endphp
+                            @if($requestProductImagePath)
+                                <img src="{{ asset('storage/' . $requestProductImagePath) }}" alt="{{ $req->product->title }}" class="w-full h-40 object-cover rounded-lg mb-3">
                             @else
                                 <div class="w-full h-40 bg-[#e2e2e2] rounded-lg flex items-center justify-center text-[#888] mb-3">
                                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,7 +77,9 @@
                         <div class="border border-[rgba(189,202,189,0.1)] rounded-lg p-4 bg-[#f9f9f9] flex flex-col">
                             <div class="mb-6">
                                 <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-2">Requested By</p>
-                                <p class="font-space font-bold text-lg text-[#1a1c1c] mb-3">{{ $req->renter->name }}</p>
+                                <p class="font-space font-bold text-lg text-[#1a1c1c] mb-3">
+                                    <a href="{{ route('users.show', $req->renter) }}" class="text-[#006a38] hover:underline">{{ $req->renter->name }}</a>
+                                </p>
                                 <div class="text-xs text-[#888] space-y-1">
                                     <p><strong>Email:</strong> {{ $req->renter->email }}</p>
                                     @if($req->renter->phone)

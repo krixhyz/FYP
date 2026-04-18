@@ -19,7 +19,11 @@ class Order extends Model
         'quantity',
         'unit_price',
         'total_price',
+        'subtotal',
+        'service_fee',
+        'total_amount',
         'status',
+        'payment_status',
         'reserved_until',
         'buyer_name',
         'buyer_phone',
@@ -29,6 +33,11 @@ class Order extends Model
 
     protected $casts = [
         'quantity' => 'integer', // NEW
+        'unit_price' => 'decimal:2',
+        'total_price' => 'decimal:2',
+        'subtotal' => 'decimal:2',
+        'service_fee' => 'decimal:2',
+        'total_amount' => 'decimal:2',
         'reserved_until' => 'datetime',
     ];
 

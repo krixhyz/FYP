@@ -9,11 +9,15 @@
         </p>
     </header>
 
+    @php
+        $profileUpdateAction = $profileUpdateAction ?? route('profile.update');
+    @endphp
+
     <form id="send-verification" method="post" action="{{ route('verification.send') }}">
         @csrf
     </form>
 
-    <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6" x-data="locationForm()">
+    <form method="post" action="{{ $profileUpdateAction }}" class="mt-6 space-y-6" x-data="locationForm()">
         @csrf
         @method('patch')
 

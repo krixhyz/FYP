@@ -9,10 +9,6 @@
         <p class="font-manrope text-base text-[#444746]">Adjust item quantities before you proceed to payment.</p>
     </section>
 
-    @if(session('error'))
-        <div class="bg-[#f8d7da] border-2 border-[#f5c6cb] text-[#721c24] px-4 py-3 font-manrope text-sm">{{ session('error') }}</div>
-    @endif
-
     <div class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)] p-6 space-y-3">
         @php $total = 0; @endphp
         @foreach($cartItems as $item)
@@ -22,10 +18,10 @@
                 $line = $unit * $qty;
                 $total += $line;
             @endphp
-            <div class="grid grid-cols-1 gap-3 bg-[#f3f3f3] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div class="grid grid-cols-1 gap-3 bg-[#f3f3f3] p-4 sm:grid-cols-[1fr_auto] sm:items-center" data-checkout-item="{{ $item->id }}" data-unit-price="{{ $unit }}" data-line-total="{{ $line }}">
                 <div>
                     <p class="font-manrope font-medium text-sm text-[#1a1c1c]">{{ $item->product->title }}</p>
-                    <p class="font-manrope text-xs text-[#888888]">Unit: Rs. {{ number_format($unit,2) }} | Line Total: Rs. {{ number_format($line,2) }}</p>
+                    <p class="font-manrope text-xs text-[#888888]" data-line-summary>Unit: Rs. {{ number_format($unit,2) }} | Line Total: Rs. {{ number_format($line,2) }}</p>
                 </div>
                 <form action="{{ route('cart.update', $item->id) }}" method="POST" class="grid grid-cols-[40px_64px_40px_auto] items-center gap-2 justify-self-start sm:justify-self-end" data-cart-action="checkout-update">
                     @csrf
@@ -46,9 +42,24 @@
             </div>
         @endforeach
 
-        <div class="flex justify-between bg-[#f3f3f3] px-4 py-3">
-            <span class="font-space font-bold text-[#1a1c1c]">Total</span>
-            <span class="font-space font-bold text-[#1a1c1c]">Rs. {{ number_format($total,2) }}</span>
+        @php
+            $serviceFee = $total * 0.03;
+            $totalPayable = $total + $serviceFee;
+        @endphp
+
+        <div class="space-y-2 bg-[#f3f3f3] px-4 py-3">
+            <div class="flex justify-between">
+                <span class="font-space font-bold text-[#1a1c1c]">Item Price</span>
+                <span class="font-space font-bold text-[#1a1c1c]" data-checkout-subtotal>Rs. {{ number_format($total,2) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="font-space font-bold text-[#1a1c1c]">Service Charge (3%)</span>
+                <span class="font-space font-bold text-[#1a1c1c]" data-checkout-fee>Rs. {{ number_format($serviceFee,2) }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="font-space font-bold text-[#1a1c1c]">Total Payable</span>
+                <span class="font-space font-bold text-[#1a1c1c]" data-checkout-total>Rs. {{ number_format($totalPayable,2) }}</span>
+            </div>
         </div>
 
         <form action="{{ route('orders.placeFromCart') }}" method="POST">
@@ -167,11 +178,26 @@
         });
 
         document.querySelectorAll('input[id^="qty-"]').forEach((input) => {
-            input.addEventListener('blur', () => {
+            const normalize = () => {
                 const min = parseInt(input.min || '1', 10);
                 const max = parseInt(input.max || '1', 10);
                 input.value = clamp(input.value, min, max);
+            };
+
+            input.addEventListener('blur', () => {
+                normalize();
             });
+
+            input.addEventListener('input', () => {
+                normalize();
+            });
+
+            const form = input.closest('form');
+            if (form) {
+                form.addEventListener('submit', normalize);
+            }
+
+            normalize();
         });
 
         // Update review section as user fills form

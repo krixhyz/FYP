@@ -27,13 +27,18 @@ class CartController extends Controller
 
     public function store(Request $request, $productId, InventoryReservationService $inventory)
     {
+        $product = Product::findOrFail($productId);
+        $maxQty = max(1, (int) $product->quantity);
+
         $validated = $request->validate([
-            'quantity' => 'nullable|integer|min:1',
+            'quantity' => 'nullable|integer|min:1|max:' . $maxQty,
+        ], [
+            'quantity.integer' => 'Quantity must be a whole number.',
+            'quantity.min' => 'Quantity must be at least 1.',
+            'quantity.max' => "Quantity cannot exceed available stock ({$maxQty}).",
         ]);
 
         $quantity = intval($validated['quantity'] ?? 1);
-
-        $product = Product::findOrFail($productId);
 
         if ($product->user_id === Auth::id()) {
             $message = 'Cannot add your own product to cart.';
@@ -93,13 +98,20 @@ class CartController extends Controller
 
     public function update(Request $request, $id, InventoryReservationService $inventory)
     {
-        $validated = $request->validate([
-            'quantity' => 'required|integer|min:1',
-        ]);
-
         $cartItem = Auth::user()->cartItems()->findOrFail($id);
 
         $product = $cartItem->product;
+        $maxQty = max(1, (int) ($product->quantity ?? 1));
+
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:1|max:' . $maxQty,
+        ], [
+            'quantity.required' => 'Quantity is required.',
+            'quantity.integer' => 'Quantity must be a whole number.',
+            'quantity.min' => 'Quantity must be at least 1.',
+            'quantity.max' => "Quantity cannot exceed available stock ({$maxQty}).",
+        ]);
+
         try {
             $inventory->ensurePurchasableQuantity($product, (int) $validated['quantity'], now());
         } catch (\RuntimeException $e) {

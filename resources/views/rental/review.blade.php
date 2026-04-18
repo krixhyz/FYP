@@ -10,7 +10,7 @@
     <section class="surface-card p-5 sm:p-6">
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
             <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Product</p><p class="mt-1 font-semibold">{{ $rentalRequest->product->title }}</p></div>
-            <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Renter</p><p class="mt-1 font-semibold">{{ $rentalRequest->renter->name }}</p></div>
+            <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Renter</p><p class="mt-1 font-semibold"><a href="{{ route('users.show', $rentalRequest->renter) }}" class="text-[#006a38] hover:underline">{{ $rentalRequest->renter->name }}</a></p></div>
             <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Duration</p><p class="mt-1 font-semibold">{{ $rentalRequest->duration }} days</p></div>
             <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Fare</p><p class="mt-1 font-semibold">Rs. {{ $rentalRequest->rental->rent_fare ?? 0 }}</p></div>
             <div class="bg-[#f3f3f3] p-3"><p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#888888]">Deposit</p><p class="mt-1 font-semibold">Rs. {{ $rentalRequest->rent_deposit }}</p></div>

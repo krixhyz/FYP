@@ -10,6 +10,7 @@ class Review extends Model
     protected $fillable = [
         'reviewer_id',
         'reviewee_id',
+        'product_id',
         'order_id',
         'rented_rental_id',
         'swap_id',
@@ -31,6 +32,11 @@ class Review extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
     }
 
     public function rentedRental()

@@ -107,6 +107,8 @@ class KhaltiCheckoutTest extends TestCase
 
         $response = $this->actingAs($buyer)->post(route('orders.placeFromCart'), [
             'payment_gateway' => 'khalti',
+            'buyer_name' => 'Cart Buyer',
+            'buyer_email' => 'cartbuyer@example.com',
         ]);
 
         $response->assertRedirect('https://test-pay.khalti.com/?pidx=PIDX-CART-1');

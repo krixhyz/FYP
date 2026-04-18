@@ -24,6 +24,10 @@
                 <p class="font-space font-bold text-xl text-white mt-2">Rs. {{ number_format($swapRequest->offered_amount ?? 0, 2) }}</p>
             </div>
             <div class="bg-[#f3f3f3] p-4">
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Service Charge</p>
+                <p class="font-manrope text-sm text-[#1a1c1c] mt-2">Rs. 0.00 (No service fee for swaps)</p>
+            </div>
+            <div class="bg-[#f3f3f3] p-4">
                 <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Notes</p>
                 <p class="font-manrope text-sm text-[#1a1c1c] mt-2">{{ $swapRequest->message ?: 'No notes provided' }}</p>
             </div>

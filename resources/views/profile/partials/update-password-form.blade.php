@@ -1,4 +1,8 @@
 <section>
+    @php
+        $passwordUpdateAction = $passwordUpdateAction ?? route('password.update');
+    @endphp
+
     <header>
         <h2 class="text-lg font-extrabold tracking-tight text-[var(--reloop-ink)]">
             {{ __('Update Password') }}
@@ -9,7 +13,7 @@
         </p>
     </header>
 
-    <form method="post" action="{{ route('password.update') }}" class="mt-6 space-y-6">
+    <form method="post" action="{{ $passwordUpdateAction }}" class="mt-6 space-y-6">
         @csrf
         @method('put')
 

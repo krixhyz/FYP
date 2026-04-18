@@ -128,8 +128,22 @@
                 <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] overflow-hidden hover:shadow-[0_8px_12px_rgba(0,0,0,0.1)] transition-all">
                     <!-- Image -->
                     <div class="aspect-square bg-[#e2e2e2] overflow-hidden relative group">
-                        @if($product->images && $product->images->first())
-                            <img src="{{ asset('storage/' . $product->images->first()->path) }}" alt="{{ $product->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+                        @php
+                            $firstImage = null;
+                            if (is_array($product->images) && !empty($product->images)) {
+                                $firstImage = $product->images[0];
+                            } elseif (is_string($product->images) && $product->images !== '') {
+                                $firstImage = $product->images;
+                            }
+
+                            if (is_array($firstImage)) {
+                                $firstImage = $firstImage['path'] ?? null;
+                            }
+
+                            $displayImage = $firstImage ?: $product->image;
+                        @endphp
+                        @if($displayImage)
+                            <img src="{{ asset('storage/' . $displayImage) }}" alt="{{ $product->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
                         @else
                             <div class="w-full h-full flex items-center justify-center text-[#888]">
                                 <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -195,12 +209,24 @@
                 @php
                     $units = $product->orders->sum(fn($o) => $o->quantity ?? 1);
                     $revenue = $product->orders->sum(fn($o) => ($o->unit_price ?? $product->price ?? 0) * ($o->quantity ?? 1));
+                    $firstImage = null;
+                    if (is_array($product->images) && !empty($product->images)) {
+                        $firstImage = $product->images[0];
+                    } elseif (is_string($product->images) && $product->images !== '') {
+                        $firstImage = $product->images;
+                    }
+
+                    if (is_array($firstImage)) {
+                        $firstImage = $firstImage['path'] ?? null;
+                    }
+
+                    $displayImage = $firstImage ?: $product->image;
                 @endphp
                 <div class="px-6 py-4 hover:bg-[#f9f9f9] transition-colors">
                     <div class="flex items-start gap-4">
                         <div class="w-20 h-20 bg-[#e2e2e2] rounded-lg overflow-hidden flex-shrink-0">
-                            @if($product->images && $product->images->first())
-                                <img src="{{ asset('storage/' . $product->images->first()->path) }}" alt="{{ $product->title }}" class="w-full h-full object-cover">
+                            @if($displayImage)
+                                <img src="{{ asset('storage/' . $displayImage) }}" alt="{{ $product->title }}" class="w-full h-full object-cover">
                             @else
                                 <div class="w-full h-full flex items-center justify-center text-[#888]">
                                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">

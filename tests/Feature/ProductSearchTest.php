@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,7 +19,7 @@ class ProductSearchTest extends TestCase
         $this->makeProduct($owner->id, [
             'title' => 'Vintage Jacket',
             'description' => 'A warm winter jacket',
-            'category' => 'clothing',
+            'category' => 'Clothing',
             'type' => ['sell'],
             'price' => 1500,
         ]);
@@ -26,7 +27,7 @@ class ProductSearchTest extends TestCase
         $this->makeProduct($owner->id, [
             'title' => 'Gaming Laptop',
             'description' => 'High performance machine',
-            'category' => 'electronics',
+            'category' => 'Electronics',
             'type' => ['sell'],
             'price' => 65000,
         ]);
@@ -46,7 +47,7 @@ class ProductSearchTest extends TestCase
         $this->makeProduct($user->id, [
             'title' => 'My Searchable Item',
             'description' => 'Should be excluded from my own feed',
-            'category' => 'general',
+            'category' => 'General',
             'type' => ['sell'],
             'price' => 100,
         ]);
@@ -54,7 +55,7 @@ class ProductSearchTest extends TestCase
         $this->makeProduct($otherOwner->id, [
             'title' => 'Public Searchable Item',
             'description' => 'Should be visible',
-            'category' => 'general',
+            'category' => 'General',
             'type' => ['sell'],
             'price' => 120,
         ]);
@@ -73,7 +74,7 @@ class ProductSearchTest extends TestCase
         $this->makeProduct($owner->id, [
             'title' => 'Low Cost Chair',
             'description' => 'Furniture sale',
-            'category' => 'furniture',
+            'category' => 'Furniture',
             'type' => ['sell'],
             'price' => 800,
         ]);
@@ -81,7 +82,7 @@ class ProductSearchTest extends TestCase
         $this->makeProduct($owner->id, [
             'title' => 'Premium Sofa',
             'description' => 'Furniture sale',
-            'category' => 'furniture',
+            'category' => 'Furniture',
             'type' => ['sell'],
             'price' => 12000,
         ]);
@@ -89,13 +90,15 @@ class ProductSearchTest extends TestCase
         $this->makeProduct($owner->id, [
             'title' => 'Furniture Rental Set',
             'description' => 'Furniture for rent',
-            'category' => 'furniture',
+            'category' => 'Furniture',
             'type' => ['rent'],
             'price' => 5000,
         ]);
 
+        $furnitureCategory = Category::where('name', 'Furniture')->whereNull('parent_id')->firstOrFail();
+
         $response = $this->get(route('products.index', [
-            'category' => 'furniture',
+            'category' => $furnitureCategory->id,
             'listing_type' => 'sell',
             'min_price' => 500,
             'max_price' => 2000,
@@ -109,6 +112,18 @@ class ProductSearchTest extends TestCase
 
     private function makeProduct(int $ownerId, array $overrides = []): Product
     {
+        $categoryName = $overrides['category'] ?? 'General';
+        $category = Category::firstOrCreate(
+            ['name' => $categoryName, 'parent_id' => null],
+            [
+                'base_co2_kg' => 1.00,
+                'reuse_pct' => 50.00,
+                'eco_points' => 10.00,
+            ]
+        );
+
+        unset($overrides['category']);
+
         return Product::create(array_merge([
             'user_id' => $ownerId,
             'title' => 'Sample Product',
@@ -116,8 +131,10 @@ class ProductSearchTest extends TestCase
             'price' => 1000,
             'quantity' => 3,
             'type' => ['sell'],
-            'category' => 'general',
+            'category_id' => $category->id,
+            'condition' => 'GOOD',
             'status' => 'available',
+            'approval_status' => 'APPROVED',
         ], $overrides));
     }
 }

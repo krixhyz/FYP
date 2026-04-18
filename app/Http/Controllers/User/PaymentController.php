@@ -7,14 +7,17 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Rental;
+use App\Models\RentalDeposit;
 use App\Models\RentalRequest;
 use App\Models\RentedRentals;
 use App\Models\Swap;
 use App\Models\SwapRequest;
+use App\Services\CheckoutPricingService;
 use App\Services\EsewaService;
 use App\Services\KhaltiService;
 use App\Services\InventoryReservationService;
 use App\Services\EcoScoreService;
+use App\Services\WalletLedgerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +28,246 @@ use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
+    public function calculateCheckout(Request $request, CheckoutPricingService $pricingService)
+    {
+        $validated = $request->validate([
+            'flow_type' => 'required|in:purchase,rent,swap',
+            'price' => 'nullable|numeric|min:0',
+            'quantity' => 'nullable|integer|min:1',
+            'rent_fee' => 'nullable|numeric|min:0',
+            'deposit' => 'nullable|numeric|min:0',
+            'cash_topup' => 'nullable|numeric|min:0',
+        ]);
+
+        $flow = $validated['flow_type'];
+
+        if ($flow === 'purchase') {
+            $price = (float) ($validated['price'] ?? 0);
+            $quantity = (int) ($validated['quantity'] ?? 1);
+            $result = $pricingService->calculatePurchase($price * $quantity);
+            $result['quantity'] = $quantity;
+
+            return response()->json($result);
+        }
+
+        if ($flow === 'rent') {
+            return response()->json(
+                $pricingService->calculateRent(
+                    (float) ($validated['rent_fee'] ?? 0),
+                    (float) ($validated['deposit'] ?? 0)
+                )
+            );
+        }
+
+        return response()->json(
+            $pricingService->calculateSwap((float) ($validated['cash_topup'] ?? 0))
+        );
+    }
+
+    public function checkoutPay(
+        Request $request,
+        EsewaService $esewaService,
+        KhaltiService $khaltiService,
+        InventoryReservationService $inventory
+    ) {
+        $validated = $request->validate([
+            'flow_type' => 'required|in:purchase,rent,swap',
+            'product_id' => 'nullable|integer|exists:products,id',
+            'rental_request_id' => 'nullable|integer|exists:rental_requests,id',
+            'swap_request_id' => 'nullable|integer|exists:swap_requests,id',
+            'quantity' => 'nullable|integer|min:1',
+            'buyer_name' => 'required|string|max:255',
+            'buyer_phone' => 'nullable|string|regex:/^[0-9]{10}$/|size:10',
+            'buyer_email' => 'required|email',
+            'buyer_address' => 'nullable|string',
+            'payment_gateway' => 'required|in:esewa,khalti',
+        ]);
+
+        if ($validated['flow_type'] === 'purchase') {
+            $product = Product::findOrFail((int) $validated['product_id']);
+            $request->merge(['quantity' => (int) ($validated['quantity'] ?? 1)]);
+
+            return $this->createDirectOrderPayment($request, $product, $esewaService, $khaltiService, $inventory);
+        }
+
+        if ($validated['flow_type'] === 'rent') {
+            $rentalRequest = RentalRequest::findOrFail((int) $validated['rental_request_id']);
+
+            return $this->createRentalPayment($request, $rentalRequest, $esewaService, $khaltiService, $inventory);
+        }
+
+        $swapRequest = SwapRequest::findOrFail((int) $validated['swap_request_id']);
+
+        return $this->createSwapPayment($request, $swapRequest, $esewaService, $khaltiService, $inventory);
+    }
+
+    public function verifyPayment(Request $request)
+    {
+        $validated = $request->validate([
+            'payment_reference' => 'nullable|string',
+            'transaction_uuid' => 'nullable|string',
+            'provider' => 'nullable|in:esewa,khalti,stripe',
+        ]);
+
+        $reference = (string) ($validated['payment_reference'] ?? '');
+        $transactionUuid = (string) ($validated['transaction_uuid'] ?? '');
+
+        if ($reference === '' && $transactionUuid === '') {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Provide payment_reference or transaction_uuid.',
+            ], 422);
+        }
+
+        $payment = Payment::query()
+            ->when($reference !== '', function ($query) use ($reference) {
+                $query->where('payment_reference', $reference);
+            })
+            ->when($reference === '' && $transactionUuid !== '', function ($query) use ($transactionUuid) {
+                $query->where('transaction_uuid', $transactionUuid);
+            })
+            ->first();
+
+        if (!$payment) {
+            return response()->json(['ok' => false, 'message' => 'Payment not found.'], 404);
+        }
+
+        if (!empty($validated['provider']) && $payment->provider !== $validated['provider']) {
+            return response()->json(['ok' => false, 'message' => 'Provider mismatch.'], 409);
+        }
+
+        if ($payment->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'payment_id' => $payment->id,
+            'status' => $payment->status,
+            'provider' => $payment->provider,
+            'payment_reference' => $payment->payment_reference,
+            'transaction_uuid' => $payment->transaction_uuid,
+            'gross_amount' => (float) $payment->gross_amount,
+            'fee_amount' => (float) $payment->fee_amount,
+            'seller_amount' => (float) $payment->seller_amount,
+            'platform_amount' => (float) $payment->platform_amount,
+            'total_amount' => (float) $payment->total_amount,
+        ]);
+    }
+
+    public function orderDetails(Order $order)
+    {
+        if ($order->buyer_id !== Auth::id() && $order->seller_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $order->load(['product', 'payment', 'buyer', 'seller']);
+
+        return response()->json([
+            'id' => $order->id,
+            'transaction_type' => $order->transaction_type,
+            'status' => $order->status,
+            'payment_status' => $order->payment_status,
+            'quantity' => (int) $order->quantity,
+            'unit_price' => (float) $order->unit_price,
+            'subtotal' => (float) $order->subtotal,
+            'service_fee' => (float) $order->service_fee,
+            'total_amount' => (float) $order->total_amount,
+            'buyer' => $order->buyer?->only(['id', 'name', 'email']),
+            'seller' => $order->seller?->only(['id', 'name', 'email']),
+            'product' => $order->product?->only(['id', 'title', 'status']),
+            'payment' => $order->payment ? [
+                'id' => $order->payment->id,
+                'provider' => $order->payment->provider,
+                'status' => $order->payment->status,
+                'payment_reference' => $order->payment->payment_reference,
+            ] : null,
+        ]);
+    }
+
+    public function myTransactionHistory()
+    {
+        $userId = Auth::id();
+
+        $rentalReferences = RentedRentals::where('renter_id', $userId)
+            ->whereNotNull('payment_reference')
+            ->pluck('payment_reference')
+            ->unique()
+            ->values();
+
+        $rentalPaymentMap = Payment::whereIn('payment_reference', $rentalReferences)
+            ->get()
+            ->keyBy('payment_reference');
+
+        $orders = Order::with(['product', 'payment'])
+            ->where('buyer_id', $userId)
+            ->latest()
+            ->get()
+            ->map(function (Order $order) {
+                return [
+                    'type' => 'purchase',
+                    'id' => $order->id,
+                    'status' => $order->status,
+                    'payment_status' => $order->payment_status,
+                    'item' => $order->product?->title,
+                    'subtotal' => (float) $order->subtotal,
+                    'service_fee' => (float) $order->service_fee,
+                    'total_amount' => (float) $order->total_amount,
+                    'payment_reference' => $order->payment?->payment_reference,
+                    'created_at' => $order->created_at,
+                ];
+            });
+
+        $rentals = RentedRentals::with(['product'])
+            ->where('renter_id', $userId)
+            ->latest()
+            ->get()
+            ->map(function (RentedRentals $rental) use ($rentalPaymentMap) {
+                $payment = $rentalPaymentMap->get($rental->payment_reference);
+
+                return [
+                    'type' => 'rent',
+                    'id' => $rental->id,
+                    'status' => $rental->status,
+                    'payment_status' => $rental->payment_status,
+                    'item' => $rental->product?->title,
+                    'subtotal' => (float) $rental->rent_fare,
+                    'service_fee' => (float) ($payment->fee_amount ?? 0),
+                    'total_amount' => (float) $rental->total_amount,
+                    'payment_reference' => $rental->payment_reference,
+                    'created_at' => $rental->created_at,
+                ];
+            });
+
+        $swaps = Swap::with(['requestedProduct'])
+            ->where('owner_b_id', $userId)
+            ->latest()
+            ->get()
+            ->map(function (Swap $swap) {
+                return [
+                    'type' => 'swap',
+                    'id' => $swap->id,
+                    'status' => $swap->status,
+                    'payment_status' => $swap->offered_amount > 0 ? 'paid' : 'n/a',
+                    'item' => $swap->requestedProduct?->title,
+                    'subtotal' => (float) ($swap->offered_amount ?? 0),
+                    'service_fee' => 0.0,
+                    'total_amount' => (float) ($swap->offered_amount ?? 0),
+                    'payment_reference' => null,
+                    'created_at' => $swap->created_at,
+                ];
+            });
+
+        $history = collect()
+            ->concat($orders)
+            ->concat($rentals)
+            ->concat($swaps)
+            ->sortByDesc('created_at')
+            ->values();
+
+        return response()->json($history);
+    }
+
     public function createDirectOrderPayment(
         Request $request,
         Product $product,
@@ -42,12 +285,22 @@ class PaymentController extends Controller
             return redirect()->route('products.show', $product->id)->with('error', 'This item is not available for purchase.');
         }
 
+        $availableQty = (int) $product->quantity;
+        if ($availableQty < 1) {
+            return redirect()->route('products.show', $product->id)->with('error', 'This item is out of stock.');
+        }
+
         $validated = $request->validate([
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|integer|min:1|max:' . $availableQty,
             'buyer_name' => 'required|string|max:255',
             'buyer_phone' => 'nullable|string|regex:/^[0-9]{10}$/|size:10',
             'buyer_email' => 'required|email',
             'buyer_address' => 'nullable|string',
+        ], [
+            'quantity.required' => 'Quantity is required.',
+            'quantity.integer' => 'Quantity must be a whole number.',
+            'quantity.min' => 'Quantity must be at least 1.',
+            'quantity.max' => "Quantity cannot exceed available stock ({$availableQty}).",
         ]);
 
         $quantity = (int) $validated['quantity'];
@@ -74,15 +327,14 @@ class PaymentController extends Controller
         // Add buyer details to payment payload
         $buyerDetails = [
             'buyer_name' => $validated['buyer_name'],
-            'buyer_phone' => $validated['buyer_phone'],
+            'buyer_phone' => $validated['buyer_phone'] ?? null,
             'buyer_email' => $validated['buyer_email'],
-            'buyer_address' => $validated['buyer_address'],
+            'buyer_address' => $validated['buyer_address'] ?? null,
         ];
         $payload = $payment->request_payload ?? [];
         $payload['buyer_details'] = $buyerDetails;
         $payment->request_payload = $payload;
         $payment->save();
-
         return $this->initiatePayment($payment, $provider, $esewaService, $khaltiService, 'Order Payment');
     }
 
@@ -127,7 +379,7 @@ class PaymentController extends Controller
         // Log for debugging
         \Log::info('createCartPayment - Validated buyer details', [
             'buyer_name' => $validated['buyer_name'],
-            'buyer_phone' => $validated['buyer_phone'],
+            'buyer_phone' => $validated['buyer_phone'] ?? null,
             'buyer_email' => $validated['buyer_email'],
             'buyer_address' => substr($validated['buyer_address'] ?? '', 0, 100),
         ]);
@@ -180,9 +432,9 @@ class PaymentController extends Controller
         // Add buyer details to payment payload
         $buyerDetails = [
             'buyer_name' => $validated['buyer_name'],
-            'buyer_phone' => $validated['buyer_phone'],
+            'buyer_phone' => $validated['buyer_phone'] ?? null,
             'buyer_email' => $validated['buyer_email'],
-            'buyer_address' => $validated['buyer_address'],
+            'buyer_address' => $validated['buyer_address'] ?? null,
         ];
         $payload = $payment->request_payload ?? [];
         $payload['buyer_details'] = $buyerDetails;
@@ -340,6 +592,7 @@ class PaymentController extends Controller
     public function createRentalPayment(Request $request, RentalRequest $rentalRequest, EsewaService $esewaService, KhaltiService $khaltiService, InventoryReservationService $inventory)
     {
         $provider = $this->resolveProvider($request);
+        $pricingService = new CheckoutPricingService();
 
         if ($rentalRequest->renter_id !== Auth::id()) {
             abort(403);
@@ -354,6 +607,11 @@ class PaymentController extends Controller
             return redirect()->route('products.index')->with('error', 'Rental reservation expired. Please submit a new request.');
         }
 
+        $existingPayment = $this->findExistingSourcePayment('rental', 'rental_request_id', $rentalRequest->id);
+        if ($existingPayment && in_array($existingPayment->status, ['pending', 'complete'], true)) {
+            return redirect()->route('products.index')->with('info', 'A payment already exists for this rental request.');
+        }
+
         // Validate buyer details
         $validated = $request->validate([
             'buyer_name' => 'required|string|max:255',
@@ -362,8 +620,10 @@ class PaymentController extends Controller
             'buyer_address' => 'nullable|string',
         ]);
 
-        $totalAmount = (float) ($rentalRequest->total_amount ?? 0) + (float) ($rentalRequest->rent_deposit ?? 0);
-        $totalAmount = $this->formatAmount($totalAmount);
+        $pricing = $pricingService->calculateRent(
+            (float) ($rentalRequest->total_amount ?? 0),
+            (float) ($rentalRequest->rent_deposit ?? 0)
+        );
 
         $transactionUuid = (string) Str::uuid();
         $productCode = $provider === 'esewa' ? config('esewa.product_code') : 'KHALTI';
@@ -373,21 +633,28 @@ class PaymentController extends Controller
             'provider' => $provider,
             'transaction_uuid' => $transactionUuid,
             'product_code' => $productCode,
-            'amount' => $totalAmount,
+            'amount' => $pricing['subtotal'] + $pricing['deposit'],
+            'gross_amount' => $pricing['subtotal'] + $pricing['deposit'],
+            'fee_amount' => $pricing['service_fee'],
+            'seller_amount' => $pricing['seller_amount'],
+            'platform_amount' => $pricing['platform_amount'],
+            'fee_percentage' => $pricing['fee_percentage'],
             'tax_amount' => 0,
-            'service_charge' => 0,
+            'service_charge' => $pricing['service_fee'],
             'delivery_charge' => 0,
-            'total_amount' => $totalAmount,
+            'total_amount' => $pricing['total_amount'],
             'status' => 'pending',
+            'payment_reference' => $transactionUuid,
             'request_payload' => [
                 'source' => 'rental',
                 'gateway' => $provider,
                 'rental_request_id' => $rentalRequest->id,
+                'pricing' => $pricing,
                 'buyer_details' => [
                     'buyer_name' => $validated['buyer_name'],
-                    'buyer_phone' => $validated['buyer_phone'],
+                    'buyer_phone' => $validated['buyer_phone'] ?? null,
                     'buyer_email' => $validated['buyer_email'],
-                    'buyer_address' => $validated['buyer_address'],
+                    'buyer_address' => $validated['buyer_address'] ?? null,
                 ],
             ],
         ]);
@@ -398,6 +665,7 @@ class PaymentController extends Controller
     public function createSwapPayment(Request $request, SwapRequest $swapRequest, EsewaService $esewaService, KhaltiService $khaltiService, InventoryReservationService $inventory)
     {
         $provider = $this->resolveProvider($request);
+        $pricingService = new CheckoutPricingService();
 
         if ($swapRequest->requester_id !== Auth::id()) {
             abort(403);
@@ -416,6 +684,11 @@ class PaymentController extends Controller
             return redirect()->route('dashboard')->with('error', 'Swap reservation expired.');
         }
 
+        $existingPayment = $this->findExistingSourcePayment('swap', 'swap_request_id', $swapRequest->id);
+        if ($existingPayment && in_array($existingPayment->status, ['pending', 'complete'], true)) {
+            return redirect()->route('dashboard')->with('info', 'A payment already exists for this swap request.');
+        }
+
         // Validate buyer details
         $validated = $request->validate([
             'buyer_name' => 'required|string|max:255',
@@ -424,12 +697,13 @@ class PaymentController extends Controller
             'buyer_address' => 'nullable|string',
         ]);
 
-        $totalAmount = (float) ($swapRequest->offered_amount ?? 0);
-        if ($totalAmount <= 0) {
+        $cashTopup = (float) ($swapRequest->offered_amount ?? 0);
+        if ($cashTopup <= 0) {
             return redirect()->route('swap.checkout', $swapRequest)->with('error', 'No payment required for this swap.');
         }
 
-        $totalAmount = $this->formatAmount($totalAmount);
+        $pricing = $pricingService->calculateSwap($cashTopup);
+
         $transactionUuid = (string) Str::uuid();
         $productCode = $provider === 'esewa' ? config('esewa.product_code') : 'KHALTI';
 
@@ -438,23 +712,30 @@ class PaymentController extends Controller
             'provider' => $provider,
             'transaction_uuid' => $transactionUuid,
             'product_code' => $productCode,
-            'amount' => $totalAmount,
+            'amount' => $pricing['subtotal'],
+            'gross_amount' => $pricing['subtotal'],
+            'fee_amount' => $pricing['service_fee'],
+            'seller_amount' => $pricing['seller_amount'],
+            'platform_amount' => $pricing['platform_amount'],
+            'fee_percentage' => $pricing['fee_percentage'],
             'tax_amount' => 0,
             'service_charge' => 0,
             'delivery_charge' => 0,
-            'total_amount' => $totalAmount,
+            'total_amount' => $pricing['total_amount'],
             'status' => 'pending',
+            'payment_reference' => $transactionUuid,
             'request_payload' => [
                 'source' => 'swap',
                 'gateway' => $provider,
                 'swap_request_id' => $swapRequest->id,
                 'product_id' => $swapRequest->product_id,
                 'offered_product_id' => $swapRequest->offered_product_id,
+                'pricing' => $pricing,
                 'buyer_details' => [
                     'buyer_name' => $validated['buyer_name'],
-                    'buyer_phone' => $validated['buyer_phone'],
+                    'buyer_phone' => $validated['buyer_phone'] ?? null,
                     'buyer_email' => $validated['buyer_email'],
-                    'buyer_address' => $validated['buyer_address'],
+                    'buyer_address' => $validated['buyer_address'] ?? null,
                 ],
             ],
         ]);
@@ -464,12 +745,14 @@ class PaymentController extends Controller
 
     private function createPaymentForOrders(array $orders, string $source, string $provider): Payment
     {
-        $totalAmount = 0;
+        $subtotal = 0;
         foreach ($orders as $order) {
-            $totalAmount += $order->total_price ?? 0;
+            $subtotal += (float) ($order->total_price ?? 0);
         }
 
-        $totalAmount = $this->formatAmount($totalAmount);
+        $pricingService = new CheckoutPricingService();
+        $pricing = $pricingService->calculatePurchase($subtotal);
+
         $transactionUuid = (string) Str::uuid();
         $productCode = $provider === 'esewa' ? config('esewa.product_code') : 'KHALTI';
 
@@ -478,16 +761,23 @@ class PaymentController extends Controller
             'provider' => $provider,
             'transaction_uuid' => $transactionUuid,
             'product_code' => $productCode,
-            'amount' => $totalAmount,
+            'amount' => $pricing['subtotal'],
+            'gross_amount' => $pricing['subtotal'],
+            'fee_amount' => $pricing['service_fee'],
+            'seller_amount' => $pricing['seller_amount'],
+            'platform_amount' => $pricing['platform_amount'],
+            'fee_percentage' => $pricing['fee_percentage'],
             'tax_amount' => 0,
-            'service_charge' => 0,
+            'service_charge' => $pricing['service_fee'],
             'delivery_charge' => 0,
-            'total_amount' => $totalAmount,
+            'total_amount' => $pricing['total_amount'],
             'status' => 'pending',
+            'payment_reference' => $transactionUuid,
             'request_payload' => [
                 'orders' => collect($orders)->pluck('id')->all(),
                 'source' => $source,
                 'gateway' => $provider,
+                'pricing' => $pricing,
             ],
         ]);
 
@@ -501,12 +791,14 @@ class PaymentController extends Controller
 
     private function createPaymentForOrderItems(array $items, string $source, string $provider): Payment
     {
-        $totalAmount = 0;
+        $subtotal = 0;
         foreach ($items as $item) {
-            $totalAmount += (float) ($item['total_price'] ?? 0);
+            $subtotal += (float) ($item['total_price'] ?? 0);
         }
 
-        $totalAmount = $this->formatAmount($totalAmount);
+        $pricingService = new CheckoutPricingService();
+        $pricing = $pricingService->calculatePurchase($subtotal);
+
         $transactionUuid = (string) Str::uuid();
         $productCode = $provider === 'esewa' ? config('esewa.product_code') : 'KHALTI';
 
@@ -515,16 +807,23 @@ class PaymentController extends Controller
             'provider' => $provider,
             'transaction_uuid' => $transactionUuid,
             'product_code' => $productCode,
-            'amount' => $totalAmount,
+            'amount' => $pricing['subtotal'],
+            'gross_amount' => $pricing['subtotal'],
+            'fee_amount' => $pricing['service_fee'],
+            'seller_amount' => $pricing['seller_amount'],
+            'platform_amount' => $pricing['platform_amount'],
+            'fee_percentage' => $pricing['fee_percentage'],
             'tax_amount' => 0,
-            'service_charge' => 0,
+            'service_charge' => $pricing['service_fee'],
             'delivery_charge' => 0,
-            'total_amount' => $totalAmount,
+            'total_amount' => $pricing['total_amount'],
             'status' => 'pending',
+            'payment_reference' => $transactionUuid,
             'request_payload' => [
                 'source' => $source,
                 'gateway' => $provider,
                 'order_items' => $items,
+                'pricing' => $pricing,
             ],
         ]);
     }
@@ -688,11 +987,15 @@ class PaymentController extends Controller
     ) {
         $source = $payment->request_payload['source'] ?? 'order';
         $ecoScoreService = new EcoScoreService();
+        $walletLedgerService = new WalletLedgerService();
 
         if ($source === 'swap') {
-            DB::transaction(function () use ($payment, $transactionCode, $responsePayload, $inventory, $ecoScoreService) {
+            DB::transaction(function () use ($payment, $transactionCode, $responsePayload, $inventory, $ecoScoreService, $walletLedgerService) {
                 $payment->status = 'complete';
                 $payment->transaction_code = $transactionCode;
+                if (!empty($transactionCode)) {
+                    $payment->payment_reference = $transactionCode;
+                }
                 $payment->response_payload = $responsePayload;
                 $payment->save();
 
@@ -741,6 +1044,28 @@ class PaymentController extends Controller
                     'notes' => $swapRequest->message,
                     'status' => 'completed',
                 ]);
+
+                $walletLedgerService->creditSaleIfMissing(
+                    (int) $swapRequest->owner_id,
+                    (float) ($payment->seller_amount ?? 0),
+                    'swap_cash_topup',
+                    'payment',
+                    (int) $payment->id,
+                    [
+                        'swap_request_id' => $swapRequest->id,
+                        'transaction_code' => $payment->transaction_code,
+                    ]
+                );
+
+                $walletLedgerService->creditPlatformFeeIfMissing(
+                    (float) ($payment->platform_amount ?? 0),
+                    'swap_service_fee',
+                    'payment',
+                    (int) $payment->id,
+                    [
+                        'swap_request_id' => $swapRequest->id,
+                    ]
+                );
             });
 
             return redirect()->route('dashboard')->with('success', 'Swap payment completed successfully.');
@@ -749,9 +1074,12 @@ class PaymentController extends Controller
         if ($source === 'rental') {
             $rentalCompleted = false;
 
-            DB::transaction(function () use ($payment, $transactionCode, $responsePayload, &$rentalCompleted, $inventory, $ecoScoreService) {
+            DB::transaction(function () use ($payment, $transactionCode, $responsePayload, &$rentalCompleted, $inventory, $ecoScoreService, $walletLedgerService) {
                 $payment->status = 'complete';
                 $payment->transaction_code = $transactionCode;
+                if (!empty($transactionCode)) {
+                    $payment->payment_reference = $transactionCode;
+                }
                 $payment->response_payload = $responsePayload;
                 $payment->save();
 
@@ -792,7 +1120,7 @@ class PaymentController extends Controller
                     ]);
                 }
 
-                RentedRentals::create([
+                $rentedRental = RentedRentals::create([
                     'rental_id' => $rental->id,
                     'product_id' => $rentalRequest->product_id,
                     'owner_id' => $rentalRequest->owner_id,
@@ -803,17 +1131,56 @@ class PaymentController extends Controller
                     'duration' => $rentalRequest->duration,
                     'start_date' => $rentalRequest->start_date,
                     'end_date' => $rentalRequest->end_date,
-                    'total_amount' => $rentalRequest->total_amount,
+                    'total_amount' => $payment->total_amount,
                     'payment_status' => 'paid',
-                    'payment_reference' => $payment->transaction_code,
+                    'payment_reference' => $payment->payment_reference ?? $payment->transaction_code,
                     'status' => 'active',
                 ]);
+
+                $depositAmount = (float) ($rentalRequest->rent_deposit ?? 0);
+                if ($depositAmount > 0) {
+                    RentalDeposit::updateOrCreate(
+                        ['rented_rental_id' => $rentedRental->id],
+                        [
+                            'payment_id' => $payment->id,
+                            'amount' => $depositAmount,
+                            'deduction_amount' => 0,
+                            'refund_amount' => 0,
+                            'status' => 'held',
+                            'refund_status' => 'pending',
+                            'gateway' => $payment->provider,
+                            'gateway_reference' => $payment->transaction_code,
+                        ]
+                    );
+                }
                 
                 // Record eco-impact for rented product
                 $product = Product::find($rentalRequest->product_id);
                 if ($product) {
                     $ecoScoreService->recordEcoImpact($product, 'rent', $payment->user_id);
                 }
+
+                $walletLedgerService->creditSaleIfMissing(
+                    (int) $rentalRequest->owner_id,
+                    (float) ($payment->seller_amount ?? 0),
+                    'rental_income',
+                    'rented_rental',
+                    (int) $rentedRental->id,
+                    [
+                        'payment_id' => $payment->id,
+                        'transaction_code' => $payment->transaction_code,
+                    ]
+                );
+
+                $walletLedgerService->creditPlatformFeeIfMissing(
+                    (float) ($payment->platform_amount ?? 0),
+                    'rental_service_fee',
+                    'payment',
+                    (int) $payment->id,
+                    [
+                        'rental_request_id' => $rentalRequestId,
+                    ]
+                );
 
                 $rentalRequest->delete();
                 $rentalCompleted = true;
@@ -826,10 +1193,12 @@ class PaymentController extends Controller
             return redirect()->route('products.index')->with('success', 'Rental payment completed successfully.');
         }
 
-        DB::transaction(function () use ($payment, $transactionCode, $responsePayload, $inventory, $source, $ecoScoreService) {
+        DB::transaction(function () use ($payment, $transactionCode, $responsePayload, $inventory, $source, $ecoScoreService, $walletLedgerService) {
             $orderItems = $payment->request_payload['order_items'] ?? [];
             $buyerDetails = $payment->request_payload['buyer_details'] ?? [];
             $legacyOrders = $payment->orders()->with('product')->lockForUpdate()->get();
+            $paymentSubtotal = (float) ($payment->gross_amount ?: $payment->amount);
+            $paymentFee = (float) ($payment->fee_amount ?: $payment->service_charge);
 
             if (!empty($orderItems)) {
                 $orderedItems = collect($orderItems)->sortBy('product_id')->values();
@@ -841,6 +1210,10 @@ class PaymentController extends Controller
                     }
 
                     $quantity = (int) ($item['quantity'] ?? 0);
+                    $lineSubtotal = (float) ($item['total_price'] ?? 0);
+                    $lineFee = $paymentSubtotal > 0
+                        ? round(($lineSubtotal / $paymentSubtotal) * $paymentFee, 2)
+                        : 0.0;
                     $inventory->ensurePurchasableQuantity($product, $quantity, now());
                     $inventory->consumeProductQuantity($product, $quantity, 'sold');
 
@@ -852,8 +1225,12 @@ class PaymentController extends Controller
                         'transaction_type' => 'buy',
                         'quantity' => $quantity,
                         'unit_price' => (float) ($item['unit_price'] ?? ($product->price ?? 0)),
-                        'total_price' => (float) ($item['total_price'] ?? 0),
+                        'total_price' => $lineSubtotal,
+                        'subtotal' => $lineSubtotal,
+                        'service_fee' => $lineFee,
+                        'total_amount' => $lineSubtotal + $lineFee,
                         'status' => 'completed',
+                        'payment_status' => 'paid',
                         'reserved_until' => null,
                         'buyer_name' => $buyerDetails['buyer_name'] ?? '',
                         'buyer_phone' => $buyerDetails['buyer_phone'] ?? '',
@@ -867,6 +1244,18 @@ class PaymentController extends Controller
                         $seller->notify(new \App\Notifications\User\OrderNotification($order));
                         Mail::to($seller->email)->send(new \App\Mail\OrderCreated($order));
                     }
+
+                    $walletLedgerService->creditSaleIfMissing(
+                        (int) $order->seller_id,
+                        (float) $lineSubtotal,
+                        'product_sale',
+                        'order',
+                        (int) $order->id,
+                        [
+                            'payment_id' => $payment->id,
+                            'service_fee' => $lineFee,
+                        ]
+                    );
                     
                     // Record eco-impact for sold product
                     $ecoScoreService->recordEcoImpact($product, 'sell', $payment->user_id);
@@ -886,14 +1275,52 @@ class PaymentController extends Controller
                     }
 
                     $order->status = 'completed';
+                    $order->payment_status = 'paid';
+                    if ((float) $order->subtotal === 0.0) {
+                        $order->subtotal = (float) ($order->total_price ?? 0);
+                    }
+                    if (is_null($order->service_fee)) {
+                        $order->service_fee = 0;
+                    }
+                    if ((float) $order->total_amount === 0.0) {
+                        $order->total_amount = (float) $order->subtotal + (float) $order->service_fee;
+                    }
                     $order->save();
+
+                    $sellerId = (int) ($order->seller_id ?: ($product?->user_id ?? 0));
+                    if ($sellerId > 0) {
+                        $walletLedgerService->creditSaleIfMissing(
+                            $sellerId,
+                            (float) $order->subtotal,
+                            'product_sale',
+                            'order',
+                            (int) $order->id,
+                            [
+                                'payment_id' => $payment->id,
+                                'service_fee' => (float) $order->service_fee,
+                            ]
+                        );
+                    }
                 }
             }
 
             $payment->status = 'complete';
             $payment->transaction_code = $transactionCode;
+            if (!empty($transactionCode)) {
+                $payment->payment_reference = $transactionCode;
+            }
             $payment->response_payload = $responsePayload;
             $payment->save();
+
+            $walletLedgerService->creditPlatformFeeIfMissing(
+                (float) ($payment->platform_amount ?? 0),
+                'order_service_fee',
+                'payment',
+                (int) $payment->id,
+                [
+                    'source' => $source,
+                ]
+            );
 
             if ($source === 'cart') {
                 $productIds = collect($orderItems)->pluck('product_id')->filter()->all();
@@ -945,9 +1372,20 @@ class PaymentController extends Controller
         if ($payment->orders()->exists()) {
             $payment->orders()->where('status', 'pending')->update([
                 'status' => 'cancelled',
+                'payment_status' => 'cancelled',
                 'reserved_until' => now(),
             ]);
         }
+    }
+
+    private function findExistingSourcePayment(string $source, string $key, int $value): ?Payment
+    {
+        return Payment::query()
+            ->whereIn('status', ['pending', 'complete'])
+            ->where('request_payload->source', $source)
+            ->where('request_payload->' . $key, $value)
+            ->latest('id')
+            ->first();
     }
 
     private function alreadyProcessedRedirect(Payment $payment)

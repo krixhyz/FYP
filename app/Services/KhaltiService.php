@@ -34,6 +34,30 @@ class KhaltiService
         ];
     }
 
+    public function refundPayment(array $payload): array
+    {
+        $refundUrl = config('khalti.refund_url');
+
+        if (blank($refundUrl)) {
+            return [
+                'ok' => false,
+                'status' => 0,
+                'body' => [],
+                'message' => 'Khalti refund URL is not configured.',
+            ];
+        }
+
+        $response = Http::withHeaders($this->authHeaders())
+            ->acceptJson()
+            ->post($refundUrl, $payload);
+
+        return [
+            'ok' => $response->successful(),
+            'status' => $response->status(),
+            'body' => $response->json() ?? [],
+        ];
+    }
+
     public function toPaisa(float $amount): int
     {
         return (int) round($amount * 100);

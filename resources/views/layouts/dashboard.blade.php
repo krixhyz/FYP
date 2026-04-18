@@ -18,9 +18,9 @@
 <body class="bg-[#f9f9f9] font-manrope text-[#1a1c1c]">
     @include('layouts.navigation')
 
-    <div class="flex gap-0">
+    <div class="flex gap-0 items-start">
         <!-- Sidebar -->
-        <aside class="w-64 bg-white border-r border-[rgba(189,202,189,0.2)] min-h-screen">
+        <aside class="w-64 bg-white border-r border-[rgba(189,202,189,0.2)] sticky top-0 self-start h-screen overflow-y-auto">
             <nav class="p-6 space-y-1">
                 <div class="mb-8">
                     <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] px-4 mb-4">Main</p>
@@ -42,19 +42,7 @@
                         <span class="font-space font-bold text-sm">My Listings</span>
                     </a>
 
-                    <a href="{{ route('rental.incoming') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg {{ request()->routeIs('rental.incoming') ? 'bg-[#f0f8f5] text-[#006a38]' : 'text-[#444746] hover:bg-[#f9f9f9]' }} transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        <span class="font-space font-bold text-sm">Rental Requests</span>
-                    </a>
-
-                    <a href="{{ route('swap.request.incoming') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg {{ request()->routeIs('swap.request.incoming') ? 'bg-[#f0f8f5] text-[#006a38]' : 'text-[#444746] hover:bg-[#f9f9f9]' }} transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m0 0l4 4m10-4v12m0 0l4-4m0 0l-4-4"></path>
-                        </svg>
-                        <span class="font-space font-bold text-sm">Swap Requests</span>
-                    </a>
+                    
 
                     <a href="{{ route('products.myPurchases') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg {{ request()->routeIs('products.myPurchases') ? 'bg-[#f0f8f5] text-[#006a38]' : 'text-[#444746] hover:bg-[#f9f9f9]' }} transition-colors">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,6 +63,13 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m0 0l4 4m10-4v12m0 0l4-4m0 0l-4-4"></path>
                         </svg>
                         <span class="font-space font-bold text-sm">Swaps</span>
+                    </a>
+
+                    <a href="{{ route('wallet.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg {{ request()->routeIs('wallet.*') ? 'bg-[#f0f8f5] text-[#006a38]' : 'text-[#444746] hover:bg-[#f9f9f9]' }} transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a5 5 0 00-10 0v2m-2 0h14a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7a2 2 0 012-2z"></path>
+                        </svg>
+                        <span class="font-space font-bold text-sm">Wallet</span>
                     </a>
 
                     <a href="{{ route('wishlist.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg {{ request()->routeIs('wishlist.index') ? 'bg-[#f0f8f5] text-[#006a38]' : 'text-[#444746] hover:bg-[#f9f9f9]' }} transition-colors">
@@ -113,6 +108,8 @@
             </div>
         </main>
     </div>
+
+    @include('layouts.footer')
 
     @stack('scripts')
 </body>

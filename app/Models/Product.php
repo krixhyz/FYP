@@ -66,6 +66,29 @@ class Product extends Model
     return [];
 }
 
+public function setCategoryAttribute($value): void
+{
+    if (blank($value)) {
+        return;
+    }
+
+    $name = trim((string) $value);
+    if ($name === '') {
+        return;
+    }
+
+    $category = Category::firstOrCreate(
+        ['name' => ucfirst($name), 'parent_id' => null],
+        [
+            'base_co2_kg' => 1.00,
+            'reuse_pct' => 50.00,
+            'eco_points' => 10.00,
+        ]
+    );
+
+    $this->attributes['category_id'] = $category->id;
+}
+
 
 public function owner()
 {
@@ -100,6 +123,11 @@ public function offeredSwapRequests()
 public function orders()
 {
     return $this->hasMany(\App\Models\Order::class); // NEW
+}
+
+public function reviews()
+{
+    return $this->hasMany(\App\Models\Review::class);
 }
 
 // Scopes for product filtering

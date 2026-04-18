@@ -1,3 +1,10 @@
+@php
+    $tempImages = old('temp_images', session('temp_product_images', []));
+    if (!is_array($tempImages)) {
+        $tempImages = [];
+    }
+@endphp
+
 <div class="space-y-5">
         {{-- Validation Errors --}}
         @if ($errors->any())
@@ -46,7 +53,7 @@
         {{-- Subcategory Dropdown --}}
         <div id="subcategorySection" class="hidden">
             <label class="field-label">Subcategory (Step 2)</label>
-            <select id="categorySelect" name="category_id" required
+            <select id="categorySelect" name="category_id" disabled
                     class="input-field @error('category_id') border-red-500 @enderror">
                 <option value="">Select Subcategory</option>
             </select>
@@ -172,7 +179,7 @@
                 <div>
                   <label class="field-label">Start Date</label>
                     <input type="date" name="available_from" id="startDate"
-                           value="{{ old('start_date', $product->rentals->start_date ?? '') }}"
+                              value="{{ old('available_from', $product->rentals->available_from ?? '') }}"
                       class="input-field @error('available_from') border-red-500 @enderror">
                     @error('available_from')
                         <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
@@ -225,12 +232,28 @@
                 </div>
             @endif
 
+            @if(!empty($tempImages))
+                <p class="font-manrope text-xs text-[#444746] mb-2">Selected images kept from previous failed submission:</p>
+                <div class="flex flex-wrap gap-3 mb-3">
+                    @foreach($tempImages as $tmpPath)
+                        <label class="relative cursor-pointer group">
+                            <input type="hidden" name="temp_images[]" value="{{ $tmpPath }}">
+                            <input type="checkbox" name="remove_temp_images[]" value="{{ $tmpPath }}"
+                                   class="absolute top-1 left-1 z-10 accent-red-500">
+                            <img src="{{ asset('storage/'.$tmpPath) }}"
+                                 class="w-24 h-24 object-cover border-2 border-[#bdbdbd] group-hover:opacity-75 transition">
+                            <span class="absolute bottom-1 right-1 bg-[#ba1a1a] text-white text-xs px-1 hidden group-hover:block">Remove</span>
+                        </label>
+                    @endforeach
+                </div>
+            @endif
+
             <input type="file" name="images[]" multiple accept="image/*"
                    id="imageUploader"
-                   class="w-full text-sm file:mr-2 file:py-1 file:px-3 file:border-0 file:bg-[#006a38] file:text-white hover:file:bg-[#09864a] cursor-pointer @error('images') border-red-500 @enderror">
-            @error('images')
-                <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
-            @enderror
+                   class="w-full text-sm file:mr-2 file:py-1 file:px-3 file:border-0 file:bg-[#006a38] file:text-white hover:file:bg-[#09864a] cursor-pointer {{ ($errors->has('images') || $errors->has('images.*')) ? 'border-red-500' : '' }}">
+            @if($errors->has('images') || $errors->has('images.*'))
+                <p class="text-red-600 text-xs mt-1">{{ $errors->first('images') ?: $errors->first('images.*') }}</p>
+            @endif
             <p class="font-manrope text-xs text-[#888888] mt-1">JPEG, PNG, GIF or WebP • max 4 MB each • up to 6 images</p>
 
             {{-- New image previews --}}
@@ -262,6 +285,16 @@
     const endDate = document.getElementById('endDate');
     const rentDuration = document.getElementById('rentDuration');
     const swapCheckbox = document.querySelector('input[value="swap"]');
+    const subcategorySection = document.getElementById('subcategorySection');
+    const categorySelect = document.getElementById('categorySelect');
+
+    function syncCategorySelectState() {
+        const sectionVisible = subcategorySection && !subcategorySection.classList.contains('hidden');
+        if (!categorySelect) return;
+
+        categorySelect.disabled = !sectionVisible;
+        categorySelect.required = sectionVisible;
+    }
 
 
     // ── Image accumulator ─────────────────────────────────────────────────────
@@ -390,15 +423,16 @@
                 const subs = await fetch(`/api/categories/${parent.id}/subcategories`).then(r => r.json());
                 if (subs.some(s => s.id === parseInt(oldCategoryId))) {
                     selectedParentId = parent.id;
-                    selectParent(parent.id, parent.name);
-                    setTimeout(() => {
-                        document.getElementById('categorySelect').value = oldCategoryId;
-                        updateEcoPreview();
-                    }, 100);
+                    await selectParent(parent.id, parent.name);
+                    document.getElementById('categorySelect').value = oldCategoryId;
+                    syncCategorySelectState();
+                    updateEcoPreview();
                     break;
                 }
             }
         }
+
+        syncCategorySelectState();
         
         if (oldCondition) {
             document.querySelector(`input[name="condition"][value="${oldCondition}"]`)?.click();
@@ -474,7 +508,8 @@
             });
             
             document.getElementById('subcategorySection').classList.remove('hidden');
-            select.addEventListener('change', updateEcoPreview);
+            syncCategorySelectState();
+            select.onchange = updateEcoPreview;
         } catch (error) {
             console.error('Error loading subcategories:', error);
         }

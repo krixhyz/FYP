@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Category;
 use App\Models\Product;
+use App\Models\Review;
 use App\Models\User\User;
 use App\Services\UserVerificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,7 +24,8 @@ class ProfileVerificationTest extends TestCase
         $response = $this->actingAs($user)->post(route('products.store'), [
             'title' => 'Test Product',
             'description' => 'Test Description',
-            'category' => 'electronics',
+            'category_id' => $this->categoryId('Electronics'),
+            'condition' => 'GOOD',
             'listing_type' => ['sell'],
             'quantity' => 1,
         ]);
@@ -41,7 +44,8 @@ class ProfileVerificationTest extends TestCase
         $response = $this->actingAs($user)->post(route('products.store'), [
             'title' => 'Test Product',
             'description' => 'Test Description',
-            'category' => 'electronics',
+            'category_id' => $this->categoryId('Electronics'),
+            'condition' => 'GOOD',
             'listing_type' => ['sell'],
             'price' => 100,
             'quantity' => 1,
@@ -61,7 +65,8 @@ class ProfileVerificationTest extends TestCase
         $response = $this->actingAs($user)->post(route('products.store'), [
             'title' => 'Test Product',
             'description' => 'Test Description',
-            'category' => 'electronics',
+            'category_id' => $this->categoryId('Electronics'),
+            'condition' => 'GOOD',
             'listing_type' => ['sell'],
             'price' => 100,
             'quantity' => 1,
@@ -89,7 +94,8 @@ class ProfileVerificationTest extends TestCase
         $response = $this->actingAs($user)->post(route('products.store'), [
             'title' => 'Test Product',
             'description' => 'Test Description',
-            'category' => 'electronics',
+            'category_id' => $this->categoryId('Electronics'),
+            'condition' => 'GOOD',
             'listing_type' => ['sell'],
             'price' => 100,
             'quantity' => 1,
@@ -112,8 +118,11 @@ class ProfileVerificationTest extends TestCase
 
         // Each product should have reviews with high ratings
         foreach ($products as $product) {
-            $product->reviews()->create([
+            Review::create([
                 'reviewer_id' => User::factory()->create()->id,
+                'reviewee_id' => $user->id,
+                'product_id' => $product->id,
+                'transaction_type' => 'order',
                 'rating' => 5,
                 'body' => 'Great product!',
             ]);
@@ -228,5 +237,17 @@ class ProfileVerificationTest extends TestCase
 
         $product->refresh();
         $this->assertEquals('REJECTED', $product->approval_status);
+    }
+
+    private function categoryId(string $name): int
+    {
+        return Category::firstOrCreate(
+            ['name' => $name, 'parent_id' => null],
+            [
+                'base_co2_kg' => 1.00,
+                'reuse_pct' => 50.00,
+                'eco_points' => 10.00,
+            ]
+        )->id;
     }
 }

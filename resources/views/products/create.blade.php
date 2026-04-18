@@ -8,7 +8,7 @@
     </section>
 
     <section class="surface-card p-5 sm:p-6">
-        <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data" class="space-y-5">
+        <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data" class="space-y-5" novalidate>
             @csrf
             @include('products.form', ['buttonText' => 'Add Listing'])
         </form>

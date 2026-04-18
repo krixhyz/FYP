@@ -5,6 +5,46 @@
     $completedOrders = $orders->where('status', 'completed');
     $pendingOrders = $orders->where('status', 'pending');
     $totalSpent = $completedOrders->sum(fn($o) => $o->total_price ?? (($o->unit_price ?? $o->product?->price ?? 0) * ($o->quantity ?? 1)));
+
+    $resolveImagePath = function ($product) {
+        if (!$product) {
+            return null;
+        }
+
+        $images = $product->images ?? null;
+
+        // Case: relation collection with image models (expects ->path)
+        if ($images instanceof \Illuminate\Support\Collection) {
+            $first = $images->first();
+            if (is_object($first)) {
+                return $first->path ?? null;
+            }
+            if (is_string($first)) {
+                return $first;
+            }
+        }
+
+        // Case: JSON-cast array of image paths or objects
+        if (is_array($images) && !empty($images)) {
+            $first = $images[0] ?? null;
+            if (is_array($first)) {
+                return $first['path'] ?? null;
+            }
+            if (is_object($first)) {
+                return $first->path ?? null;
+            }
+            if (is_string($first)) {
+                return $first;
+            }
+        }
+
+        // Case: single image fallback
+        if (!empty($product->image) && is_string($product->image)) {
+            return $product->image;
+        }
+
+        return null;
+    };
 @endphp
 
 <!-- Header Section -->
@@ -58,13 +98,14 @@
                     $qty = $order->quantity ?? 1;
                     $unit = $order->unit_price ?? $order->product?->price ?? 0;
                     $total = $order->total_price ?? ($qty * $unit);
+                    $orderImagePath = $resolveImagePath($order->product);
                 @endphp
                 <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6 hover:shadow-[0_8px_12px_rgba(0,0,0,0.1)] transition-all">
                     <div class="flex items-start gap-4">
                         <!-- Product Image -->
                         <div class="w-24 h-24 bg-[#e2e2e2] rounded-lg overflow-hidden flex-shrink-0">
-                            @if($order->product?->images && $order->product->images->first())
-                                <img src="{{ asset('storage/' . $order->product->images->first()->path) }}" alt="{{ $order->product->title ?? 'Product' }}" class="w-full h-full object-cover">
+                            @if($orderImagePath)
+                                <img src="{{ asset('storage/' . $orderImagePath) }}" alt="{{ $order->product->title ?? 'Product' }}" class="w-full h-full object-cover">
                             @else
                                 <div class="w-full h-full flex items-center justify-center text-[#888]">
                                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -141,12 +182,13 @@
     @if($rentedRentals->count() > 0)
         <div class="space-y-4">
             @foreach($rentedRentals as $rental)
+                @php $rentalImagePath = $resolveImagePath($rental->product); @endphp
                 <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6 hover:shadow-[0_8px_12px_rgba(0,0,0,0.1)] transition-all">
                     <div class="flex items-start gap-4">
                         <!-- Product Image -->
                         <div class="w-24 h-24 bg-[#e2e2e2] rounded-lg overflow-hidden flex-shrink-0">
-                            @if($rental->product?->images && $rental->product->images->first())
-                                <img src="{{ asset('storage/' . $rental->product->images->first()->path) }}" alt="{{ $rental->product->title ?? 'Product' }}" class="w-full h-full object-cover">
+                            @if($rentalImagePath)
+                                <img src="{{ asset('storage/' . $rentalImagePath) }}" alt="{{ $rental->product->title ?? 'Product' }}" class="w-full h-full object-cover">
                             @else
                                 <div class="w-full h-full flex items-center justify-center text-[#888]">
                                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,7 +228,7 @@
                             <!-- Actions -->
                             <div class="flex gap-2 flex-wrap">
                                 <a href="{{ route('review.create', ['type' => 'rental', 'id' => $rental->id]) }}" class="bg-[#f0f8f5] border border-[#d97706] text-[#d97706] px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(217,119,6,0.06)] transition-all">Leave Review</a>
-                                <a href="{{ route('dispute.create', ['type' => 'rental', 'id' => $rental->rentalRequest?->id ?? $rental->id]) }}" class="bg-[#f9f9f9] border border-[#ba1a1a] text-[#ba1a1a] px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(186,26,26,0.06)] transition-all">Report Issue</a>
+                                <a href="{{ route('dispute.create', ['type' => 'rental', 'id' => $rental->id]) }}" class="bg-[#f9f9f9] border border-[#ba1a1a] text-[#ba1a1a] px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(186,26,26,0.06)] transition-all">Report Issue</a>
                             </div>
                         </div>
                     </div>
@@ -208,13 +250,17 @@
     @if($swaps->count() > 0)
         <div class="space-y-4">
             @foreach($swaps as $swap)
+                @php
+                    $offeredImagePath = $resolveImagePath($swap->offeredProduct);
+                    $requestedImagePath = $resolveImagePath($swap->requestedProduct);
+                @endphp
                 <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6 hover:shadow-[0_8px_12px_rgba(0,0,0,0.1)] transition-all">
                     <div class="flex items-start gap-4">
                         <!-- Swap Items Images -->
                         <div class="flex gap-2 flex-shrink-0">
                             <div class="w-24 h-24 bg-[#e2e2e2] rounded-lg overflow-hidden">
-                                @if($swap->offeredProduct?->images && $swap->offeredProduct->images->first())
-                                    <img src="{{ asset('storage/' . $swap->offeredProduct->images->first()->path) }}" alt="{{ $swap->offeredProduct->title ?? 'Item' }}" class="w-full h-full object-cover">
+                                @if($offeredImagePath)
+                                    <img src="{{ asset('storage/' . $offeredImagePath) }}" alt="{{ $swap->offeredProduct->title ?? 'Item' }}" class="w-full h-full object-cover">
                                 @else
                                     <div class="w-full h-full flex items-center justify-center text-[#888]">
                                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -229,8 +275,8 @@
                                 </svg>
                             </div>
                             <div class="w-24 h-24 bg-[#e2e2e2] rounded-lg overflow-hidden">
-                                @if($swap->requestedProduct?->images && $swap->requestedProduct->images->first())
-                                    <img src="{{ asset('storage/' . $swap->requestedProduct->images->first()->path) }}" alt="{{ $swap->requestedProduct->title ?? 'Item' }}" class="w-full h-full object-cover">
+                                @if($requestedImagePath)
+                                    <img src="{{ asset('storage/' . $requestedImagePath) }}" alt="{{ $swap->requestedProduct->title ?? 'Item' }}" class="w-full h-full object-cover">
                                 @else
                                     <div class="w-full h-full flex items-center justify-center text-[#888]">
                                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

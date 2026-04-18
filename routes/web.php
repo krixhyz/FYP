@@ -3,6 +3,7 @@
 use App\Http\Controllers\User\ProfileController;
 use App\Http\Controllers\User\UserProfileController;
 use App\Http\Controllers\User\SwapRequestController;
+use App\Http\Controllers\User\WalletController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\User\ProductController;
 use App\Http\Controllers\LocationController;
@@ -38,6 +39,12 @@ use App\Http\Controllers\User\OrderController;
 use App\Http\Controllers\User\PaymentController;
 
  Route::middleware(['auth', 'verified', 'user_only'])->group(function () {
+     Route::post('/checkout/calculate', [PaymentController::class, 'calculateCheckout'])->name('checkout.calculate');
+     Route::post('/checkout/pay', [PaymentController::class, 'checkoutPay'])->name('checkout.pay');
+     Route::post('/payment/verify', [PaymentController::class, 'verifyPayment'])->name('payment.verify');
+     Route::post('/orders/{order}', [PaymentController::class, 'orderDetails'])->name('orders.details.json');
+     Route::get('/transactions/my-history', [PaymentController::class, 'myTransactionHistory'])->name('transactions.my-history');
+
      Route::post('/order/{product}', [OrderController::class, 'store'])->name('order.store');
      Route::get('/order/product/{product}/checkout', [OrderController::class, 'checkoutProduct'])->name('order.checkout.product');
      Route::post('/order/product/{product}/confirm', [PaymentController::class, 'createDirectOrderPayment'])->name('order.confirm.product');
@@ -48,7 +55,8 @@ use App\Http\Controllers\User\PaymentController;
 
 
 
-Route::get('/', [ProductController::class, 'index'])->name('products.index');
+Route::view('/', 'landing')->name('landing');
+Route::get('/marketplace', [ProductController::class, 'index'])->name('products.index');
 
 
 // Listing routes (must be before {id} route to avoid conflict)
@@ -105,12 +113,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/rental/payment/{rentalRequest}', [RentalController::class, 'payment'])->name('rental.payment');
         Route::post('/rental/{rentalRequest}/pay', [PaymentController::class, 'createRentalPayment'])->name('rental.pay');
         Route::get('/rental/{rental}', [RentalController::class, 'show'])->name('rental.show');
+        Route::patch('/rental/{rentedRental}/request-return', [RentalController::class, 'requestReturn'])->name('rental.requestReturn');
         Route::patch('/rental/{rentedRental}/return', [RentalController::class, 'returnRental'])->name('rental.return'); // NEW
     });
 
     // owner side (reviewing rental requests)
     Route::get('/rental/request/{rentalRequest}/review', [RentalController::class, 'review'])->name('rental.review');
-    Route::get('/rental/requests', [RentalController::class, 'incoming'])->name('rental.incoming');
     Route::patch('/rental/request/{rentalRequest}/approve', [RentalController::class, 'approveRequest'])->name('rental.approve');
     Route::patch('/rental/request/{rentalRequest}/reject', [RentalController::class, 'reject'])->name('rental.reject');
 
@@ -120,6 +128,8 @@ Route::middleware(['auth', 'user_only'])->group(function () {
     Route::get('/my-purchases', [ProductController::class, 'myPurchases'])->name('products.myPurchases');
     Route::get('/my-rentals', [RentalController::class, 'myRentals'])->name('rental.myRentals');
     Route::post('/order/{order}/cancel', [OrderController::class, 'cancel'])->name('order.cancel');
+    Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
+    Route::post('/wallet/payouts', [WalletController::class, 'requestPayout'])->name('wallet.payout.request');
 });
 
 // Seller orders routes - view incoming orders with buyer details
@@ -202,9 +212,13 @@ Route::middleware(['auth'])->group(function () {
 
 
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
+use App\Http\Controllers\Admin\WalletPayoutController;
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/profile', [AdminProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [AdminProfileController::class, 'update'])->name('profile.update');
 
     Route::get('/users', [AdminController::class, 'users'])->name('users');
     Route::post('/users', [AdminController::class, 'userStore'])->name('users.store');
@@ -232,10 +246,15 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/content-moderation/bulk-delete', [AdminController::class, 'contentBulkDelete'])->middleware('super_admin')->name('content.bulkDelete');
 
     Route::get('/transactions', [AdminController::class, 'transactions'])->name('transactions');
+    Route::get('/wallet/payouts', [WalletPayoutController::class, 'index'])->name('wallet.payouts');
+    Route::patch('/wallet/payouts/{payoutRequest}/approve', [WalletPayoutController::class, 'approve'])->name('wallet.payouts.approve');
+    Route::patch('/wallet/payouts/{payoutRequest}/reject', [WalletPayoutController::class, 'reject'])->name('wallet.payouts.reject');
+    Route::patch('/wallet/payouts/{payoutRequest}/paid', [WalletPayoutController::class, 'markPaid'])->name('wallet.payouts.paid');
     Route::get('/reports', [AdminController::class, 'reports'])->name('reports');
     Route::get('/analytics', [AdminController::class, 'analytics'])->middleware('super_admin')->name('analytics');
     Route::get('/system-config', [AdminController::class, 'systemConfig'])->middleware('super_admin')->name('system.config');
     Route::post('/system-config', [AdminController::class, 'systemConfigUpdate'])->middleware('super_admin')->name('system.config.update');
+    Route::patch('/deposits/{rentalDeposit}/process', [AdminController::class, 'processDeposit'])->name('deposits.process');
 
     // Disputes
     Route::get('/disputes', [AdminController::class, 'disputes'])->name('disputes');

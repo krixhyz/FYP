@@ -11,7 +11,7 @@
         </div>
         <span class="text-[12px] font-space font-bold px-4 py-2 rounded flex-shrink-0 whitespace-nowrap
             @if($rental->status === 'active') bg-[#d4edda] text-[#155724]
-            @elseif($rental->status === 'completed') bg-[#d1ecf1] text-[#0c5460]
+            @elseif(in_array($rental->status, ['completed', 'returned'], true)) bg-[#d1ecf1] text-[#0c5460]
             @elseif($rental->status === 'cancelled') bg-[#f8d7da] text-[#721c24]
             @else bg-[#e2e3e5] text-[#383d41]
             @endif">
@@ -31,8 +31,12 @@
             <div class="flex gap-6 mb-6 pb-6 border-b border-[rgba(189,202,189,0.1)]">
                 <!-- Product Image -->
                 <div class="w-32 h-32 bg-[#e2e2e2] rounded-lg overflow-hidden flex-shrink-0">
-                    @if($rental->product?->images && $rental->product->images->first())
-                        <img src="{{ asset('storage/' . $rental->product->images->first()->path) }}" alt="{{ $rental->product->title }}" class="w-full h-full object-cover">
+                    @php
+                        $productImage = collect($rental->product?->images ?? [])->first();
+                        $productImagePath = data_get($productImage, 'path', is_string($productImage) ? $productImage : null) ?? $rental->product?->image;
+                    @endphp
+                    @if($productImagePath)
+                        <img src="{{ asset('storage/' . $productImagePath) }}" alt="{{ $rental->product->title }}" class="w-full h-full object-cover">
                     @else
                         <div class="w-full h-full flex items-center justify-center text-[#888]">
                             <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,7 +73,7 @@
                         <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-2">End Date</p>
                         <p class="font-space font-bold text-lg 
                             @if($rental->status === 'active' && $rental->end_date->isPast()) text-[#ba1a1a]
-                            @elseif($rental->status === 'completed') text-[#0c5460]
+                            @elseif(in_array($rental->status, ['completed', 'returned'], true)) text-[#0c5460]
                             @else text-[#006a38]
                             @endif">
                             {{ $rental->end_date->format('M d, Y') }}
@@ -82,6 +86,14 @@
                     <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-2">Duration</p>
                     <p class="font-space font-bold text-lg text-[#1a1c1c]">{{ $rental->duration }} {{ ucfirst($rental->rent_type) }}(s)</p>
                 </div>
+
+                @if($rental->returned_at)
+                    <div class="bg-[#f9f9f9] p-4 rounded-lg border border-[rgba(189,202,189,0.1)]">
+                        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-2">Returned On</p>
+                        <p class="font-space font-bold text-lg text-[#0c5460]">{{ $rental->returned_at->format('M d, Y') }}</p>
+                        <p class="text-sm text-[#888] mt-1">{{ $rental->returned_at->format('h:i A') }}</p>
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -159,14 +171,18 @@
                 <h2 class="font-space font-bold text-lg text-[#1a1c1c] mb-4 uppercase tracking-widest">Actions</h2>
                 
                 <div class="space-y-2">
-                    @if($rental->status === 'active')
-                        <form action="{{ route('rental.return', $rental) }}" method="POST" class="block">
+                    @if(!$rental->return_requested_at && $rental->status === 'active')
+                        <form action="{{ route('rental.requestReturn', $rental) }}" method="POST" class="block">
                             @csrf
                             @method('PATCH')
                             <button type="submit" class="w-full bg-[#006a38] hover:bg-[#004e26] text-white px-4 py-2 font-space text-[10px] font-bold uppercase rounded transition-all">
-                                Mark as Returned
+                                Mark Returned
                             </button>
                         </form>
+                    @elseif($rental->return_requested_at)
+                        <div class="rounded-lg border border-[#ffd580] bg-[#fffbeb] px-4 py-3 text-sm text-[#92400e]">
+                            Return requested on {{ $rental->return_requested_at->format('M d, Y h:i A') }}
+                        </div>
                     @endif
 
                     <a href="{{ route('review.create', ['type' => 'rental', 'id' => $rental->id]) }}" class="block text-center bg-[#f0f8f5] border border-[#d97706] text-[#d97706] px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(217,119,6,0.06)] transition-all">
@@ -177,6 +193,32 @@
                         Report Issue
                     </a>
                 </div>
+            </div>
+        @elseif(Auth::id() === $rental->owner_id)
+            <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6 mb-6">
+                <h2 class="font-space font-bold text-lg text-[#1a1c1c] mb-4 uppercase tracking-widest">Actions</h2>
+
+                @if($rental->return_requested_at && $rental->status === 'active')
+                    <div class="mb-4 rounded-lg border border-[#ffd580] bg-[#fffbeb] px-4 py-3 text-sm text-[#92400e]">
+                        Return requested by renter on {{ $rental->return_requested_at->format('M d, Y h:i A') }}.
+                    </div>
+
+                    <div class="space-y-2">
+                        <a href="{{ route('dispute.create', ['type' => 'rental', 'id' => $rental->id]) }}" class="block text-center bg-[#f8d7da] border border-[#ba1a1a] text-[#721c24] px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(186,26,26,0.06)] transition-all">
+                            Report Damage to Admin
+                        </a>
+
+                        <form action="{{ route('rental.return', $rental) }}" method="POST" class="block">
+                            @csrf
+                            @method('PATCH')
+                            <button type="submit" class="w-full bg-[#006a38] hover:bg-[#004e26] text-white px-4 py-2 font-space text-[10px] font-bold uppercase rounded transition-all">
+                                Mark as Returned
+                            </button>
+                        </form>
+                    </div>
+                @else
+                    <p class="text-sm text-[#666]">Waiting for the renter to request return.</p>
+                @endif
             </div>
         @endif
 

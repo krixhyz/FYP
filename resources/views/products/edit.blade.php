@@ -8,7 +8,7 @@
     </section>
 
     <section class="surface-card p-5 sm:p-6">
-        <form action="{{ route('products.update', $product->id) }}" method="POST" enctype="multipart/form-data" class="space-y-5">
+        <form action="{{ route('products.update', $product->id) }}" method="POST" enctype="multipart/form-data" class="space-y-5" novalidate>
             @csrf
             @method('PUT')
             @include('products.form', ['buttonText' => 'Update Listing'])

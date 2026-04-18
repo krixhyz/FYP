@@ -1,4 +1,8 @@
 <section class="space-y-6" x-data="{ open: @json($errors->userDeletion->isNotEmpty()) }" x-cloak>
+    @php
+        $deleteAccountAction = $deleteAccountAction ?? route('profile.destroy');
+    @endphp
+
     <header>
         <h2 class="text-lg font-extrabold tracking-tight text-[var(--reloop-ink)]">
             {{ __('Delete Account') }}
@@ -24,7 +28,7 @@
         <div class="fixed inset-0 bg-black/50" x-on:click="open = false"></div>
 
         <div class="relative w-full max-w-2xl border border-[var(--reloop-border)] bg-white p-6 shadow-[10px_10px_0_var(--reloop-shadow)]" x-transition.scale>
-            <form method="post" action="{{ route('profile.destroy') }}">
+            <form method="post" action="{{ $deleteAccountAction }}">
                 @csrf
                 @method('delete')
 

@@ -3,66 +3,63 @@
 
 @section('content')
 <div class="surface-card-strong p-6 md:p-8">
-    <div class="flex items-center justify-between mb-6">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-            <p class="section-kicker">Admin Cases</p>
-            <h2 class="section-title mt-1">Dispute Resolution</h2>
+            <p class="section-kicker">Admin Audit</p>
+            <h2 class="section-title mt-1">User Reports</h2>
         </div>
-        <form method="GET" class="flex gap-2">
-            <select name="status" onchange="this.form.submit()" class="input-field !py-2 text-sm">
-                <option value="">Filter by Status</option>
-                @foreach(['open','in_review','resolved','dismissed'] as $s)
-                    <option value="{{ $s }}" @selected(request('status') === $s)>{{ ucfirst(str_replace('_',' ',$s)) }}</option>
-                @endforeach
+        <form method="GET" class="flex items-center gap-2">
+            <select name="type" class="input-field !py-2 text-sm">
+                <option value="">Filter by Type</option>
+                <option value="order" @selected(request('type') === 'order')>order</option>
+                <option value="rental" @selected(request('type') === 'rental')>rental</option>
+                <option value="swap" @selected(request('type') === 'swap')>swap</option>
             </select>
+            <select name="status" class="input-field !py-2 text-sm">
+                <option value="">Filter by Status</option>
+                <option value="open" @selected(request('status') === 'open')>open</option>
+                <option value="in_review" @selected(request('status') === 'in_review')>in review</option>
+                <option value="resolved" @selected(request('status') === 'resolved')>resolved</option>
+                <option value="dismissed" @selected(request('status') === 'dismissed')>dismissed</option>
+            </select>
+            <button class="btn-pill btn-pill-soft !px-4 !py-2 text-sm">Filter</button>
         </form>
     </div>
 
     <div class="space-y-4">
         @forelse($disputes as $dispute)
-            <div class="surface-card p-5 {{ in_array($dispute->status, ['open','in_review']) ? '' : 'border-2 border-[#ba1a1a] bg-[#fee2e2]' }}">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <h3 class="text-2xl font-extrabold">{{ $dispute->subject }}</h3>
-                            <span class="status-chip {{ $dispute->status === 'in_review' ? 'status-info' : ($dispute->status === 'open' ? 'status-warning' : 'status-error') }}">
-                                {{ str_replace('_',' ', $dispute->status) }}
-                            </span>
-                        </div>
-                        <p class="font-manrope text-xs text-[#888888] mt-1">Reporter: {{ $dispute->reporter?->name ?? 'Unknown user' }}</p>
-                        <p class="font-manrope text-xs text-[#888888] mt-1">Type: {{ $dispute->transaction_type }} | Date Opened {{ $dispute->created_at->format('M j') }}</p>
-                    </div>
+            <div class="surface-card p-4 border-amber-300 bg-amber-50">
+                <div class="mb-2 flex items-center gap-2">
+                    <h3 class="text-xs font-bold uppercase tracking-[0.14em]">{{ $dispute->transaction_type }}</h3>
+                    <span class="status-chip status-warning">{{ $dispute->status === 'open' ? 'New' : 'Investigating' }}</span>
                 </div>
+                <p class="text-[#1a1c1c]">Reporter: {{ $dispute->reporter?->name ?? 'Unknown' }} | Subject: {{ $dispute->subject }}</p>
+                <p class="mt-2 bg-white border border-neutral-300 px-3 py-2 text-sm">{{ $dispute->description }}</p>
+                <p class="font-manrope text-xs text-[#888888] mt-2">Reported on {{ $dispute->created_at->format('F j, Y') }}</p>
 
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-2 mt-4">
-                    <a href="{{ route('admin.disputes.show', $dispute) }}" class="btn-pill btn-pill-soft justify-center !py-2">Contact Parties</a>
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <a href="{{ route('admin.disputes.show', $dispute) }}" class="btn-pill btn-pill-soft !px-4 !py-2 text-sm">Investigate</a>
 
                     <form method="POST" action="{{ route('admin.disputes.resolve', $dispute) }}">
                         @csrf
                         @method('PATCH')
-                        <input type="hidden" name="status" value="resolved">
-                        <input type="hidden" name="admin_notes" value="Resolved in favor of buyer by operations.">
-                        <button class="btn-pill btn-pill-dark w-full justify-center !py-2">Resolve in Favor of Buyer</button>
+                        <input type="hidden" name="status" value="in_review">
+                        <input type="hidden" name="admin_notes" value="Escalated for action by report operations.">
+                        <button class="btn-pill !px-4 !py-2 text-sm !border-[#ba1a1a] !text-[#ba1a1a] hover:!bg-[#ba1a1a] hover:!text-white">Take Action</button>
                     </form>
 
                     <form method="POST" action="{{ route('admin.disputes.resolve', $dispute) }}">
                         @csrf
                         @method('PATCH')
                         <input type="hidden" name="status" value="dismissed">
-                        <input type="hidden" name="admin_notes" value="Resolved in favor of seller by operations.">
-                        <button class="btn-pill w-full justify-center !border-[#444746] !text-[#444746] !py-2 hover:!bg-[#444746] hover:!text-white">Resolve in Favor of Seller</button>
-                    </form>
-
-                    <form method="POST" action="{{ route('admin.disputes.escalate', $dispute) }}">
-                        @csrf
-                        @method('PATCH')
-                        <input type="hidden" name="reason" value="Requires super admin review due to risk profile.">
-                        <button class="btn-pill w-full justify-center !border-[#ba1a1a] !text-[#ba1a1a] !py-2 hover:!bg-[#ba1a1a] hover:!text-white">Escalate to Super Admin</button>
+                        <input type="hidden" name="favored_party" value="counterparty">
+                        <input type="hidden" name="admin_notes" value="Report dismissed after review.">
+                        <button class="btn-pill btn-pill-dark !px-4 !py-2 text-sm">Dismiss Report</button>
                     </form>
                 </div>
             </div>
         @empty
-            <p class="meta-text">No disputes found.</p>
+            <p class="meta-text">No reports available.</p>
         @endforelse
     </div>
 

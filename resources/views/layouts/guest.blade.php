@@ -6,8 +6,8 @@
     <title>{{ $title ?? config('app.name', 'Laravel') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="min-h-screen bg-[#f9f9f9] flex items-center justify-center py-12 px-4 font-manrope text-[#1a1c1c]">
-    <div class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)] p-10 w-full max-w-sm">
+<body class="@yield('guest-body-class', 'min-h-screen bg-[#f9f9f9] flex items-center justify-center py-12 px-4 font-manrope text-[#1a1c1c]')">
+    <div class="@yield('guest-card-class', 'bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)] p-10 w-full max-w-sm')">
         @yield('content')
     </div>
 </body>

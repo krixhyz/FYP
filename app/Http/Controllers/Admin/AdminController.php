@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Admin\PlatformSetting;
 use App\Models\Product;
+use App\Models\RentalDeposit;
 use App\Models\RentedRentals;
 use App\Models\RentalRequest;
 use App\Models\Review;
@@ -14,7 +15,10 @@ use App\Models\Swap;
 use App\Models\SwapRequest;
 use App\Models\User\User;
 use App\Notifications\User\DisputeStatusUpdated;
+use App\Services\RentalDepositRefundService;
+use App\Services\WalletLedgerService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Response;
@@ -55,8 +59,16 @@ class AdminController extends Controller
         $pendingUsers = User::whereNull('email_verified_at')->count();
         $reportedItems = Dispute::count() + $flaggedProducts;
         $activeUsers = User::where('account_status', 'active')->count();
-        $completedTransactions = Order::where('status', 'completed')->count() + RentedRentals::where('status', 'completed')->count() + Swap::where('status', 'completed')->count();
-        $monthlyRevenue = (float) Payment::whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum('total_amount');
+        $totalOrders = Order::count();
+        $totalServiceFeesEarned = (float) Payment::where('status', 'complete')->sum('fee_amount');
+        $pendingPayments = Payment::where('status', 'pending')->count();
+        $completedRentals = RentedRentals::whereIn('status', ['completed', 'returned'])->count();
+        $swapCount = Swap::count();
+        $completedTransactions = Order::where('status', 'completed')->count() + $completedRentals + Swap::where('status', 'completed')->count();
+        $monthlyRevenue = (float) Payment::where('status', 'complete')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum('fee_amount');
 
         return view('admin.dashboard', [
             'users' => $users,
@@ -73,10 +85,114 @@ class AdminController extends Controller
             'pendingUsers' => $pendingUsers,
             'reportedItems' => $reportedItems,
             'activeUsers' => $activeUsers,
+            'totalOrders' => $totalOrders,
+            'totalServiceFeesEarned' => $totalServiceFeesEarned,
+            'pendingPayments' => $pendingPayments,
+            'completedRentals' => $completedRentals,
+            'swapCount' => $swapCount,
             'completedTransactions' => $completedTransactions,
             'monthlyRevenue' => $monthlyRevenue,
             'isSuperAdmin' => $admin->isSuperAdmin(),
         ]);
+    }
+
+    public function processDeposit(Request $request, RentalDeposit $rentalDeposit, RentalDepositRefundService $refundService)
+    {
+        $admin = auth()->user();
+
+        if (!$admin->isAdmin()) {
+            abort(403, 'You do not have permission to process deposits.');
+        }
+
+        $validated = $request->validate([
+            'condition' => 'required|in:good,minor_damage,major_damage',
+            'deduction_amount' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string|max:5000',
+        ]);
+
+        if ($rentalDeposit->status !== 'held') {
+            return back()->with('error', 'This deposit has already been processed.');
+        }
+
+        try {
+            $result = DB::transaction(function () use ($rentalDeposit, $validated, $admin) {
+                $amount = (float) $rentalDeposit->amount;
+                $deductionAmount = 0.0;
+                $refundAmount = $amount;
+                $status = 'refunded';
+
+                if ($validated['condition'] === 'minor_damage') {
+                    $deductionAmount = (float) ($validated['deduction_amount'] ?? 0);
+
+                    if ($deductionAmount > $amount) {
+                        throw new \RuntimeException('Deduction amount cannot exceed the original deposit.');
+                    }
+
+                    $refundAmount = max($amount - $deductionAmount, 0);
+                    $status = $refundAmount > 0 ? 'partial' : 'forfeited';
+                }
+
+                if ($validated['condition'] === 'major_damage') {
+                    $deductionAmount = $amount;
+                    $refundAmount = 0;
+                    $status = 'forfeited';
+                }
+
+                $rentalDeposit->update([
+                    'deduction_amount' => $deductionAmount,
+                    'refund_amount' => $refundAmount,
+                    'status' => $status,
+                    'notes' => $validated['notes'] ?? null,
+                    'processed_by' => $admin->id,
+                    'processed_at' => now(),
+                    'refund_status' => $refundAmount > 0 ? 'processing' : 'success',
+                    'refund_requested_at' => $refundAmount > 0 ? now() : null,
+                    'refund_completed_at' => $refundAmount > 0 ? null : now(),
+                    'refund_failed_at' => null,
+                    'failure_reason' => null,
+                ]);
+
+                return $rentalDeposit->fresh(['rentedRental', 'processedBy', 'payment']);
+            });
+        } catch (\Throwable $e) {
+            \Log::error('Deposit processing failed', [
+                'rental_deposit_id' => $rentalDeposit->id,
+                'admin_id' => $admin->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', $e->getMessage());
+        }
+
+        if ((float) $result->refund_amount > 0) {
+            $refundResponse = $refundService->refund($result);
+
+            if (!($refundResponse['ok'] ?? false)) {
+                $result->update([
+                    'refund_status' => 'failed',
+                    'refund_failed_at' => now(),
+                    'failure_reason' => data_get($refundResponse, 'message', 'Refund request failed.'),
+                ]);
+
+                \Log::warning('Deposit refund request failed', [
+                    'rental_deposit_id' => $result->id,
+                    'payment_id' => $result->payment_id,
+                    'provider' => $result->gateway,
+                    'response' => $refundResponse,
+                ]);
+
+                return back()->with('error', 'Deposit was processed, but the refund request failed.');
+            }
+
+            $result->update([
+                'refund_status' => 'success',
+                'refund_reference' => data_get($refundResponse, 'body.refund_id') ?? data_get($refundResponse, 'body.reference') ?? data_get($refundResponse, 'body.id'),
+                'refund_completed_at' => now(),
+                'failure_reason' => null,
+            ]);
+        }
+
+        return back()->with('success', 'Deposit processed successfully. Refund status: ' . $result->refund_status . '.');
     }
 
     public function userStore(Request $request)
@@ -603,7 +719,8 @@ class AdminController extends Controller
         if (auth()->user()->isSuperAdmin()) {
             $financialSummary = [
                 'payments_total' => (float) Payment::sum('total_amount'),
-                'payments_successful' => (float) Payment::where('status', 'completed')->sum('total_amount'),
+                'payments_successful' => (float) Payment::where('status', 'complete')->sum('total_amount'),
+                'service_fees_earned' => (float) Payment::where('status', 'complete')->sum('fee_amount'),
                 'orders_completed' => Order::where('status', 'completed')->count(),
             ];
         }
@@ -632,7 +749,11 @@ class AdminController extends Controller
         if ($admin->isSuperAdmin()) {
             $full = [
                 'total_revenue' => (float) Payment::sum('total_amount'),
-                'successful_revenue' => (float) Payment::where('status', 'completed')->sum('total_amount'),
+                'successful_revenue' => (float) Payment::where('status', 'complete')->sum('total_amount'),
+                'service_fees_earned' => (float) Payment::where('status', 'complete')->sum('fee_amount'),
+                'pending_payments' => Payment::where('status', 'pending')->count(),
+                'completed_rentals' => RentedRentals::whereIn('status', ['completed', 'returned'])->count(),
+                'swap_count' => Swap::count(),
                 'total_transactions' => Order::count() + RentedRentals::count() + Swap::count(),
                 'total_users' => User::count(),
                 'active_users' => User::where('account_status', 'active')->count(),
@@ -730,6 +851,10 @@ class AdminController extends Controller
     {
         $query = Dispute::with('reporter')->latest();
 
+        if ($request->filled('type')) {
+            $query->where('transaction_type', $request->type);
+        }
+
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         } else {
@@ -749,15 +874,22 @@ class AdminController extends Controller
             'resolver',
             'order.product.user',
             'order.buyer',
+            'rentedRental.product',
+            'rentedRental.deposit',
+            'rentedRental.owner',
+            'rentedRental.renter',
             'rentalRequest.product.user',
+            'rentalRequest.owner',
             'rentalRequest.renter',
             'swap.ownerA',
             'swap.ownerB',
         ]);
 
+        $counterparty = $this->disputeCounterparty($dispute);
+        $rentalDepositAmount = (float) ($dispute->rentedRental?->deposit?->amount ?? $dispute->rentedRental?->rent_deposit ?? 0);
         $requiresEscalation = ! auth()->user()->isSuperAdmin() && $this->disputeInvolvesPrivilegedAccount($dispute);
 
-        return view('admin.disputes.show', compact('dispute', 'requiresEscalation'));
+        return view('admin.disputes.show', compact('dispute', 'requiresEscalation', 'counterparty', 'rentalDepositAmount'));
     }
 
     public function disputeEscalate(Request $request, Dispute $dispute)
@@ -777,27 +909,65 @@ class AdminController extends Controller
         return redirect()->route('admin.disputes.show', $dispute)->with('success', 'Dispute escalated to super admin.');
     }
 
-    public function disputeResolve(Request $request, Dispute $dispute)
+    public function disputeResolve(
+        Request $request,
+        Dispute $dispute,
+        RentalDepositRefundService $refundService,
+        WalletLedgerService $walletLedgerService
+    )
     {
         if (! auth()->user()->isSuperAdmin() && $this->disputeInvolvesPrivilegedAccount($dispute)) {
             return redirect()->back()->with('success', 'This dispute involves an admin account and must be escalated to super admin.');
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'status' => 'required|in:in_review,resolved,dismissed',
+            'favored_party' => 'required_if:status,resolved,dismissed|in:reporter,counterparty',
+            'owner_award_amount' => 'nullable|numeric|min:0',
             'admin_notes' => 'nullable|string|max:1000',
         ]);
 
+        $status = (string) $validated['status'];
+        $isFinalStatus = in_array($status, ['resolved', 'dismissed'], true);
+        $favoredParty = $isFinalStatus ? (string) ($validated['favored_party'] ?? '') : null;
+
         $oldStatus = $dispute->status;
+        $oldFavoredParty = $dispute->favored_party;
+        $oldAdminNotes = $dispute->admin_notes;
+        $oldResolvedBy = $dispute->resolved_by;
+        $oldResolvedAt = $dispute->resolved_at;
 
-        $dispute->update([
-            'status' => $request->status,
-            'admin_notes' => $request->admin_notes,
-            'resolved_by' => in_array($request->status, ['resolved', 'dismissed']) ? auth()->id() : $dispute->resolved_by,
-            'resolved_at' => in_array($request->status, ['resolved', 'dismissed']) ? now() : $dispute->resolved_at,
-        ]);
+        DB::transaction(function () use ($dispute, $status, $isFinalStatus, $favoredParty) {
+            $dispute->status = $status;
+            $dispute->favored_party = $favoredParty;
+            $dispute->admin_notes = request('admin_notes');
+            $dispute->resolved_by = $isFinalStatus ? auth()->id() : $dispute->resolved_by;
+            $dispute->resolved_at = $isFinalStatus ? now() : $dispute->resolved_at;
+            $dispute->save();
+        });
 
-        if ($oldStatus !== $request->status) {
+        if ($isFinalStatus && $dispute->transaction_type === 'rental') {
+            $settled = $this->settleRentalDispute(
+                $dispute->fresh(['reporter', 'rentedRental.deposit', 'rentedRental.product', 'rentedRental.product.rentals']),
+                $request,
+                $refundService,
+                $walletLedgerService
+            );
+
+            if (!$settled['ok']) {
+                $dispute->update([
+                    'status' => $oldStatus,
+                    'favored_party' => $oldFavoredParty,
+                    'admin_notes' => $oldAdminNotes,
+                    'resolved_by' => $oldResolvedBy,
+                    'resolved_at' => $oldResolvedAt,
+                ]);
+
+                return redirect()->back()->with('error', $settled['message']);
+            }
+        }
+
+        if ($oldStatus !== $status) {
             $dispute->reporter->notify(new DisputeStatusUpdated($dispute));
         }
 
@@ -823,6 +993,8 @@ class AdminController extends Controller
             'reporter',
             'order.product.user',
             'order.buyer',
+            'rentedRental.owner',
+            'rentedRental.renter',
             'rentalRequest.owner',
             'rentalRequest.renter',
             'swap.ownerA',
@@ -833,6 +1005,8 @@ class AdminController extends Controller
             $dispute->reporter,
             $dispute->order?->buyer,
             $dispute->order?->product?->user,
+            $dispute->rentedRental?->owner,
+            $dispute->rentedRental?->renter,
             $dispute->rentalRequest?->owner,
             $dispute->rentalRequest?->renter,
             $dispute->swap?->ownerA,
@@ -840,6 +1014,176 @@ class AdminController extends Controller
         ])->filter();
 
         return $users->contains(fn (User $user) => in_array($user->role, ['admin', 'super_admin'], true));
+    }
+
+    private function disputeCounterparty(Dispute $dispute): ?User
+    {
+        $dispute->loadMissing([
+            'reporter',
+            'order.buyer',
+            'order.product.user',
+            'rentedRental.owner',
+            'rentedRental.renter',
+            'rentalRequest.owner',
+            'rentalRequest.renter',
+            'swap.ownerA',
+            'swap.ownerB',
+        ]);
+
+        $partyCandidates = collect([
+            $dispute->order?->buyer,
+            $dispute->order?->product?->user,
+            $dispute->rentedRental?->owner,
+            $dispute->rentedRental?->renter,
+            $dispute->rentalRequest?->owner,
+            $dispute->rentalRequest?->renter,
+            $dispute->swap?->ownerA,
+            $dispute->swap?->ownerB,
+        ])->filter();
+
+        return $partyCandidates
+            ->first(fn (User $user) => $user->id !== (int) $dispute->reporter_id);
+    }
+
+    private function settleRentalDispute(
+        Dispute $dispute,
+        Request $request,
+        RentalDepositRefundService $refundService,
+        WalletLedgerService $walletLedgerService
+    ): array {
+        $rental = $dispute->rentedRental;
+        if (!$rental) {
+            return ['ok' => false, 'message' => 'No rental record is attached to this dispute.'];
+        }
+
+        $deposit = RentalDeposit::firstOrCreate(
+            ['rented_rental_id' => $rental->id],
+            [
+                'payment_id' => null,
+                'amount' => (float) ($rental->rent_deposit ?? 0),
+                'deduction_amount' => 0,
+                'refund_amount' => 0,
+                'status' => 'held',
+                'refund_status' => 'pending',
+            ]
+        );
+
+        $depositAmount = (float) ($deposit->amount ?? 0);
+        $reporterWon = $dispute->favored_party === 'reporter';
+        $winnerId = $reporterWon
+            ? (int) $dispute->reporter_id
+            : (int) ($this->disputeCounterparty($dispute)?->id ?? 0);
+        $ownerWon = $winnerId === (int) $rental->owner_id;
+
+        $requestedClaim = (float) ($dispute->owner_claim_amount ?? 0);
+        $awardInput = $request->input('owner_award_amount');
+        $awardAmount = $ownerWon
+            ? ($awardInput !== null && $awardInput !== '' ? (float) $awardInput : $requestedClaim)
+            : 0.0;
+        $awardAmount = min(max($awardAmount, 0.0), $depositAmount);
+        $refundAmount = max($depositAmount - $awardAmount, 0.0);
+
+        $depositStatus = $awardAmount <= 0
+            ? 'refunded'
+            : ($refundAmount > 0 ? 'partial' : 'forfeited');
+
+        $deposit->update([
+            'deduction_amount' => $awardAmount,
+            'refund_amount' => $refundAmount,
+            'status' => $depositStatus,
+            'notes' => $dispute->admin_notes,
+            'processed_by' => auth()->id(),
+            'processed_at' => now(),
+            'refund_status' => $refundAmount > 0 ? 'processing' : 'success',
+            'refund_requested_at' => $refundAmount > 0 ? now() : null,
+            'refund_completed_at' => $refundAmount > 0 ? null : now(),
+            'refund_failed_at' => null,
+            'failure_reason' => null,
+        ]);
+
+        $dispute->owner_award_amount = $awardAmount;
+        $dispute->save();
+
+        if ($awardAmount > 0 && $ownerWon) {
+            $walletLedgerService->creditSaleIfMissing(
+                (int) $rental->owner_id,
+                $awardAmount,
+                'rental_damage_award',
+                'dispute',
+                (int) $dispute->id,
+                [
+                    'rented_rental_id' => $rental->id,
+                    'deposit_id' => $deposit->id,
+                ]
+            );
+        }
+
+        if ($refundAmount > 0) {
+            $refundResponse = $refundService->refund($deposit->fresh(['payment']));
+            if (!($refundResponse['ok'] ?? false)) {
+                $deposit->update([
+                    'refund_status' => 'failed',
+                    'refund_failed_at' => now(),
+                    'failure_reason' => data_get($refundResponse, 'message', 'Refund request failed.'),
+                ]);
+            } else {
+                $deposit->update([
+                    'refund_status' => 'success',
+                    'refund_reference' => data_get($refundResponse, 'body.refund_id')
+                        ?? data_get($refundResponse, 'body.reference')
+                        ?? data_get($refundResponse, 'body.id'),
+                    'refund_completed_at' => now(),
+                    'failure_reason' => null,
+                ]);
+            }
+        }
+
+        $this->completeRentalAfterDispute($rental);
+
+        return [
+            'ok' => true,
+            'message' => ($refundAmount > 0 && ($refundResponse['ok'] ?? false) === false)
+                ? 'Dispute resolved. Owner credit was posted, but deposit refund needs manual review.'
+                : null,
+        ];
+    }
+
+    private function completeRentalAfterDispute(RentedRentals $rental): void
+    {
+        if ($rental->status === 'completed') {
+            return;
+        }
+
+        DB::transaction(function () use ($rental) {
+            $lockedRental = RentedRentals::lockForUpdate()->findOrFail($rental->id);
+            $wasActive = $lockedRental->status === 'active';
+
+            $lockedRental->status = 'completed';
+            $lockedRental->returned_at = $lockedRental->returned_at ?: now();
+            $lockedRental->save();
+
+            if (!$wasActive) {
+                return;
+            }
+
+            $product = Product::lockForUpdate()->find($lockedRental->product_id);
+            if (!$product) {
+                return;
+            }
+
+            $product->quantity += 1;
+            if ($product->status === 'rented' && $product->quantity > 0) {
+                $product->status = 'available';
+            }
+            $product->save();
+
+            $rentalConfig = $product->rentals()->first();
+            if ($rentalConfig) {
+                $rentalConfig->status = 'available';
+                $rentalConfig->available_from = now()->toDateString();
+                $rentalConfig->save();
+            }
+        });
     }
 
     private function exportSuperAdminReportCsv(array $base, array $full)

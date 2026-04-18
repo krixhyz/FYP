@@ -16,12 +16,6 @@
         <a href="{{ route('products.index') }}" class="bg-transparent border-2 border-[#006a38] text-[#006a38] px-6 py-[10px] font-space font-bold text-sm uppercase tracking-wider hover:bg-[rgba(0,106,56,0.06)] transition-all">Browse Products</a>
     </div>
 
-    @if(session('success'))
-        <div class="bg-[#d4edda] border-2 border-[#c3e6cb] text-[#155724] px-4 py-3 mb-6 font-manrope text-sm">
-            {{ session('success') }}
-        </div>
-    @endif
-
     @if($wishlistItems->isEmpty())
         <!-- Empty State -->
         <div class="bg-[#f3f3f3] px-8 md:px-16 py-16 text-center">

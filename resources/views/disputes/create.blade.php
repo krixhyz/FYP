@@ -8,6 +8,10 @@
         <h1 class="font-space font-bold text-3xl text-[#1a1c1c] mt-1 mb-3">Report a Dispute</h1>
         <p class="font-manrope text-sm text-[#444746]">Transaction type: <span class="font-medium">{{ ucfirst($type) }}</span> (ref #{{ $id }})</p>
 
+        @if(($type ?? null) === 'rental' && ($canSubmitOwnerClaim ?? false))
+            <p class="mt-2 font-manrope text-xs text-[#666]">As rental owner, you may request a damage claim up to the held deposit.</p>
+        @endif
+
         @if($existing)
             <div class="mt-5 border-2 px-4 py-3 text-sm
                 {{ $existing->status === 'open' ? 'border-[#f59e0b] bg-[#fffbeb] text-[#92400e]' : '' }}
@@ -28,7 +32,7 @@
             </div>
         @endif
 
-        <form action="{{ route('dispute.store') }}" method="POST" class="mt-6 space-y-6">
+        <form action="{{ route('dispute.store') }}" method="POST" enctype="multipart/form-data" class="mt-6 space-y-6">
             @csrf
             <input type="hidden" name="type" value="{{ $type }}">
             <input type="hidden" name="ref_id" value="{{ $id }}">
@@ -45,6 +49,33 @@
                 <textarea id="description" name="description" rows="5" placeholder="Provide details of what happened and the resolution you expect." 
                     class="w-full bg-white px-4 py-3 font-manrope border-b-2 border-gray-400 focus:border-[#006a38] focus:outline-none">{{ old('description', $existing?->description) }}</textarea>
                 @error('description')<p class="mt-1 font-manrope text-xs text-[#ba1a1a]">{{ $message }}</p>@enderror
+            </div>
+
+            @if(($type ?? null) === 'rental' && ($canSubmitOwnerClaim ?? false))
+                <div>
+                    <label for="owner_claim_amount" class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] block mb-2">Requested Claim Amount (Rs.)</label>
+                    <input
+                        type="number"
+                        id="owner_claim_amount"
+                        name="owner_claim_amount"
+                        min="0"
+                        step="0.01"
+                        max="{{ number_format((float) ($maxOwnerClaim ?? 0), 2, '.', '') }}"
+                        value="{{ old('owner_claim_amount', $existing?->owner_claim_amount) }}"
+                        placeholder="0.00"
+                        class="w-full bg-white px-4 py-3 font-manrope border-b-2 border-gray-400 focus:border-[#006a38] focus:outline-none"
+                    >
+                    <p class="mt-1 font-manrope text-xs text-[#888]">Maximum allowed by deposit: Rs. {{ number_format((float) ($maxOwnerClaim ?? 0), 2) }}</p>
+                    @error('owner_claim_amount')<p class="mt-1 font-manrope text-xs text-[#ba1a1a]">{{ $message }}</p>@enderror
+                </div>
+            @endif
+
+            <div>
+                <label for="evidence_photos" class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] block mb-2">Evidence Photos</label>
+                <input type="file" id="evidence_photos" name="evidence_photos[]" accept="image/*" multiple
+                    class="w-full bg-white px-4 py-3 font-manrope border-b-2 border-gray-400 focus:border-[#006a38] focus:outline-none">
+                <p class="mt-1 font-manrope text-xs text-[#888]">Attach clear photos if the item is damaged. You can upload multiple images.</p>
+                @error('evidence_photos.*')<p class="mt-1 font-manrope text-xs text-[#ba1a1a]">{{ $message }}</p>@enderror
             </div>
 
             <div class="flex flex-wrap gap-3 pt-3">

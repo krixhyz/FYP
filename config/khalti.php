@@ -10,4 +10,5 @@ return [
     'public_key' => env('KHALTI_PUBLIC_KEY', env('Khalti_live_public_Key')),
     'website_url' => env('KHALTI_WEBSITE_URL', rtrim(env('APP_URL', 'http://localhost'), '/')),
     'return_url' => env('KHALTI_RETURN_URL', rtrim(env('APP_URL', 'http://localhost'), '/') . '/payment/khalti/return'),
+    'refund_url' => env('KHALTI_REFUND_URL'),
 ];

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\User;
 
+use Carbon\Carbon;
 use App\Models\Product;
 use App\Models\RentalRequest;
 use App\Models\RentedRentals;
@@ -30,6 +31,8 @@ class RentalController extends Controller
 
     public function store(Request $request, Product $product)
     {
+        $rentalConfig = $product->rentals()->first();
+
         // 1. Validate inputs
         $request->validate([
             'start_date' => 'required|date|after_or_equal:today',
@@ -37,6 +40,31 @@ class RentalController extends Controller
             'duration' => 'required|integer|min:1',
             'total_amount' => 'required|numeric|min:0',
         ]);
+
+        if (!$rentalConfig || !$rentalConfig->available_from || !$rentalConfig->available_duration) {
+            return back()->withInput()->withErrors([
+                'start_date' => 'This item does not have a valid rental availability window.',
+            ]);
+        }
+
+        $ownerStartDate = Carbon::parse($rentalConfig->available_from)->startOfDay();
+        $ownerEndDate = $ownerStartDate->copy()->addDays(max(((int) $rentalConfig->available_duration) - 1, 0));
+        $requestedStartDate = Carbon::parse($request->start_date)->startOfDay();
+        $requestedEndDate = Carbon::parse($request->end_date)->startOfDay();
+
+        if ($requestedStartDate->lt($ownerStartDate) || $requestedStartDate->gt($ownerEndDate)) {
+            return back()->withInput()->withErrors([
+                'start_date' => 'Start date must be within the owner\'s available rental range.',
+            ]);
+        }
+
+        if ($requestedEndDate->lt($requestedStartDate) || $requestedEndDate->gt($ownerEndDate)) {
+            return back()->withInput()->withErrors([
+                'end_date' => 'End date must be on or after start date and within the owner\'s available rental range.',
+            ]);
+        }
+
+        $calculatedDuration = $requestedStartDate->diffInDays($requestedEndDate) + 1;
 
         // 2. Prevent self-renting
         if ($product->user_id == Auth::id()) {
@@ -70,13 +98,13 @@ class RentalController extends Controller
 
         // 4. Create rental request
         $rentalRequest = RentalRequest::create([
-            'rental_id' => optional($product->rentals()->first())->id,
+            'rental_id' => $rentalConfig->id,
             'product_id' => $product->id,
             'owner_id' => $product->user_id,
             'renter_id' => Auth::id(),
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
-            'duration' => $request->duration,
+            'duration' => $calculatedDuration,
             'total_amount' => $request->total_amount,
             'rent_deposit' => $request->rent_deposit ?? 0,
             'status' => 'requested',
@@ -240,7 +268,8 @@ class RentalController extends Controller
         }
 
         DB::transaction(function () use ($rentedRental) {
-            $rentedRental->status = 'returned';
+            $rentedRental->status = 'completed';
+            $rentedRental->returned_at = now();
             $rentedRental->save();
 
             $product = $rentedRental->product;
@@ -252,9 +281,40 @@ class RentalController extends Controller
                 }
                 $product->save();
             }
+
+            // Re-open rental window so the same item can be rented again.
+            $rentalConfig = $product?->rentals()->first();
+            if ($rentalConfig) {
+                $rentalConfig->status = 'available';
+                $rentalConfig->available_from = now()->toDateString();
+                $rentalConfig->save();
+            }
         });
 
         return back()->with('success', 'Rental marked as returned and stock updated.');
+    }
+
+    /**
+     * Renter requests that a rental be marked as returned.
+     */
+    public function requestReturn(RentedRentals $rentedRental)
+    {
+        if ($rentedRental->renter_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($rentedRental->status !== 'active') {
+            return back()->with('error', 'This rental is no longer active.');
+        }
+
+        if ($rentedRental->return_requested_at) {
+            return back()->with('info', 'Return has already been requested.');
+        }
+
+        $rentedRental->return_requested_at = now();
+        $rentedRental->save();
+
+        return back()->with('success', 'Return requested. The owner will confirm after inspection.');
     }
 
     /**
@@ -262,8 +322,20 @@ class RentalController extends Controller
      */
     public function myRentals()
     {
-        $rentals = RentedRentals::with(['product', 'owner'])
+        $rentals = RentedRentals::with(['product', 'owner', 'deposit'])
             ->where('renter_id', Auth::id())
+            ->latest()
+            ->get();
+
+        $rentedItems = RentedRentals::with(['product', 'renter', 'deposit'])
+            ->where('owner_id', Auth::id())
+            ->where('status', 'active')
+            ->latest()
+            ->get();
+
+        $ownerCompletedItems = RentedRentals::with(['product', 'renter', 'deposit'])
+            ->where('owner_id', Auth::id())
+            ->whereIn('status', ['completed', 'returned'])
             ->latest()
             ->get();
 
@@ -273,21 +345,7 @@ class RentalController extends Controller
             ->latest()
             ->get();
 
-        return view('rental.my_rentals', compact('rentals', 'incomingRequests'));
-    }
-
-    /**
-     * View incoming rental requests (for owners).
-     */
-    public function incoming()
-    {
-        $requests = RentalRequest::where('owner_id', Auth::id())
-            ->where('status', 'requested')
-            ->with(['product', 'renter'])
-            ->latest()
-            ->get();
-
-        return view('rental.requests', compact('requests'));
+        return view('rental.my_rentals', compact('rentals', 'rentedItems', 'ownerCompletedItems', 'incomingRequests'));
     }
 
     /**

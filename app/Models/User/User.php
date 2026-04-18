@@ -108,6 +108,22 @@ public function approvedRentalsAsOwner()
     return $this->hasMany(\App\Models\RentedRentals::class, 'owner_id');
 }
 
+public function processedRentalDeposits()
+{
+    return $this->hasMany(\App\Models\RentalDeposit::class, 'processed_by');
+}
+
+public function wallet()
+{
+    return $this->hasOne(\App\Models\Wallet::class, 'user_id')
+        ->where('wallet_type', 'user');
+}
+
+public function payoutRequests()
+{
+    return $this->hasMany(\App\Models\PayoutRequest::class, 'user_id');
+}
+
 public function swapRequestsMade()
 {
     return $this->hasMany(SwapRequest::class, 'requester_id');

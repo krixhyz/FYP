@@ -27,6 +27,43 @@
         </div>
     </main>
 
+    @include('layouts.footer')
+
+    @php
+        $flashToasts = [
+            'success' => session('success'),
+            'error' => session('error'),
+            'warning' => session('warning'),
+            'info' => session('info'),
+        ];
+    @endphp
+
+    @if(collect($flashToasts)->filter()->isNotEmpty())
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const flashToasts = @json($flashToasts);
+
+                const renderToast = (type, message) => {
+                    if (!message) return;
+
+                    if (window.toastr && typeof window.toastr[type] === 'function') {
+                        window.toastr[type](message);
+                        return;
+                    }
+
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(message, null, null, type);
+                    }
+                };
+
+                renderToast('success', flashToasts.success);
+                renderToast('error', flashToasts.error);
+                renderToast('warning', flashToasts.warning);
+                renderToast('info', flashToasts.info);
+            });
+        </script>
+    @endif
+
     @stack('scripts')
 </body>
 

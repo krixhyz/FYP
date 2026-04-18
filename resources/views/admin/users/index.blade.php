@@ -20,11 +20,7 @@
     </div>
 
     @if(! $admin->isSuperAdmin())
-        <div class="mb-5 border-2 border-blue-300 bg-blue-50 px-5 py-4 font-manrope text-sm text-blue-700">
-            <p class="font-space font-bold">Manage Users</p>
-            <p class="font-space font-bold">Manage Users</p>
-            <p class="mt-1">View, edit, and manage platform users. Control roles, status, and permissions.</p>
-        </div>
+        <div class="mb-6 p-4 bg-[#f3f3f3] rounded">
             <p class="font-semibold">Limited Access</p>
             <p class="text-sm mt-1">You can manage regular users only. Cannot manage Admins or Super Admins. Cannot access sensitive payment details.</p>
         </div>

@@ -9,11 +9,11 @@
 </div>
 
 <!-- Product Detail Layout -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-0 px-8 md:px-16 pb-12">
-    <!-- Left Column — Image -->
-    <div class="bg-[#f3f3f3] lg:pr-8">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 px-8 md:px-16 pb-12">
+    <!-- Left Column — Image Gallery -->
+    <div class="lg:col-span-1">
         @php $allImages = array_filter(array_unique(array_merge($product->images ?? [], $product->image ? [$product->image] : []))); @endphp
-        <div class="aspect-square w-full object-cover bg-[#e8e8e8]" id="mainImage">
+        <div class="aspect-square w-full object-cover bg-[#e8e8e8] rounded-lg overflow-hidden" id="mainImage">
             @if(count($allImages) > 0)
                 <img id="mainImg" src="{{ asset('storage/' . reset($allImages)) }}"
                      alt="{{ $product->title }}"
@@ -29,62 +29,49 @@
         </div>
 
         @if(count($allImages) > 1)
-            <div class="flex gap-2 p-4">
+            <div class="flex gap-2 p-3">
                 @foreach($allImages as $img)
                     <img src="{{ asset('storage/' . $img) }}"
                          alt="thumbnail"
                          onclick="document.getElementById('mainImg').src='{{ asset('storage/' . $img) }}'"
-                         class="w-16 h-16 object-cover bg-[#e8e8e8] cursor-pointer outline outline-2 outline-transparent hover:outline-[#006a38]">
-                    @endforeach
+                         class="w-14 h-14 object-cover bg-[#e8e8e8] cursor-pointer outline outline-2 outline-transparent hover:outline-[#006a38] rounded transition">
+                @endforeach
             </div>
         @endif
     </div>
 
-    <!-- Right Column — Detail Panel -->
-    <div class="bg-white p-8 md:p-12 relative">
-        <!-- Wishlist Icon (top-right) -->
-        @auth
-            @if(Auth::id() !== $product->user_id)
-                <form action="{{ route('wishlist.toggle', $product->id) }}" method="POST" class="absolute top-8 md:top-12 right-8 md:right-12">
-                    @csrf
-                    <button type="submit"
-                            title="{{ $isWishlisted ? 'Remove from wishlist' : 'Add to wishlist' }}"
-                            class="flex h-8 w-8 items-center justify-center transition">
-                        <svg class="h-5 w-5" fill="{{ $isWishlisted ? '#006a38' : 'none' }}" stroke="{{ $isWishlisted ? '#006a38' : '#444746' }}" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
-                    </button>
-                </form>
-            @endif
-        @endauth
-
-        <!-- Header -->
-        <a href="{{ route('products.index') }}" class="font-space text-xs font-bold uppercase tracking-widest text-[#444746] hover:text-[#006a38] flex items-center gap-1.5 mb-8 hidden lg:flex">
-            ← Back to Gallery
-        </a>
-
+    <!-- Center Column — Product Details -->
+    <div class="lg:col-span-1">
         <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">Listing</p>
         <h1 class="font-space font-bold text-3xl text-[#1a1c1c] mb-1">{{ $product->title }}</h1>
-        <p class="font-manrope text-sm text-[#444746] mb-3">Category: {{ ucfirst($product->category->name ?? 'General') }}</p>
+        <p class="font-manrope text-sm text-[#444746] mb-4">{{ ucfirst($product->category->name ?? 'General') }}</p>
 
         <!-- Product Detail Container with Alpine.js State -->
-        <div x-data="{ mode: @json(in_array('sell', $product->type) ? 'buy' : (in_array('rent', $product->type) ? 'rent' : 'swap')) }">
+        <div x-data="{ mode: '' }">
 
-            <!-- Type Chips (now mode selector) -->
-            @if(count($product->type) > 1)
-                <div class="flex gap-2 mb-6">
-                    @if(in_array('sell', $product->type))
-                        <button @click="mode='buy'" :class="mode==='buy' ? 'bg-[#006a38] text-white' : 'bg-[#e2e2e2] text-[#1a1c1c]'" class="text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5 border-0 transition-colors">Buy</button>
-                    @endif
-                    @if(in_array('rent', $product->type))
-                        <button @click="mode='rent'" :class="mode==='rent' ? 'bg-[#006a38] text-white' : 'bg-[#e2e2e2] text-[#1a1c1c]'" class="text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5 border-0 transition-colors">Rent</button>
-                    @endif
-                    @if(in_array('swap', $product->type))
-                        <button @click="mode='swap'" :class="mode==='swap' ? 'bg-[#006a38] text-white' : 'bg-[#e2e2e2] text-[#1a1c1c]'" class="text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5 border-0 transition-colors">Swap</button>
-                    @endif
-                </div>
-            @endif
+            <!-- Type Chips (mode selector) -->
+            <div class="flex gap-2 mb-6">
+                <button @click="mode='buy'"
+                        :class="mode==='buy' ? 'bg-[#006a38] text-white' : 'bg-[#e2e2e2] text-[#1a1c1c]'"
+                        class="text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5 border-0 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        @if(!in_array('sell', $product->type)) disabled @endif>
+                    Buy
+                </button>
+
+                <button @click="mode='rent'"
+                        :class="mode==='rent' ? 'bg-[#006a38] text-white' : 'bg-[#e2e2e2] text-[#1a1c1c]'"
+                        class="text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5 border-0 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        @if(!in_array('rent', $product->type)) disabled @endif>
+                    Rent
+                </button>
+
+                <button @click="mode='swap'"
+                        :class="mode==='swap' ? 'bg-[#006a38] text-white' : 'bg-[#e2e2e2] text-[#1a1c1c]'"
+                        class="text-[11px] font-space font-bold uppercase tracking-[0.05em] px-3 py-1.5 border-0 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        @if(!in_array('swap', $product->type)) disabled @endif>
+                    Swap
+                </button>
+            </div>
             
             <!-- Section Heading for Rental Products (only visible in rent mode) -->
             @if(in_array('rent', $product->type))
@@ -98,12 +85,7 @@
                 </div>
             @endif
 
-            <!-- Rent Deposit Display (rent mode only) -->
-            @if(in_array('rent', $product->type) && $product->rentals)
-                <div :style="mode==='rent' ? '' : 'display: none'">
-                    <p class="font-space font-bold text-2xl text-[#006a38] mb-6">Security Deposit: Rs. {{ number_format($product->rentals->rent_deposit ?? 0, 2) }}</p>
-                </div>
-            @endif
+            
 
             <!-- Swap Base Price Display (swap mode only) -->
             @if(in_array('swap', $product->type))
@@ -136,30 +118,6 @@
                 </div>
             @endif
 
-            <!-- Metadata Table -->
-            <div class="bg-[#f3f3f3] mb-6">
-                <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
-                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Available Qty</p>
-                    <p class="font-manrope text-sm text-[#1a1c1c]">{{ $product->quantity }}</p>
-                </div>
-                <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
-                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Owner</p>
-                    <div class="flex flex-col items-end gap-1">
-                        <div class="flex items-center gap-2">
-                            <a href="{{ route('users.show', $product->user->id) }}" class="font-manrope text-sm text-[#006a38] hover:text-[#004a29]">{{ $product->user->name }}</a>
-                            @if($product->user->profile_status === 'VERIFIED')
-                                <span class="bg-[#d1fae5] text-[#065f46] text-[10px] font-space font-bold uppercase tracking-[0.05em] px-2 py-1">Verified</span>
-                            @endif
-                        </div>
-                        <p class="font-manrope text-sm text-[#1a1c1c]">{{ number_format($ownerAvg, 1) }}/5 ({{ $ownerCount }})</p>
-                    </div>
-                </div>
-                <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
-                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Listed</p>
-                    <p class="font-manrope text-sm text-[#1a1c1c]">{{ $product->created_at->diffForHumans() }}</p>
-                </div>
-            </div>
-
             <!-- Description -->
             <div class="mb-8">
                 <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">Description</p>
@@ -171,11 +129,11 @@
                 @if(Auth::check() && Auth::id() !== $product->user_id)
                     <div class="space-y-4">
                         <!-- Single Shared Quantity Input (hidden for swap) -->
-                        <div :style="mode !== 'swap' ? '' : 'display: none'">
+                        <div :style="mode==='buy' ? '' : 'display: none'">
                             <label class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] block mb-1.5">Quantity</label>
                             <div class="flex items-center gap-0">
                                 <button type="button" class="qty-minus w-10 h-10 bg-white border-2 border-gray-300 font-space font-bold text-lg flex items-center justify-center hover:border-[#006a38]">−</button>
-                                <input type="number" id="quantityInput" name="quantity" value="1" min="1" max="{{ $product->quantity }}" class="w-20 h-10 bg-[#f3f3f3] border-0 border-b-2 border-gray-400 text-center font-manrope text-sm focus:border-[#006a38] focus:outline-none">
+                                <input type="number" id="quantityInput" name="quantity" value="1" min="1" max="{{ $product->quantity }}" readonly class="w-20 h-10 bg-[#f3f3f3] border-0 border-b-2 border-gray-400 text-center font-manrope text-sm focus:border-[#006a38] focus:outline-none cursor-not-allowed">
                                 <button type="button" class="qty-plus w-10 h-10 bg-white border-2 border-gray-300 font-space font-bold text-lg flex items-center justify-center hover:border-[#006a38]">+</button>
                             </div>
                             <p class="font-manrope text-xs text-[#444746] mt-1">{{ $product->quantity }} available</p>
@@ -234,6 +192,61 @@
         </div>
         <!-- End Product Detail Container -->
     </div>
+
+    <!-- Right Column — Metadata Sidebar -->
+    <div class="lg:col-span-1">
+        <!-- Wishlist -->
+        <div class="mb-4">
+            @auth
+                @if(Auth::id() !== $product->user_id)
+                    <form action="{{ route('wishlist.toggle', $product->id) }}" method="POST" data-wishlist-action data-product-id="{{ $product->id }}">
+                        @csrf
+                        <button type="submit" class="w-full flex items-center justify-center gap-2 bg-transparent border-2 border-[#006a38] text-[#006a38] py-2.5 font-space font-bold text-xs uppercase tracking-wider hover:bg-[rgba(0,106,56,0.06)] transition-all rounded-md">
+                            <svg class="h-4 w-4" fill="{{ $isWishlisted ? '#006a38' : 'none' }}" stroke="{{ $isWishlisted ? '#006a38' : '#006a38' }}" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                            </svg>
+                            <span>{{ $isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist' }}</span>
+                        </button>
+                    </form>
+                @endif
+            @endauth
+        </div>
+
+        <!-- Owner Info Card -->
+        <div class="bg-[#f3f3f3] border border-[rgba(189,202,189,0.2)] rounded-lg p-4 mb-4">
+            <p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#444746] mb-3">Seller</p>
+            <div class="flex items-start gap-3">
+                <div class="flex-1">
+                    <a href="{{ route('users.show', $product->user->id) }}" class="font-space font-bold text-sm text-[#006a38] hover:text-[#004a29] block">{{ $product->user->name }}</a>
+                    @if($product->user->profile_status === 'VERIFIED')
+                        <span class="inline-block bg-[#d1fae5] text-[#065f46] text-[9px] font-space font-bold uppercase tracking-[0.05em] px-1.5 py-0.5 mt-1">Verified</span>
+                    @endif
+                    <p class="font-manrope text-xs text-[#666] mt-2">{{ number_format($ownerAvg, 1) }}/5 <span class="text-[#888]">({{ $ownerCount }})</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Availability Card -->
+        <div class="bg-[#f3f3f3] border border-[rgba(189,202,189,0.2)] rounded-lg p-4 mb-4">
+            <p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#444746] mb-3">Status</p>
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="font-manrope text-xs text-[#666]">Available:</span>
+                    <span class="font-space font-bold text-lg text-[#006a38]">{{ $product->quantity }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="font-manrope text-xs text-[#666]">Listed:</span>
+                    <span class="font-manrope text-xs text-[#1a1c1c]">{{ $product->created_at->diffForHumans() }}</span>
+                </div>
+                <div class="flex justify-between items-center pt-2 border-t border-white">
+                    <span class="font-manrope text-xs text-[#666]">Condition:</span>
+                    <span class="font-manrope text-xs font-semibold text-[#1a1c1c]">{{ ucfirst(str_replace('_', ' ', $product->condition ?? 'N/A')) }}</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
 </div>
 
 <script>
@@ -245,33 +258,60 @@
         const plusBtn = document.querySelector('.qty-plus');
 
         if (quantityInput) {
-            quantityInput.addEventListener('input', function() {
-                if (buyQuantity) buyQuantity.value = this.value;
-                if (cartQuantity) cartQuantity.value = this.value;
+            const clampQuantity = (value) => {
+                const min = parseInt(quantityInput.min || '1', 10);
+                const max = parseInt(quantityInput.max || '1', 10);
+                const parsed = parseInt(value, 10);
+
+                if (Number.isNaN(parsed)) {
+                    return min;
+                }
+
+                return Math.min(max, Math.max(min, parsed));
+            };
+
+            const syncPostedQuantity = (normalize = true) => {
+                const min = parseInt(quantityInput.min || '1', 10);
+                const parsed = parseInt(quantityInput.value, 10);
+                const safeQty = Number.isNaN(parsed) ? min : parsed;
+                const qty = clampQuantity(safeQty);
+
+                if (normalize) {
+                    quantityInput.value = qty;
+                }
+
+                if (buyQuantity) buyQuantity.value = qty;
+                if (cartQuantity) cartQuantity.value = qty;
+            };
+
+            quantityInput.addEventListener('blur', function() {
+                syncPostedQuantity(true);
             });
 
             // Quantity stepper buttons
             if (minusBtn) {
                 minusBtn.addEventListener('click', function(e) {
                     e.preventDefault();
-                    if (parseInt(quantityInput.value) > parseInt(quantityInput.min)) {
-                        quantityInput.value = parseInt(quantityInput.value) - 1;
-                        if (buyQuantity) buyQuantity.value = quantityInput.value;
-                        if (cartQuantity) cartQuantity.value = quantityInput.value;
-                    }
+                    quantityInput.value = clampQuantity(quantityInput.value) - 1;
+                    syncPostedQuantity();
                 });
             }
 
             if (plusBtn) {
                 plusBtn.addEventListener('click', function(e) {
                     e.preventDefault();
-                    if (parseInt(quantityInput.value) < parseInt(quantityInput.max)) {
-                        quantityInput.value = parseInt(quantityInput.value) + 1;
-                        if (buyQuantity) buyQuantity.value = quantityInput.value;
-                        if (cartQuantity) cartQuantity.value = quantityInput.value;
-                    }
+                    quantityInput.value = clampQuantity(quantityInput.value) + 1;
+                    syncPostedQuantity();
                 });
             }
+
+            document.querySelectorAll('form[action="{{ route('order.store', $product->id) }}"], form[action="{{ route('cart.store', $product->id) }}"]').forEach((form) => {
+                form.addEventListener('submit', function() {
+                    syncPostedQuantity();
+                });
+            });
+
+            syncPostedQuantity();
         }
     });
 </script>

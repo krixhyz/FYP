@@ -14,7 +14,9 @@
         $checkoutProduct = $hasOrder ? $order->product : $product;
         $unit = $hasOrder ? ($order->unit_price ?? ($order->product?->price ?? 0)) : ($checkoutProduct->price ?? 0);
         $qty  = $hasOrder ? ($order->quantity ?? 1) : ($quantity ?? 1);
-        $total = $unit * $qty;
+        $subtotal = $unit * $qty;
+        $serviceFee = $hasOrder ? ($order->service_fee ?? ($subtotal * 0.03)) : ($subtotal * 0.03);
+        $totalPayable = $hasOrder ? ($order->total_amount ?? ($subtotal + $serviceFee)) : ($subtotal + $serviceFee);
     @endphp
 
     <!-- Order Summary Card -->
@@ -45,8 +47,16 @@
                 <p id="checkout-qty-display" class="font-manrope text-sm text-[#1a1c1c]">{{ $qty }}</p>
             </div>
             <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
-                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Total</p>
-                <p id="checkout-total-display" class="font-space font-bold text-lg text-[#006a38]">Rs. {{ number_format($total,2) }}</p>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Item Price</p>
+                <p id="checkout-subtotal-display" class="font-manrope text-sm text-[#1a1c1c]">Rs. {{ number_format($subtotal,2) }}</p>
+            </div>
+            <div class="flex justify-between px-4 py-3 border-b border-r border-[rgba(189,202,189,0.2)] last:border-b-0">
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Service Charge (3%)</p>
+                <p id="checkout-fee-display" class="font-manrope text-sm text-[#1a1c1c]">Rs. {{ number_format($serviceFee,2) }}</p>
+            </div>
+            <div class="flex justify-between px-4 py-3 border-b border-[rgba(189,202,189,0.2)] last:border-b-0">
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Total Payable</p>
+                <p id="checkout-total-display" class="font-space font-bold text-lg text-[#006a38]">Rs. {{ number_format($totalPayable,2) }}</p>
             </div>
         </div>
 
@@ -71,6 +81,9 @@
                         <button type="button" id="qty-increment" class="w-10 h-10 bg-white border-2 border-gray-300 font-space font-bold text-lg flex items-center justify-center hover:border-[#006a38]">+</button>
                     </div>
                     <p class="font-manrope text-xs text-[#444746]">Available: {{ $checkoutProduct->quantity ?? 1 }}</p>
+                    @error('quantity')
+                        <p class="font-manrope text-xs text-[#ba1a1a]">{{ $message }}</p>
+                    @enderror
                 </div>
             @endunless
 
@@ -187,12 +200,15 @@
             const minus = document.getElementById('qty-decrement');
             const plus = document.getElementById('qty-increment');
             const qtyDisplay = document.getElementById('checkout-qty-display');
+            const subtotalDisplay = document.getElementById('checkout-subtotal-display');
+            const feeDisplay = document.getElementById('checkout-fee-display');
             const totalDisplay = document.getElementById('checkout-total-display');
             const unit = {{ (float) $unit }};
+            const feeRate = 0.03;
             const min = 1;
             const max = {{ max(1, (int) ($checkoutProduct->quantity ?? 1)) }};
 
-            if (!input || !qtyDisplay || !totalDisplay) {
+            if (!input || !qtyDisplay || !subtotalDisplay || !feeDisplay || !totalDisplay) {
                 return;
             }
 
@@ -204,9 +220,14 @@
 
             const updateUI = () => {
                 const qty = clamp(input.value);
+                const subtotal = unit * qty;
+                const fee = subtotal * feeRate;
+                const total = subtotal + fee;
                 input.value = qty;
                 qtyDisplay.textContent = qty;
-                totalDisplay.textContent = `Rs. ${(unit * qty).toFixed(2)}`;
+                subtotalDisplay.textContent = `Rs. ${subtotal.toFixed(2)}`;
+                feeDisplay.textContent = `Rs. ${fee.toFixed(2)}`;
+                totalDisplay.textContent = `Rs. ${total.toFixed(2)}`;
             };
 
             minus?.addEventListener('click', () => {
@@ -219,8 +240,12 @@
                 updateUI();
             });
 
-            input.addEventListener('input', updateUI);
             input.addEventListener('blur', updateUI);
+            input.addEventListener('input', updateUI);
+
+            const paymentForm = document.getElementById('order-payment-form');
+            paymentForm?.addEventListener('submit', updateUI);
+
             updateUI();
         })();
     </script>

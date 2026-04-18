@@ -54,14 +54,16 @@
                 @csrf
 
                 <div>
-                    <label class="label">Start Date</label>
-                    <input type="date" name="start_date" id="startDate" class="input" required>
+                    <label for="startDate" class="label">Start Date</label>
+                    <input type="date" name="start_date" id="startDate" class="input" value="{{ old('start_date') }}" required>
                 </div>
 
                 <div>
-                    <label class="label">End Date</label>
-                    <input type="date" name="end_date" id="endDate" class="input" required>
+                    <label for="endDate" class="label">End Date</label>
+                    <input type="date" name="end_date" id="endDate" class="input" value="{{ old('end_date') }}" required>
                 </div>
+
+                <p id="rentalFormError" class="hidden text-sm font-manrope text-[#ba1a1a]"></p>
 
                 <div class="bg-accent-50 p-4">
                     <p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#444746]">Estimated Total</p>
@@ -99,9 +101,50 @@ if (form && startInput && endInput && totalAmountDisplay) {
     const ownerEndDate = form.dataset.ownerEndDate || '';
 
     const today = new Date().toISOString().split('T')[0];
-    startInput.setAttribute('min', ownerStartDate || today);
+    const effectiveMinStart = ownerStartDate && ownerStartDate > today ? ownerStartDate : today;
+    startInput.setAttribute('min', effectiveMinStart);
     if (ownerEndDate) {
         startInput.setAttribute('max', ownerEndDate);
+    }
+
+    function toDate(dateString) {
+        return new Date(`${dateString}T00:00:00`);
+    }
+
+    function syncEndBounds() {
+        const minEnd = startInput.value || effectiveMinStart;
+        endInput.min = minEnd;
+
+        if (!startInput.value) {
+            endInput.max = ownerEndDate || '';
+            return;
+        }
+
+        const start = toDate(startInput.value);
+        const maxByDuration = new Date(start);
+        maxByDuration.setDate(maxByDuration.getDate() + maxDuration - 1);
+
+        let finalMax = maxByDuration;
+        if (ownerEndDate) {
+            const ownerEnd = toDate(ownerEndDate);
+            finalMax = maxByDuration < ownerEnd ? maxByDuration : ownerEnd;
+        }
+
+        endInput.max = finalMax.toISOString().split('T')[0];
+    }
+
+    function enforceEndWithinBounds() {
+        if (!endInput.value) {
+            return;
+        }
+
+        if (endInput.min && endInput.value < endInput.min) {
+            endInput.value = endInput.min;
+        }
+
+        if (endInput.max && endInput.value > endInput.max) {
+            endInput.value = endInput.max;
+        }
     }
 
     function updateTotal() {
@@ -112,11 +155,14 @@ if (form && startInput && endInput && totalAmountDisplay) {
             return;
         }
 
-        let start = new Date(startInput.value);
-        let end = new Date(endInput.value);
-        if (ownerEndDate) {
-            const maxEnd = new Date(ownerEndDate);
-            if (end > maxEnd) end = maxEnd;
+        const start = toDate(startInput.value);
+        const end = toDate(endInput.value);
+
+        if (end < start) {
+            totalAmountDisplay.textContent = 'Rs. 0';
+            durationInput.value = 0;
+            totalAmountInput.value = 0;
+            return;
         }
 
         let diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
@@ -131,34 +177,91 @@ if (form && startInput && endInput && totalAmountDisplay) {
         totalAmountInput.value = total;
     }
 
+    function calculateDurationDays() {
+        if (!startInput.value || !endInput.value) {
+            return 0;
+        }
+
+        const start = toDate(startInput.value);
+        const end = toDate(endInput.value);
+
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+            return 0;
+        }
+
+        let diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        if (diffDays > maxDuration) {
+            diffDays = maxDuration;
+        }
+
+        return diffDays;
+    }
+
+    function showFormError(message) {
+        const formError = document.getElementById('rentalFormError');
+        if (!formError) {
+            return;
+        }
+
+        formError.textContent = message;
+        formError.classList.remove('hidden');
+    }
+
+    function clearFormError() {
+        const formError = document.getElementById('rentalFormError');
+        if (!formError) {
+            return;
+        }
+
+        formError.textContent = '';
+        formError.classList.add('hidden');
+    }
+
     startInput.addEventListener('change', () => {
-        const start = new Date(startInput.value);
-        const maxEnd = new Date(start);
-        maxEnd.setDate(maxEnd.getDate() + parseInt(maxDuration) - 1);
+        clearFormError();
+        syncEndBounds();
 
-        if (ownerEndDate) {
-            const ownerEnd = new Date(ownerEndDate);
-            const finalMax = maxEnd < ownerEnd ? maxEnd : ownerEnd;
-            endInput.max = finalMax.toISOString().split('T')[0];
+        if (!endInput.value) {
+            endInput.value = startInput.value;
         }
 
-        endInput.min = startInput.value;
-        const currentEnd = new Date(endInput.value);
-        if (endInput.max && currentEnd > new Date(endInput.max)) {
-            endInput.value = endInput.max;
-        }
+        enforceEndWithinBounds();
 
         updateTotal();
     });
 
-    endInput.addEventListener('change', updateTotal);
+    endInput.addEventListener('change', () => {
+        clearFormError();
+        enforceEndWithinBounds();
+        updateTotal();
+    });
 
     form.addEventListener('submit', () => {
+        clearFormError();
+        syncEndBounds();
+        enforceEndWithinBounds();
         updateTotal();
+
+        const durationDays = calculateDurationDays();
+        if (durationDays > 0) {
+            durationInput.value = durationDays;
+            const total = (rentFare * durationDays + rentDeposit).toFixed(2);
+            totalAmountDisplay.textContent = `Rs. ${total}`;
+            totalAmountInput.value = total;
+        } else {
+            durationInput.value = 0;
+            totalAmountInput.value = 0;
+        }
+
         const submitButton = form.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.textContent = 'Submitting...';
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = 'Submitting...';
+        }
     });
+
+    syncEndBounds();
+    enforceEndWithinBounds();
 
     if (startInput.value && endInput.value) {
         updateTotal();

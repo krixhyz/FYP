@@ -32,10 +32,7 @@ if (window.Laravel && window.Laravel.userId) {
             // 1. Show clickable toast
             showToast(message, redirectUrl, notifId);
 
-            // 2. Increment bell badge
-            incrementBadge();
-
-            // 3. Prepend into dropdown (if the dropdown helper is available)
+            // 2. Prepend into dropdown (if the dropdown helper is available)
             if (typeof prependNotificationToDropdown === 'function') {
                 prependNotificationToDropdown(
                     message,
@@ -242,18 +239,6 @@ function getOrCreateToastContainer() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   BADGE HELPERS
-   ───────────────────────────────────────────────────────────────────────── */
-
-function incrementBadge() {
-    const badge = document.getElementById('notification-count');
-    if (!badge) return;
-    const current = parseInt(badge.textContent) || 0;
-    badge.textContent = current + 1;
-    badge.classList.remove('hidden');
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
    CART NOTIFICATION SYSTEM
    ───────────────────────────────────────────────────────────────────────── */
 
@@ -417,7 +402,6 @@ async function syncNotificationsFallback() {
                 );
             }
 
-            incrementBadge();
         }
     } catch {
         // silent fallback

@@ -24,9 +24,33 @@
                 </span>
             </div>
 
+            @if($dispute->favored_party)
+                <div class="mb-4 inline-flex items-center gap-2 rounded-md border border-[rgba(0,106,56,0.35)] bg-[rgba(0,106,56,0.08)] px-3 py-1.5 text-xs font-semibold text-[#006a38]">
+                    Decision:
+                    @if($dispute->favored_party === 'reporter')
+                        Favored Reporter{{ $dispute->reporter ? ' (' . $dispute->reporter->name . ')' : '' }}
+                    @else
+                        Favored Counterparty{{ !empty($counterparty?->name) ? ' (' . $counterparty->name . ')' : '' }}
+                    @endif
+                </div>
+            @endif
+
             <div class="font-manrope text-[#444746] leading-relaxed">
                 <p>{{ $dispute->description }}</p>
             </div>
+
+            @if(!empty($dispute->evidence_photos))
+                <div class="mt-5">
+                    <p class="text-sm font-extrabold mb-3">Evidence Photos</p>
+                    <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+                        @foreach($dispute->evidence_photos as $photo)
+                            <a href="{{ asset('storage/' . $photo) }}" target="_blank" class="block overflow-hidden rounded-lg border border-[rgba(189,202,189,0.1)] bg-[#f9f9f9]">
+                                <img src="{{ asset('storage/' . $photo) }}" alt="Evidence photo" class="h-32 w-full object-cover">
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
 
         {{-- Transaction Context --}}
@@ -37,6 +61,12 @@
                     <dt class="meta-text">Order ID</dt><dd class="font-medium">#{{ $dispute->order->id }}</dd>
                     <dt class="meta-text">Product</dt><dd class="font-medium">{{ $dispute->order->product?->title ?? 'N/A' }}</dd>
                     <dt class="meta-text">Status</dt><dd><span class="capitalize">{{ $dispute->order->status }}</span></dd>
+                </dl>
+            @elseif($dispute->rentedRental)
+                <dl class="grid grid-cols-2 gap-2 text-sm">
+                    <dt class="meta-text">Rented Rental ID</dt><dd class="font-medium">#{{ $dispute->rentedRental->id }}</dd>
+                    <dt class="meta-text">Product</dt><dd class="font-medium">{{ $dispute->rentedRental->product?->title ?? 'N/A' }}</dd>
+                    <dt class="meta-text">Status</dt><dd><span class="capitalize">{{ $dispute->rentedRental->status }}</span></dd>
                 </dl>
             @elseif($dispute->rentalRequest)
                 <dl class="grid grid-cols-2 gap-2 text-sm">
@@ -51,6 +81,17 @@
                 </dl>
             @else
                 <p class="font-manrope text-sm text-[#888888]">Transaction no longer exists.</p>
+            @endif
+
+            @if($dispute->transaction_type === 'rental')
+                <div class="mt-4 border border-[rgba(189,202,189,0.35)] bg-[#f6faf7] p-3 text-sm">
+                    <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Rental Deposit Context</p>
+                    <p class="mt-2 font-manrope text-[#1a1c1c]">Held Deposit: <strong>Rs. {{ number_format((float) ($rentalDepositAmount ?? 0), 2) }}</strong></p>
+                    <p class="mt-1 font-manrope text-[#1a1c1c]">Owner Requested Claim: <strong>Rs. {{ number_format((float) ($dispute->owner_claim_amount ?? 0), 2) }}</strong></p>
+                    @if(!is_null($dispute->owner_award_amount))
+                        <p class="mt-1 font-manrope text-[#1a1c1c]">Last Awarded Amount: <strong>Rs. {{ number_format((float) $dispute->owner_award_amount, 2) }}</strong></p>
+                    @endif
+                </div>
             @endif
         </div>
 
@@ -75,6 +116,18 @@
             @if($dispute->reporter)
                 <a href="{{ route('admin.users.show', $dispute->reporter->id) }}"
                    class="mt-2 inline-block text-xs text-[#006a38] hover:underline font-semibold">View profile</a>
+            @endif
+        </div>
+
+        <div class="surface-card p-5">
+            <h3 class="text-lg font-extrabold mb-3">Counterparty</h3>
+            @if($counterparty)
+                <p class="font-medium">{{ $counterparty->name }}</p>
+                <p class="font-manrope text-sm text-[#444746]">{{ $counterparty->email }}</p>
+                <a href="{{ route('admin.users.show', $counterparty->id) }}"
+                   class="mt-2 inline-block text-xs text-[#006a38] hover:underline font-semibold">View profile</a>
+            @else
+                <p class="font-manrope text-sm text-[#888888]">Counterparty could not be resolved for this dispute.</p>
             @endif
         </div>
 
@@ -114,6 +167,42 @@
                         @endforeach
                     </select>
                 </div>
+
+                <div>
+                    <label class="field-label">Decision</label>
+                    <select name="favored_party" class="input-field !py-2 text-sm">
+                        <option value="">Select favored party for final resolution</option>
+                        <option value="reporter" @selected(old('favored_party', $dispute->favored_party) === 'reporter')>
+                            Favor Reporter{{ $dispute->reporter ? ': ' . $dispute->reporter->name : '' }}
+                        </option>
+                        <option value="counterparty" @selected(old('favored_party', $dispute->favored_party) === 'counterparty')>
+                            Favor Counterparty{{ !empty($counterparty?->name) ? ': ' . $counterparty->name : '' }}
+                        </option>
+                    </select>
+                    <p class="mt-1 text-xs text-[#666]">Required when status is set to resolved or dismissed.</p>
+                    @error('favored_party')
+                        <p class="mt-1 text-xs text-[#ba1a1a]">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                @if($dispute->transaction_type === 'rental')
+                    <div>
+                        <label class="field-label">Award Amount To Owner (Rs.)</label>
+                        <input
+                            type="number"
+                            name="owner_award_amount"
+                            min="0"
+                            step="0.01"
+                            value="{{ old('owner_award_amount', $dispute->owner_award_amount ?? $dispute->owner_claim_amount) }}"
+                            placeholder="Leave as requested claim"
+                            class="input-field text-sm"
+                        >
+                        <p class="mt-1 text-xs text-[#666]">Used only when decision favors owner. You may lower or increase within held deposit.</p>
+                        @error('owner_award_amount')
+                            <p class="mt-1 text-xs text-[#ba1a1a]">{{ $message }}</p>
+                        @enderror
+                    </div>
+                @endif
 
                 <div>
                     <label class="field-label">Admin Notes</label>

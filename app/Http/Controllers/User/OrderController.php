@@ -14,9 +14,12 @@ class OrderController extends Controller
 {
     public function store(Request $request, $productId, InventoryReservationService $inventory)
     {
-        // Validate quantity from form (defaults to 1)
         $validated = $request->validate([
             'quantity' => 'required|integer|min:1',
+        ], [
+            'quantity.required' => 'Quantity is required.',
+            'quantity.integer' => 'Quantity must be a whole number.',
+            'quantity.min' => 'Quantity must be at least 1.',
         ]);
 
         $requestedQty = (int) $validated['quantity'];
@@ -24,6 +27,15 @@ class OrderController extends Controller
         return DB::transaction(function () use ($productId, $requestedQty, $inventory) {
             // Lock row for update to avoid race conditions
             $product = Product::where('id', $productId)->lockForUpdate()->firstOrFail();
+            $availableQty = (int) $product->quantity;
+
+            if ($availableQty < 1) {
+                return back()->with('error', 'This item is out of stock.');
+            }
+
+            if ($requestedQty > $availableQty) {
+                return back()->with('error', 'Requested quantity exceeds available stock.');
+            }
 
             if ($product->user_id === Auth::id()) {
                 return back()->with('error', 'You cannot buy your own product.');
@@ -55,8 +67,18 @@ class OrderController extends Controller
             return redirect()->route('products.show', $product->id)->with('error', 'This item is not available for purchase.');
         }
 
+        $availableQty = (int) $product->quantity;
+        if ($availableQty < 1) {
+            return redirect()->route('products.show', $product->id)->with('error', 'This item is out of stock.');
+        }
+
         $validated = $request->validate([
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|integer|min:1|max:' . $availableQty,
+        ], [
+            'quantity.required' => 'Quantity is required.',
+            'quantity.integer' => 'Quantity must be a whole number.',
+            'quantity.min' => 'Quantity must be at least 1.',
+            'quantity.max' => "Quantity cannot exceed available stock ({$availableQty}).",
         ]);
 
         try {
