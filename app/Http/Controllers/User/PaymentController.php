@@ -12,6 +12,7 @@ use App\Models\RentalRequest;
 use App\Models\RentedRentals;
 use App\Models\Swap;
 use App\Models\SwapRequest;
+use App\Models\SwapOrderConfirmation;
 use App\Services\CheckoutPricingService;
 use App\Services\EsewaService;
 use App\Services\KhaltiService;
@@ -24,6 +25,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use App\Http\Controllers\Controller;
+use App\Mail\RentalOrderCreated;
 use Illuminate\Support\Str;
 
 class PaymentController extends Controller
@@ -667,7 +669,13 @@ class PaymentController extends Controller
         $provider = $this->resolveProvider($request);
         $pricingService = new CheckoutPricingService();
 
-        if ($swapRequest->requester_id !== Auth::id()) {
+        $payerId = match ($swapRequest->money_direction) {
+            'requester_offers_cash' => $swapRequest->requester_id,
+            'owner_asks_cash' => $swapRequest->owner_id,
+            default => null,
+        };
+
+        if (!$payerId || $payerId !== Auth::id()) {
             abort(403);
         }
 
@@ -697,7 +705,10 @@ class PaymentController extends Controller
             'buyer_address' => 'nullable|string',
         ]);
 
-        $cashTopup = (float) ($swapRequest->offered_amount ?? 0);
+        $cashTopup = $swapRequest->money_direction === 'owner_asks_cash'
+            ? (float) ($swapRequest->asking_amount ?? 0)
+            : (float) ($swapRequest->offered_amount ?? 0);
+
         if ($cashTopup <= 0) {
             return redirect()->route('swap.checkout', $swapRequest)->with('error', 'No payment required for this swap.');
         }
@@ -728,6 +739,8 @@ class PaymentController extends Controller
                 'source' => 'swap',
                 'gateway' => $provider,
                 'swap_request_id' => $swapRequest->id,
+                'money_direction' => $swapRequest->money_direction,
+                'payer_id' => $payerId,
                 'product_id' => $swapRequest->product_id,
                 'offered_product_id' => $swapRequest->offered_product_id,
                 'pricing' => $pricing,
@@ -1000,7 +1013,7 @@ class PaymentController extends Controller
                 $payment->save();
 
                 $swapRequestId = $payment->request_payload['swap_request_id'] ?? null;
-                $swapRequest = SwapRequest::with(['product', 'offeredProduct'])
+                $swapRequest = SwapRequest::with(['product', 'offeredProduct', 'owner', 'requester'])
                     ->lockForUpdate()
                     ->find($swapRequestId);
 
@@ -1008,67 +1021,40 @@ class PaymentController extends Controller
                     return;
                 }
 
-                $swapRequest->status = 'accepted';
+                // Set status to 'paid' (not 'accepted') - funds held in escrow
+                $swapRequest->status = 'paid';
                 $swapRequest->reserved_until = null;
+                $swapRequest->order_details_sent_at = now();
                 $swapRequest->save();
 
-                if ($swapRequest->product) {
-                    $inventory->normalizeAvailableStatus($swapRequest->product);
-                    if ($swapRequest->product->quantity <= 0) {
-                        $swapRequest->product->status = 'swapped';
-                    }
-                    $swapRequest->product->save();
-                    
-                    // Record eco-impact for swapped product
-                    $ecoScoreService->recordEcoImpact($swapRequest->product, 'swap', $payment->user_id);
-                }
-
-                if ($swapRequest->offeredProduct) {
-                    $inventory->normalizeAvailableStatus($swapRequest->offeredProduct);
-                    if ($swapRequest->offeredProduct->quantity <= 0) {
-                        $swapRequest->offeredProduct->status = 'swapped';
-                    }
-                    $swapRequest->offeredProduct->save();
-                    
-                    // Record eco-impact for offered product
-                    $ecoScoreService->recordEcoImpact($swapRequest->offeredProduct, 'swap', $payment->user_id);
-                }
-
-                Swap::create([
+                // Create swap order confirmation for dual confirmation flow
+                SwapOrderConfirmation::firstOrCreate([
                     'swap_request_id' => $swapRequest->id,
-                    'product_a_id' => $swapRequest->product_id,
-                    'product_b_id' => $swapRequest->offered_product_id,
-                    'owner_a_id' => $swapRequest->owner_id,
-                    'owner_b_id' => $swapRequest->requester_id,
-                    'offered_amount' => $swapRequest->offered_amount,
-                    'notes' => $swapRequest->message,
-                    'status' => 'completed',
                 ]);
 
-                $walletLedgerService->creditSaleIfMissing(
-                    (int) $swapRequest->owner_id,
-                    (float) ($payment->seller_amount ?? 0),
-                    'swap_cash_topup',
-                    'payment',
-                    (int) $payment->id,
-                    [
-                        'swap_request_id' => $swapRequest->id,
-                        'transaction_code' => $payment->transaction_code,
-                    ]
+                // Send order-details email to both parties
+                Mail::to($swapRequest->owner->email)->send(
+                    new \App\Mail\SwapOrderCreated($swapRequest, role: 'owner')
+                );
+                Mail::to($swapRequest->requester->email)->send(
+                    new \App\Mail\SwapOrderCreated($swapRequest, role: 'requester')
                 );
 
-                $walletLedgerService->creditPlatformFeeIfMissing(
-                    (float) ($payment->platform_amount ?? 0),
-                    'swap_service_fee',
-                    'payment',
-                    (int) $payment->id,
-                    [
-                        'swap_request_id' => $swapRequest->id,
-                    ]
-                );
+                // Mark order email as sent
+                $swapRequest->orderConfirmation?->update([
+                    'order_details_email_sent_at' => now(),
+                ]);
+
+                // DO NOT create Swap record - wait until both confirm
+                // DO NOT credit wallet yet - wait until both confirm
             });
 
-            return redirect()->route('dashboard')->with('success', 'Swap payment completed successfully.');
+            $swapRequestId = $payment->request_payload['swap_request_id'] ?? null;
+
+            return redirect()->route('swap.mySwaps', [
+                'tab' => 'pending',
+                'swap_request_id' => $swapRequestId,
+            ])->with('success', 'Payment received. Continue dispatch and receipt confirmation from My Swaps.');
         }
 
         if ($source === 'rental') {
@@ -1137,6 +1123,14 @@ class PaymentController extends Controller
                     'status' => 'active',
                 ]);
 
+                $rentalRequest->loadMissing(['owner', 'renter', 'product']);
+                Mail::to($rentalRequest->owner->email)->send(
+                    new RentalOrderCreated($rentalRequest, $rentedRental, role: 'owner')
+                );
+                Mail::to($rentalRequest->renter->email)->send(
+                    new RentalOrderCreated($rentalRequest, $rentedRental, role: 'renter')
+                );
+
                 $depositAmount = (float) ($rentalRequest->rent_deposit ?? 0);
                 if ($depositAmount > 0) {
                     RentalDeposit::updateOrCreate(
@@ -1157,7 +1151,7 @@ class PaymentController extends Controller
                 // Record eco-impact for rented product
                 $product = Product::find($rentalRequest->product_id);
                 if ($product) {
-                    $ecoScoreService->recordEcoImpact($product, 'rent', $payment->user_id);
+                    $ecoScoreService->recordEcoImpact($product, 'rent', $payment->user_id, (int) $rentedRental->id);
                 }
 
                 $walletLedgerService->creditSaleIfMissing(
@@ -1258,7 +1252,7 @@ class PaymentController extends Controller
                     );
                     
                     // Record eco-impact for sold product
-                    $ecoScoreService->recordEcoImpact($product, 'sell', $payment->user_id);
+                    $ecoScoreService->recordEcoImpact($product, 'sell', $payment->user_id, (int) $order->id);
                 }
             } else {
                 foreach ($legacyOrders as $order) {
@@ -1271,7 +1265,7 @@ class PaymentController extends Controller
                         $inventory->consumeProductQuantity($product, (int) $order->quantity, 'sold');
                         
                         // Record eco-impact for sold product
-                        $ecoScoreService->recordEcoImpact($product, 'sell', $payment->user_id);
+                        $ecoScoreService->recordEcoImpact($product, 'sell', $payment->user_id, (int) $order->id);
                     }
 
                     $order->status = 'completed';

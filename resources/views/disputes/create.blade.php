@@ -26,6 +26,14 @@
             </div>
         @endif
 
+        @if(!empty($counterpartyDispute))
+            <div class="mt-5 border-2 border-[#3b82f6] bg-[#eff6ff] px-4 py-3 text-sm text-[#1e3a8a] font-manrope">
+                <p class="font-space font-bold uppercase">Counterparty Evidence Available</p>
+                <p class="mt-1">The other party has already submitted a dispute/proof for this transaction.</p>
+                <p class="mt-1">Use this same form to submit your own response and evidence photos.</p>
+            </div>
+        @endif
+
         @if($errors->any())
             <div class="mt-5 border-2 border-[#ba1a1a] bg-[#fee2e2] px-4 py-3 text-sm text-[#7f1d1d] font-manrope">
                 <ul class="list-inside list-disc">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
@@ -60,9 +68,12 @@
                         name="owner_claim_amount"
                         min="0"
                         step="0.01"
+                        inputmode="decimal"
                         max="{{ number_format((float) ($maxOwnerClaim ?? 0), 2, '.', '') }}"
+                        data-max="{{ number_format((float) ($maxOwnerClaim ?? 0), 2, '.', '') }}"
                         value="{{ old('owner_claim_amount', $existing?->owner_claim_amount) }}"
                         placeholder="0.00"
+                        oninput="enforceOwnerClaimAmount(this)"
                         class="w-full bg-white px-4 py-3 font-manrope border-b-2 border-gray-400 focus:border-[#006a38] focus:outline-none"
                     >
                     <p class="mt-1 font-manrope text-xs text-[#888]">Maximum allowed by deposit: Rs. {{ number_format((float) ($maxOwnerClaim ?? 0), 2) }}</p>
@@ -93,4 +104,42 @@
         <a href="{{ route('dispute.my') }}" class="font-manrope text-sm font-bold text-[#006a38] hover:underline">View all my disputes</a>
     </div>
 </div>
+
+<script>
+function enforceOwnerClaimAmount(input) {
+    const max = parseFloat(input.dataset.max || input.max || '0');
+    let value = String(input.value || '').replace(/[^0-9.]/g, '');
+
+    const pieces = value.split('.');
+    if (pieces.length > 2) {
+        value = pieces.shift() + '.' + pieces.join('');
+    }
+
+    const decimalSplit = value.split('.');
+    if (decimalSplit[1] !== undefined) {
+        value = decimalSplit[0] + '.' + decimalSplit[1].slice(0, 2);
+    }
+
+    if (value === '' || value === '.') {
+        input.value = '';
+        return;
+    }
+
+    let numeric = parseFloat(value);
+    if (Number.isNaN(numeric)) {
+        input.value = '';
+        return;
+    }
+
+    if (numeric < 0) {
+        numeric = 0;
+    }
+
+    if (!Number.isNaN(max) && max >= 0 && numeric > max) {
+        numeric = max;
+    }
+
+    input.value = numeric.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+}
+</script>
 @endsection

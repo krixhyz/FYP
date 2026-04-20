@@ -47,7 +47,11 @@ class AdminController extends Controller
             ->get();
         $recentDisputes = Dispute::where('status', 'open')->orWhere('status', 'in_review')->with('reporter')->latest()->take(5)->get();
         // Show users with unverified profiles (awaiting admin verification)
-        $pendingVerifications = User::where('profile_status', 'UNVERIFIED')->latest()->take(5)->get();
+        $pendingVerifications = User::where('role', 'user')
+            ->where('profile_status', 'UNVERIFIED')
+            ->latest()
+            ->take(5)
+            ->get();
 
         $totalUsers = User::count();
         $totalProducts = Product::count();
@@ -56,7 +60,9 @@ class AdminController extends Controller
         $flaggedProducts = Product::where('flagged', true)->count();
         $openDisputes = Dispute::where('status', 'open')->count();
         $totalReviews = Review::count();
-        $pendingUsers = User::whereNull('email_verified_at')->count();
+        $pendingProfileVerifications = User::where('role', 'user')
+            ->where('profile_status', 'UNVERIFIED')
+            ->count();
         $reportedItems = Dispute::count() + $flaggedProducts;
         $activeUsers = User::where('account_status', 'active')->count();
         $totalOrders = Order::count();
@@ -82,7 +88,7 @@ class AdminController extends Controller
             'flaggedProducts' => $flaggedProducts,
             'openDisputes' => $openDisputes,
             'totalReviews' => $totalReviews,
-            'pendingUsers' => $pendingUsers,
+            'pendingProfileVerifications' => $pendingProfileVerifications,
             'reportedItems' => $reportedItems,
             'activeUsers' => $activeUsers,
             'totalOrders' => $totalOrders,
@@ -243,7 +249,9 @@ class AdminController extends Controller
     public function users(Request $request)
     {
         $admin = auth()->user();
-        $query = User::query();
+        $query = User::query()
+            ->withCount(['products', 'orders'])
+            ->withSum('ecoScores as total_eco_score', 'eco_points_awarded');
 
         if (! $admin->isSuperAdmin()) {
             $query->where('role', 'user');
@@ -912,7 +920,6 @@ class AdminController extends Controller
     public function disputeResolve(
         Request $request,
         Dispute $dispute,
-        RentalDepositRefundService $refundService,
         WalletLedgerService $walletLedgerService
     )
     {
@@ -921,15 +928,47 @@ class AdminController extends Controller
         }
 
         $validated = $request->validate([
-            'status' => 'required|in:in_review,resolved,dismissed',
-            'favored_party' => 'required_if:status,resolved,dismissed|in:reporter,counterparty',
+            'action' => 'nullable|in:start_review,resolve_reporter,resolve_counterparty,dismiss_report',
+            'status' => 'nullable|in:in_review,resolved,dismissed',
+            'favored_party' => 'nullable|in:reporter,counterparty',
             'owner_award_amount' => 'nullable|numeric|min:0',
             'admin_notes' => 'nullable|string|max:1000',
         ]);
 
-        $status = (string) $validated['status'];
+        $status = null;
+        $favoredParty = null;
+        $action = $validated['action'] ?? null;
+
+        // Preferred path: derive status from explicit admin action.
+        if ($action) {
+            [$status, $favoredParty] = match ($action) {
+                'start_review' => ['in_review', null],
+                'resolve_reporter' => ['resolved', 'reporter'],
+                'resolve_counterparty' => ['resolved', 'counterparty'],
+                'dismiss_report' => ['dismissed', 'counterparty'],
+                default => [null, null],
+            };
+        }
+
+        // Backward compatibility: allow old form payloads.
+        if ($status === null) {
+            $status = (string) ($validated['status'] ?? '');
+            $isFinalFromStatus = in_array($status, ['resolved', 'dismissed'], true);
+            $favoredParty = $isFinalFromStatus ? (string) ($validated['favored_party'] ?? '') : null;
+        }
+
+        if (!in_array($status, ['in_review', 'resolved', 'dismissed'], true)) {
+            return redirect()->back()->withErrors([
+                'action' => 'Please choose a valid dispute action.',
+            ]);
+        }
+
         $isFinalStatus = in_array($status, ['resolved', 'dismissed'], true);
-        $favoredParty = $isFinalStatus ? (string) ($validated['favored_party'] ?? '') : null;
+        if ($isFinalStatus && !in_array($favoredParty, ['reporter', 'counterparty'], true)) {
+            return redirect()->back()->withErrors([
+                'favored_party' => 'A final decision requires selecting which party is favored.',
+            ]);
+        }
 
         $oldStatus = $dispute->status;
         $oldFavoredParty = $dispute->favored_party;
@@ -950,7 +989,6 @@ class AdminController extends Controller
             $settled = $this->settleRentalDispute(
                 $dispute->fresh(['reporter', 'rentedRental.deposit', 'rentedRental.product', 'rentedRental.product.rentals']),
                 $request,
-                $refundService,
                 $walletLedgerService
             );
 
@@ -968,7 +1006,23 @@ class AdminController extends Controller
         }
 
         if ($oldStatus !== $status) {
-            $dispute->reporter->notify(new DisputeStatusUpdated($dispute));
+            $dispute->reporter?->notify(new DisputeStatusUpdated($dispute));
+
+            $counterparty = $this->disputeCounterparty($dispute->fresh([
+                'reporter',
+                'order.buyer',
+                'order.product.user',
+                'rentedRental.owner',
+                'rentedRental.renter',
+                'rentalRequest.owner',
+                'rentalRequest.renter',
+                'swap.ownerA',
+                'swap.ownerB',
+            ]));
+
+            if ($counterparty && (int) $counterparty->id !== (int) $dispute->reporter_id) {
+                $counterparty->notify(new DisputeStatusUpdated($dispute));
+            }
         }
 
         return redirect()->route('admin.disputes.show', $dispute)->with('success', 'Dispute updated.');
@@ -1048,7 +1102,6 @@ class AdminController extends Controller
     private function settleRentalDispute(
         Dispute $dispute,
         Request $request,
-        RentalDepositRefundService $refundService,
         WalletLedgerService $walletLedgerService
     ): array {
         $rental = $dispute->rentedRental;
@@ -1056,17 +1109,7 @@ class AdminController extends Controller
             return ['ok' => false, 'message' => 'No rental record is attached to this dispute.'];
         }
 
-        $deposit = RentalDeposit::firstOrCreate(
-            ['rented_rental_id' => $rental->id],
-            [
-                'payment_id' => null,
-                'amount' => (float) ($rental->rent_deposit ?? 0),
-                'deduction_amount' => 0,
-                'refund_amount' => 0,
-                'status' => 'held',
-                'refund_status' => 'pending',
-            ]
-        );
+        $deposit = $this->resolveOrCreateRentalDeposit($rental);
 
         $depositAmount = (float) ($deposit->amount ?? 0);
         $reporterWon = $dispute->favored_party === 'reporter';
@@ -1094,7 +1137,7 @@ class AdminController extends Controller
             'notes' => $dispute->admin_notes,
             'processed_by' => auth()->id(),
             'processed_at' => now(),
-            'refund_status' => $refundAmount > 0 ? 'processing' : 'success',
+            'refund_status' => $refundAmount > 0 ? 'pending' : 'success',
             'refund_requested_at' => $refundAmount > 0 ? now() : null,
             'refund_completed_at' => $refundAmount > 0 ? null : now(),
             'refund_failed_at' => null,
@@ -1119,33 +1162,105 @@ class AdminController extends Controller
         }
 
         if ($refundAmount > 0) {
-            $refundResponse = $refundService->refund($deposit->fresh(['payment']));
-            if (!($refundResponse['ok'] ?? false)) {
-                $deposit->update([
-                    'refund_status' => 'failed',
-                    'refund_failed_at' => now(),
-                    'failure_reason' => data_get($refundResponse, 'message', 'Refund request failed.'),
-                ]);
-            } else {
-                $deposit->update([
-                    'refund_status' => 'success',
-                    'refund_reference' => data_get($refundResponse, 'body.refund_id')
-                        ?? data_get($refundResponse, 'body.reference')
-                        ?? data_get($refundResponse, 'body.id'),
-                    'refund_completed_at' => now(),
-                    'failure_reason' => null,
-                ]);
-            }
+            // System-ledger refund: credit refundable deposit amount directly to renter wallet.
+            $walletLedgerService->creditSaleIfMissing(
+                (int) $rental->renter_id,
+                $refundAmount,
+                'rental_deposit_refund',
+                'rental_deposit',
+                (int) $deposit->id,
+                [
+                    'rented_rental_id' => $rental->id,
+                    'dispute_id' => $dispute->id,
+                ]
+            );
+
+            $deposit->update([
+                'refund_status' => 'success',
+                'refund_reference' => 'wallet-ledger:' . $deposit->id,
+                'refund_completed_at' => now(),
+                'failure_reason' => null,
+            ]);
         }
 
         $this->completeRentalAfterDispute($rental);
 
         return [
             'ok' => true,
-            'message' => ($refundAmount > 0 && ($refundResponse['ok'] ?? false) === false)
-                ? 'Dispute resolved. Owner credit was posted, but deposit refund needs manual review.'
-                : null,
+            'message' => null,
         ];
+    }
+
+    private function resolveOrCreateRentalDeposit(RentedRentals $rental): RentalDeposit
+    {
+        $deposit = RentalDeposit::where('rented_rental_id', $rental->id)->first();
+        $payment = $this->resolveRentalPaymentForDeposit($rental);
+
+        if (!$deposit) {
+            return RentalDeposit::create([
+                'rented_rental_id' => $rental->id,
+                'payment_id' => $payment?->id,
+                'amount' => (float) ($rental->rent_deposit ?? 0),
+                'deduction_amount' => 0,
+                'refund_amount' => 0,
+                'status' => 'held',
+                'refund_status' => 'pending',
+                'gateway' => $payment?->provider,
+                'gateway_reference' => $payment?->transaction_code,
+            ]);
+        }
+
+        $updates = [];
+
+        if (!(int) ($deposit->payment_id ?? 0) && $payment) {
+            $updates['payment_id'] = (int) $payment->id;
+        }
+
+        if (empty($deposit->gateway) && $payment?->provider) {
+            $updates['gateway'] = (string) $payment->provider;
+        }
+
+        if (empty($deposit->gateway_reference) && $payment?->transaction_code) {
+            $updates['gateway_reference'] = (string) $payment->transaction_code;
+        }
+
+        if ((float) ($deposit->amount ?? 0) <= 0) {
+            $updates['amount'] = (float) ($rental->rent_deposit ?? 0);
+        }
+
+        if (!empty($updates)) {
+            $deposit->update($updates);
+        }
+
+        return $deposit->fresh(['payment']);
+    }
+
+    private function resolveRentalPaymentForDeposit(RentedRentals $rental): ?Payment
+    {
+        $reference = trim((string) ($rental->payment_reference ?? ''));
+        if ($reference !== '') {
+            $match = Payment::where('status', 'complete')
+                ->where(function ($query) use ($reference) {
+                    $query->where('transaction_code', $reference)
+                        ->orWhere('payment_reference', $reference);
+                })
+                ->latest('id')
+                ->first();
+
+            if ($match) {
+                return $match;
+            }
+        }
+
+        return Payment::where('status', 'complete')
+            ->where('user_id', (int) $rental->renter_id)
+            ->where('provider', '!=', '')
+            ->where(function ($query) use ($rental) {
+                $query->where('total_amount', (float) ($rental->total_amount ?? 0))
+                    ->orWhere('request_payload->source', 'rental');
+            })
+            ->latest('id')
+            ->first();
     }
 
     private function completeRentalAfterDispute(RentedRentals $rental): void

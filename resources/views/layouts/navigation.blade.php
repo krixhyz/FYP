@@ -95,6 +95,32 @@
                                     $type = $notif->data['type'] ?? 'general';
                                     $canClick = $url !== '#';
 
+                                    if (in_array($type, ['swap', 'swapAccept', 'swapCounter', 'swapReject'], true) && !empty($notif->data['swap_request_id'])) {
+                                        $swapReq = \App\Models\SwapRequest::find($notif->data['swap_request_id']);
+
+                                        if (!$swapReq) {
+                                            $url = route('notifications.index');
+                                            $canClick = true;
+                                        } elseif ($type === 'swapAccept') {
+                                            $payerId = match ($swapReq->money_direction) {
+                                                'requester_offers_cash' => $swapReq->requester_id,
+                                                'owner_asks_cash' => $swapReq->owner_id,
+                                                default => null,
+                                            };
+
+                                            if ($payerId && (int) auth()->id() === (int) $payerId && $swapReq->status === 'awaiting_payment') {
+                                                $url = route('swap.checkout', $swapReq->id);
+                                            } else {
+                                                $url = route('swap.request.show', $swapReq->id);
+                                            }
+
+                                            $canClick = true;
+                                        } else {
+                                            $url = route('swap.request.show', $swapReq->id);
+                                            $canClick = true;
+                                        }
+                                    }
+
                                     if ($type === 'rental' && !empty($notif->data['rental_request_id'])) {
                                         $rentalReq = \App\Models\RentalRequest::find($notif->data['rental_request_id']);
 
@@ -105,7 +131,7 @@
                                             $url = route('products.myListings');
                                             $canClick = true;
                                         } else {
-                                            $url = route('rental.review', $rentalReq->id);
+                                            $url = route('rental.myRentals', ['tab' => 'incoming', 'request' => $rentalReq->id]);
                                             $canClick = true;
                                         }
                                     }

@@ -167,8 +167,13 @@ Route::middleware(['auth', 'user_only'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     // Show request form
     Route::middleware(['verified', 'user_only'])->group(function () {
-        Route::post('/swap/request/{product}', [SwapRequestController::class, 'showRequestForm'])
+        Route::get('/swap/request/product/{product}', [SwapRequestController::class, 'showRequestForm'])
         ->name('swap.request.form');
+
+        // Backward-compatibility for stale clients still submitting POST to form URL
+        Route::post('/swap/request/{product}', function ($product) {
+            return redirect()->route('swap.request.form', $product);
+        })->name('swap.request.form.legacy');
 
     // Submit swap request
     Route::post('/swap/request', [SwapRequestController::class, 'store'])
@@ -208,6 +213,18 @@ Route::middleware(['auth'])->group(function () {
         ->name('swap.request.counter.accept');
     Route::post('/swap/{swapRequest}/counter/reject', [SwapRequestController::class, 'rejectCounter'])
         ->name('swap.request.counter.reject');
+
+    // Dual confirmation flow (after payment)
+    Route::get('/swap/{swapRequest}/confirmation', [SwapRequestController::class, 'confirmation'])
+        ->name('swap.confirmation');
+    Route::get('/swap/{swapRequest}/confirm/received', function (\App\Models\SwapRequest $swapRequest) {
+        return redirect()->route('swap.mySwaps', [
+            'tab' => 'pending',
+            'swap_request_id' => $swapRequest->id,
+        ])->with('info', 'Use the Confirm Received action inside My Swaps > Non-completed.');
+    })->name('swap.confirm.received.get');
+    Route::post('/swap/{swapRequest}/confirm/received', [SwapRequestController::class, 'confirmReceived'])
+        ->name('swap.confirm.received');
 });
 
 

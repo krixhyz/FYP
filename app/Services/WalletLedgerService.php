@@ -300,4 +300,91 @@ class WalletLedgerService
     {
         return (float) number_format($amount, 2, '.', '');
     }
+
+    /**
+     * Release swap funds from escrow after both parties confirm receipt.
+     * Called after confirmReceived() has marked both parties as confirmed.
+     *
+     * @throws \Exception if payment not found or invalid state
+     */
+    public function releaseSwapFunds(\App\Models\SwapRequest $swapRequest): void
+    {
+        DB::transaction(function () use ($swapRequest) {
+            // Import models
+            $Payment = \App\Models\Payment::class;
+            $Swap = \App\Models\Swap::class;
+
+            // 1. Fetch payment with amounts (lock to prevent concurrent release)
+            $payment = $Payment::lockForUpdate()
+                ->where('status', 'complete')
+                ->where('request_payload->source', 'swap')
+                ->where('request_payload->swap_request_id', $swapRequest->id)
+                ->latest('id')
+                ->first();
+
+            if (!$payment || $payment->status !== 'complete') {
+                return; // Safety: only release if payment already complete
+            }
+
+            $sellerAmount = $this->toMoney((float) ($payment->seller_amount ?? 0));
+            $platformAmount = $this->toMoney((float) ($payment->platform_amount ?? 0));
+
+            // 2. Credit recipient based on locked money direction.
+            $recipientUserId = match ($swapRequest->money_direction) {
+                'requester_offers_cash' => $swapRequest->owner_id,
+                'owner_asks_cash' => $swapRequest->requester_id,
+                default => $swapRequest->owner_id,
+            };
+
+            if ($sellerAmount > 0) {
+                $this->creditSaleIfMissing(
+                    $recipientUserId,
+                    $sellerAmount,
+                    'swap_completion',
+                    'payment',
+                    $payment->id,
+                    [
+                        'swap_request_id' => $swapRequest->id,
+                        'money_flow' => $swapRequest->money_direction,
+                        'recipient_user_id' => $recipientUserId,
+                    ]
+                );
+            }
+
+            // 3. Credit platform (capture service fee)
+            if ($platformAmount > 0) {
+                $this->creditPlatformFeeIfMissing(
+                    $platformAmount,
+                    'swap_completion_fee',
+                    'payment',
+                    $payment->id,
+                    ['swap_request_id' => $swapRequest->id]
+                );
+            }
+
+            // 4. Upsert immutable Swap record (pending -> completed progression proof)
+            $Swap::updateOrCreate(
+                ['swap_request_id' => $swapRequest->id],
+                [
+                    'product_a_id' => $swapRequest->product_id,
+                    'product_b_id' => $swapRequest->offered_product_id,
+                    'owner_a_id' => $swapRequest->owner_id,
+                    'owner_b_id' => $swapRequest->requester_id,
+                    'offered_amount' => $swapRequest->offered_amount ?? $swapRequest->asking_amount,
+                    'notes' => $swapRequest->message,
+                    'status' => 'completed',
+                ]
+            );
+
+            // 5. Update swap request & confirmation
+            $swapRequest->status = 'completed';
+            $swapRequest->save();
+
+            if ($swapRequest->orderConfirmation) {
+                $swapRequest->orderConfirmation()->update([
+                    'final_completed_at' => now(),
+                ]);
+            }
+        });
+    }
 }

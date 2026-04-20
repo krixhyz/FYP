@@ -94,7 +94,7 @@
                                 <span class="text-[10px] font-space font-bold px-2 py-1 bg-[#f0f8f5] text-[#006a38] rounded flex-shrink-0">New</span>
                             </div>
                             <div class="flex flex-col gap-2">
-                                <p class="text-xs text-[#888]">From: {{ $swap->ownerB?->name ?? $swap->ownerA?->name ?? 'N/A' }}</p>
+                                <p class="text-xs text-[#888]">From: {{ $swap->requester?->name ?? 'N/A' }}</p>
                                 <div class="flex gap-2">
                                     <form action="{{ route('swap.request.accept', $swap->id) }}" method="POST" class="flex-1">
                                         @csrf

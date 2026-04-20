@@ -31,7 +31,9 @@
             <div class="surface-card p-4 border-amber-300 bg-amber-50">
                 <div class="mb-2 flex items-center gap-2">
                     <h3 class="text-xs font-bold uppercase tracking-[0.14em]">{{ $dispute->transaction_type }}</h3>
-                    <span class="status-chip status-warning">{{ $dispute->status === 'open' ? 'New' : 'Investigating' }}</span>
+                    <span class="status-chip status-warning">
+                        {{ $dispute->status === 'open' ? 'New' : ucfirst(str_replace('_', ' ', $dispute->status)) }}
+                    </span>
                 </div>
                 <p class="text-[#1a1c1c]">Reporter: {{ $dispute->reporter?->name ?? 'Unknown' }} | Subject: {{ $dispute->subject }}</p>
                 <p class="mt-2 bg-white border border-neutral-300 px-3 py-2 text-sm">{{ $dispute->description }}</p>
@@ -43,7 +45,7 @@
                     <form method="POST" action="{{ route('admin.disputes.resolve', $dispute) }}">
                         @csrf
                         @method('PATCH')
-                        <input type="hidden" name="status" value="in_review">
+                        <input type="hidden" name="action" value="start_review">
                         <input type="hidden" name="admin_notes" value="Escalated for action by report operations.">
                         <button class="btn-pill !px-4 !py-2 text-sm !border-[#ba1a1a] !text-[#ba1a1a] hover:!bg-[#ba1a1a] hover:!text-white">Take Action</button>
                     </form>
@@ -51,8 +53,7 @@
                     <form method="POST" action="{{ route('admin.disputes.resolve', $dispute) }}">
                         @csrf
                         @method('PATCH')
-                        <input type="hidden" name="status" value="dismissed">
-                        <input type="hidden" name="favored_party" value="counterparty">
+                        <input type="hidden" name="action" value="dismiss_report">
                         <input type="hidden" name="admin_notes" value="Report dismissed after review.">
                         <button class="btn-pill btn-pill-dark !px-4 !py-2 text-sm">Dismiss Report</button>
                     </form>

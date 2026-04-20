@@ -7,6 +7,7 @@
  *  - Prepends the notification into the dropdown list (no page refresh)
  */
 let pollingIntervalId = null;
+const shownFallbackToastIds = new Set();
 
 if (window.Laravel && window.Laravel.userId) {
     const channelName = `App.Models.User.${window.Laravel.userId}`;
@@ -30,7 +31,12 @@ if (window.Laravel && window.Laravel.userId) {
             const notifId     = notification.id          || null;   // UUID from Laravel
 
             // 1. Show clickable toast
-            showToast(message, redirectUrl, notifId);
+            showToast(
+                message,
+                redirectUrl,
+                notifId,
+                mapNotificationTypeToToastType(notification.type)
+            );
 
             // 2. Prepend into dropdown (if the dropdown helper is available)
             if (typeof prependNotificationToDropdown === 'function') {
@@ -362,6 +368,15 @@ function escapeHtml(str) {
     return d.innerHTML;
 }
 
+function mapNotificationTypeToToastType(notificationType) {
+    const type = (notificationType || '').toLowerCase();
+
+    if (type.includes('reject') || type.includes('expired')) return 'error';
+    if (type.includes('counter') || type.includes('expiring') || type.includes('dispute')) return 'warning';
+    if (type.includes('accept') || type.includes('approved') || type.includes('confirmed') || type.includes('completed') || type.includes('order')) return 'success';
+    return 'info';
+}
+
 async function syncNotificationsFallback() {
     try {
         const response = await fetch('/notifications/latest', {
@@ -374,7 +389,22 @@ async function syncNotificationsFallback() {
         const items = Array.isArray(payload.notifications) ? payload.notifications : [];
 
         for (const item of items) {
-            if (!item?.id || hasNotificationInDom(item.id)) continue;
+            if (!item?.id) continue;
+
+            const isUnread = item.read_at === null;
+
+            // Show toast once per unread notification even if the dropdown/page already has it.
+            if (isUnread && !shownFallbackToastIds.has(item.id)) {
+                showToast(
+                    item.message || 'You have a new notification',
+                    item.redirect_url || null,
+                    item.id,
+                    mapNotificationTypeToToastType(item.type)
+                );
+                shownFallbackToastIds.add(item.id);
+            }
+
+            if (hasNotificationInDom(item.id)) continue;
 
             if (typeof prependNotificationToDropdown === 'function') {
                 prependNotificationToDropdown(

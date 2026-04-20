@@ -13,8 +13,12 @@
         $rentType = $rentalRequest->rental?->rent_type ?? 'daily';
         $rentFare = $rentalRequest->total_amount ?? ($rentalRequest->rental?->rent_fare ?? 0);
         $rentDeposit = $rentalRequest->rent_deposit ?? ($rentalRequest->rental?->rent_deposit ?? 0);
-        $serviceFee = $rentFare * 0.03;
-        $totalAmount = $rentFare + $rentDeposit + $serviceFee;
+        $pricing = (new \App\Services\CheckoutPricingService())->calculateRent(
+            (float) $rentFare,
+            (float) $rentDeposit
+        );
+        $serviceFee = (float) ($pricing['service_fee'] ?? 0);
+        $totalAmount = (float) ($pricing['total_amount'] ?? 0);
     @endphp
 
     <section class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)] p-6 md:p-8 space-y-6">
@@ -40,7 +44,7 @@
                 <p class="font-manrope text-sm text-[#1a1c1c] mt-2">Rs. {{ number_format($rentDeposit, 2) }}</p>
             </div>
             <div class="bg-[#f3f3f3] p-4">
-                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Service Charge (3%)</p>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Service Charge ({{ number_format($pricing['fee_percentage'] ?? 0, 0) }}%)</p>
                 <p class="font-manrope text-sm text-[#1a1c1c] mt-2">Rs. {{ number_format($serviceFee, 2) }}</p>
             </div>
             <div class="bg-[#006a38] p-4 text-white">

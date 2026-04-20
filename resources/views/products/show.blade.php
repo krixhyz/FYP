@@ -165,10 +165,7 @@
                         <!-- SWAP Action -->
                         @if(in_array('swap', $product->type))
                             <div :style="mode==='swap' ? '' : 'display: none'">
-                                <form action="{{ route('swap.request.form', $product->id) }}" method="POST">
-                                    @csrf
-                                    <button type="submit" class="w-full bg-gradient-to-br from-[#006a38] to-[#09864a] text-white py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 active:brightness-95 transition-all">Propose Swap</button>
-                                </form>
+                                <a href="{{ route('swap.request.form', $product->id) }}" class="w-full block bg-gradient-to-br from-[#006a38] to-[#09864a] text-white py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 active:brightness-95 transition-all text-center">Propose Swap</a>
                             </div>
                         @endif
                     </div>

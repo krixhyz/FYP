@@ -31,6 +31,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'account_status',
         'status_notes',
         'profile_status',
+        'total_eco_score',
+        'eco_level',
     ];
 
     /**
@@ -54,6 +56,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'profile_status' => 'string',
+            'total_eco_score' => 'decimal:2',
+            'eco_level' => 'string',
         ];
     }
     public function cartItems()
@@ -187,7 +191,11 @@ public function latestEcoScore()
  */
 public function getTotalEcoScore()
 {
-    return $this->ecoScores()->sum('eco_points_awarded');
+    if ($this->total_eco_score !== null) {
+        return (float) $this->total_eco_score;
+    }
+
+    return (float) $this->ecoScores()->sum('eco_points_awarded');
 }
 
 /**
@@ -195,6 +203,10 @@ public function getTotalEcoScore()
  */
 public function getCurrentEcoLevel()
 {
+    if (!empty($this->eco_level)) {
+        return $this->eco_level;
+    }
+
     $total = $this->getTotalEcoScore();
     return \App\Models\UserEcoScore::calculateEcoLevel($total);
 }

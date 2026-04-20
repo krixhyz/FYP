@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\Product;
+use App\Models\User\User;
 use App\Models\UserEcoScore;
-use Illuminate\Support\Facades\DB;
 
 class EcoScoreService
 {
@@ -78,9 +78,15 @@ class EcoScoreService
      * @param Product $product
      * @param string $transactionType
      * @param int $userId
+     * @param int|null $transactionId
      * @return float
      */
-    public function recordEcoImpact(Product $product, string $transactionType, int $userId): float
+    public function recordEcoImpact(
+        Product $product,
+        string $transactionType,
+        int $userId,
+        ?int $transactionId = null
+    ): float
     {
         // Get condition (should be set before transaction)
         $condition = $product->condition ?? 'GOOD';
@@ -92,16 +98,39 @@ class EcoScoreService
         $cumulativeScore = UserEcoScore::where('user_id', $userId)->sum('eco_points_awarded') + $ecoPoints;
         $ecoLevel = UserEcoScore::calculateEcoLevel($cumulativeScore);
 
-        // Record the impact in database
-        UserEcoScore::create([
+        $payload = [
             'user_id' => $userId,
             'transaction_type' => $transactionType,
+            'transaction_id' => $transactionId,
             'eco_points_awarded' => $ecoPoints,
             'product_category' => $product->category?->name ?? 'Unknown',
             'condition' => $condition,
             'cumulative_eco_score' => $cumulativeScore,
             'eco_level' => $ecoLevel,
             'notes' => "{$product->title} ({$condition}) via {$transactionType}",
+        ];
+
+        // Keep writes idempotent when a concrete transaction id exists.
+        if ($transactionId !== null) {
+            UserEcoScore::updateOrCreate(
+                [
+                    'user_id' => $userId,
+                    'transaction_type' => $transactionType,
+                    'transaction_id' => $transactionId,
+                ],
+                $payload
+            );
+        } else {
+            UserEcoScore::create($payload);
+        }
+
+        // Re-sync persisted totals on users table for fast read access.
+        $finalTotal = (float) UserEcoScore::where('user_id', $userId)->sum('eco_points_awarded');
+        $finalLevel = UserEcoScore::calculateEcoLevel($finalTotal);
+
+        User::whereKey($userId)->update([
+            'total_eco_score' => $finalTotal,
+            'eco_level' => $finalLevel,
         ]);
 
         return $ecoPoints;

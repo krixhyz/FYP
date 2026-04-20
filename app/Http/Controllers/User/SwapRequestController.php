@@ -3,26 +3,31 @@
 namespace App\Http\Controllers\User;
 
 use App\Models\SwapRequest;
+use App\Models\SwapOrderConfirmation;
 use App\Models\Swap;
 use App\Models\Product;
 use App\Notifications\User\SwapRequested;
 use App\Notifications\User\SwapRejected;
 use App\Notifications\User\SwapAccepted;
 use App\Notifications\User\SwapCountered;
+use App\Notifications\User\SwapConfirmedNotification;
+use App\Notifications\User\SwapCompletedNotification;
 use App\Services\InventoryReservationService;
+use App\Services\SwapOrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\SwapOrderCreated;
 use App\Http\Controllers\Controller;
 use App\Http\Middleware;
 
 class SwapRequestController extends Controller
 {
-    private InventoryReservationService $inventory;
-
-    public function __construct(InventoryReservationService $inventory)
-    {
-        $this->inventory = $inventory;
+    public function __construct(
+        private InventoryReservationService $inventory,
+        private SwapOrderService $swapOrderService
+    ) {
         $this->middleware('auth');
     }
 
@@ -35,7 +40,12 @@ class SwapRequestController extends Controller
             return redirect()->back()->withErrors('You cannot request your own product.');
         }
 
-        $userProducts = Auth::user()->products; // products user can offer
+        // Fetch user's swappable products (available & not this product)
+        $userProducts = Auth::user()->products()
+            ->where('status', '=', 'available')
+            ->where('id', '!=', $product->id)
+            ->get();
+
         return view('swaps.create', compact('product', 'userProducts'));
     }
 
@@ -46,8 +56,10 @@ class SwapRequestController extends Controller
     {
         $data = $request->validate([
             'product_id' => 'required|exists:products,id',
-            'offered_product_id' => 'nullable|exists:products,id',
-            'offered_amount' => 'nullable|numeric|min:0',
+            'offered_product_id' => 'required|exists:products,id',
+            'money_direction' => 'required|in:none,owner_asks_cash,requester_offers_cash',
+            'asking_amount' => ['nullable', 'numeric', 'gt:0', 'regex:/^\d+(\.\d{1,2})?$/'],
+            'offered_amount' => ['nullable', 'numeric', 'gt:0', 'regex:/^\d+(\.\d{1,2})?$/'],
             'message' => 'nullable|string|max:2000',
         ]);
 
@@ -57,14 +69,97 @@ class SwapRequestController extends Controller
             return back()->withErrors('You cannot request your own product.');
         }
 
+        $offeredProduct = Product::find($data['offered_product_id']);
+
+        // Validate money direction logic
+        if ($data['money_direction'] === 'owner_asks_cash' && empty($data['asking_amount'])) {
+            return back()->withErrors('Amount required when asking for cash.');
+        }
+        if ($data['money_direction'] === 'requester_offers_cash' && empty($data['offered_amount'])) {
+            return back()->withErrors('Amount required when offering cash.');
+        }
+
+        // Validate offered product if trading
+        if ($data['money_direction'] !== 'none') {
+            if (empty($data['offered_product_id'])) {
+                return back()->withErrors('Product required for this swap type.');
+            }
+
+            if (!$offeredProduct || $offeredProduct->user_id !== Auth::id()) {
+                return back()->withErrors('Invalid offered product.');
+            }
+            if ($offeredProduct->status !== 'available' || $offeredProduct->quantity <= 0) {
+                return back()->withErrors('Your offered product is not available.');
+            }
+            if ($offeredProduct->id === $product->id) {
+                return back()->withErrors('Cannot trade the same product.');
+            }
+        }
+
+        if ($data['money_direction'] === 'owner_asks_cash') {
+            if (!$offeredProduct) {
+                return back()->withErrors('Select your product before requesting cash.');
+            }
+        }
+
+        if (!$offeredProduct) {
+            return back()->withErrors('Invalid offered product.');
+        }
+
+        if ($offeredProduct) {
+            $offeredPrice = (float) ($offeredProduct->price ?? 0);
+            $requestedPrice = (float) ($product->price ?? 0);
+
+            if ($offeredPrice < $requestedPrice && $data['money_direction'] === 'owner_asks_cash') {
+                return back()->withErrors('You cannot ask for cash when your offered product is lower-valued. You may add cash or continue without cash.');
+            }
+
+            if ($offeredPrice > $requestedPrice && $data['money_direction'] === 'requester_offers_cash') {
+                return back()->withErrors('You cannot add cash when your offered product is higher-valued. You may ask cash or continue without cash.');
+            }
+
+            if (abs($offeredPrice - $requestedPrice) < 0.01 && $data['money_direction'] !== 'none') {
+                return back()->withErrors('Cash direction is not allowed when both products have equal price.');
+            }
+        }
+
+        if ($data['money_direction'] === 'requester_offers_cash' && !empty($data['asking_amount'])) {
+            return back()->withErrors('Do not include asking amount when you are offering cash.');
+        }
+
+        if ($data['money_direction'] === 'owner_asks_cash' && !empty($data['offered_amount'])) {
+            return back()->withErrors('Do not include offered amount when you are requesting cash.');
+        }
+
+        if ($data['money_direction'] === 'none' && (!empty($data['offered_amount']) || !empty($data['asking_amount']))) {
+            return back()->withErrors('Remove cash amounts when no cash is involved.');
+        }
+
         $swapRequest = SwapRequest::create([
             'product_id' => $data['product_id'],
             'offered_product_id' => $data['offered_product_id'] ?? null,
             'owner_id' => $product->user_id,
             'requester_id' => Auth::id(),
+            'asking_amount' => $data['asking_amount'] ?? null,
             'offered_amount' => $data['offered_amount'] ?? null,
+            'money_direction' => $data['money_direction'],
             'message' => $data['message'] ?? null,
+            'status' => 'requested',
         ]);
+
+        // Add to negotiation timeline
+        $this->swapOrderService->createNegotiationEvent(
+            $swapRequest,
+            Auth::id(),
+            'initial_offer',
+            [
+                'offered_product_id' => $data['offered_product_id'] ?? null,
+                'offered_amount' => $data['offered_amount'] ?? null,
+                'asking_amount' => $data['asking_amount'] ?? null,
+                'message' => $data['message'] ?? null,
+                'metadata' => ['money_direction' => $data['money_direction']],
+            ]
+        );
 
         // Notify product owner
         $product->user->notify(new SwapRequested($swapRequest));
@@ -112,7 +207,10 @@ class SwapRequestController extends Controller
             return redirect()->route('dashboard')->with('error', 'Swap already processed.');
         }
 
-        $finalAmount = (float) ($swapRequest->offered_amount ?? 0);
+        $direction = $swapRequest->money_direction;
+        $finalAmount = $direction === 'requester_offers_cash'
+            ? (float) ($swapRequest->offered_amount ?? 0)
+            : ($direction === 'owner_asks_cash' ? (float) ($swapRequest->asking_amount ?? 0) : 0.0);
         $finalNotes = $swapRequest->message;
 
         if ($finalAmount > 0) {
@@ -127,7 +225,8 @@ class SwapRequestController extends Controller
 
             $swapRequest->requester->notify(new SwapAccepted($swapRequest));
 
-            return redirect()->route('dashboard')->with('success', 'Swap accepted. Requester must complete payment.');
+            $payer = $this->resolveSwapPayerLabel($swapRequest);
+            return redirect()->route('dashboard')->with('success', 'Swap accepted. ' . $payer . ' must complete payment.');
         }
 
         $result = $this->finalizeSwap(
@@ -183,7 +282,7 @@ class SwapRequestController extends Controller
         }
 
         $data = $request->validate([
-            'counter_amount' => 'nullable|numeric|min:0',
+            'counter_amount' => ['nullable', 'numeric', 'gt:0', 'regex:/^\d+(\.\d{1,2})?$/'],
             'counter_message' => 'nullable|string|max:2000',
         ]);
 
@@ -191,8 +290,25 @@ class SwapRequestController extends Controller
             return back()->with('error', 'Add a counter amount or message to proceed.');
         }
 
+        $ownerProductPrice = (float) ($swapRequest->product->price ?? 0);
+        $requesterProductPrice = (float) ($swapRequest->offeredProduct->price ?? 0);
+
+        $lockedDirection = 'none';
+        if ($ownerProductPrice > $requesterProductPrice) {
+            $lockedDirection = 'requester_offers_cash';
+        } elseif ($ownerProductPrice < $requesterProductPrice) {
+            $lockedDirection = 'owner_asks_cash';
+        }
+
+        if (!empty($data['counter_amount']) && $lockedDirection === 'none') {
+            return back()->with('error', 'Counter cash is not allowed when both product prices are equal.');
+        }
+
         $swapRequest->counter_amount = $data['counter_amount'] ?? null;
         $swapRequest->counter_message = $data['counter_message'] ?? null;
+        if (!empty($data['counter_amount'])) {
+            $swapRequest->money_direction = $lockedDirection;
+        }
         $swapRequest->countered_at = now();
         $swapRequest->status = 'countered';
         $swapRequest->save();
@@ -212,13 +328,27 @@ class SwapRequestController extends Controller
             return back()->with('error', 'No counter offer to accept.');
         }
 
-        $finalAmount = (float) ($swapRequest->counter_amount ?? $swapRequest->offered_amount ?? 0);
+        $direction = $swapRequest->money_direction;
+        $baseAmount = $direction === 'owner_asks_cash'
+            ? ($swapRequest->asking_amount ?? 0)
+            : ($swapRequest->offered_amount ?? 0);
+
+        $finalAmount = (float) ($swapRequest->counter_amount ?? $baseAmount ?? 0);
         $finalNotes = $swapRequest->counter_message ?? $swapRequest->message;
 
-        $swapRequest->offered_amount = $finalAmount;
+        if ($direction === 'owner_asks_cash') {
+            $swapRequest->asking_amount = $finalAmount > 0 ? $finalAmount : null;
+            $swapRequest->offered_amount = null;
+        } elseif ($direction === 'requester_offers_cash') {
+            $swapRequest->offered_amount = $finalAmount > 0 ? $finalAmount : null;
+            $swapRequest->asking_amount = null;
+        } else {
+            $swapRequest->offered_amount = null;
+            $swapRequest->asking_amount = null;
+        }
         $swapRequest->message = $finalNotes;
 
-        if ($finalAmount > 0) {
+        if (in_array($direction, ['requester_offers_cash', 'owner_asks_cash'], true) && $finalAmount > 0) {
             $result = $this->reserveSwapItems($swapRequest);
             if ($result !== true) {
                 return back()->with('error', $result);
@@ -228,7 +358,15 @@ class SwapRequestController extends Controller
             $swapRequest->reserved_until = now()->addMinutes(config('esewa.reservation_minutes'));
             $swapRequest->save();
 
-            return redirect()->route('swap.checkout', $swapRequest)->with('success', 'Counter accepted. Please complete payment.');
+            if ($direction === 'owner_asks_cash') {
+                $swapRequest->owner->notify(new SwapAccepted($swapRequest));
+            }
+
+            if ($this->resolveSwapPayerId($swapRequest) === Auth::id()) {
+                return redirect()->route('swap.checkout', $swapRequest)->with('success', 'Counter accepted. Please complete payment.');
+            }
+
+            return redirect()->route('dashboard')->with('success', 'Counter accepted. Waiting for payment from ' . $this->resolveSwapPayerLabel($swapRequest) . '.');
         }
 
         $result = $this->finalizeSwap(
@@ -265,7 +403,8 @@ class SwapRequestController extends Controller
 
     public function checkout(SwapRequest $swapRequest)
     {
-        if ($swapRequest->requester_id !== Auth::id()) {
+        $payerId = $this->resolveSwapPayerId($swapRequest);
+        if (!$payerId || $payerId !== Auth::id()) {
             abort(403);
         }
 
@@ -281,6 +420,24 @@ class SwapRequestController extends Controller
         return view('swaps.checkout', compact('swapRequest'));
     }
 
+    private function resolveSwapPayerId(SwapRequest $swapRequest): ?int
+    {
+        return match ($swapRequest->money_direction) {
+            'requester_offers_cash' => $swapRequest->requester_id,
+            'owner_asks_cash' => $swapRequest->owner_id,
+            default => null,
+        };
+    }
+
+    private function resolveSwapPayerLabel(SwapRequest $swapRequest): string
+    {
+        return match ($swapRequest->money_direction) {
+            'requester_offers_cash' => 'Requester',
+            'owner_asks_cash' => 'Owner',
+            default => 'Participant',
+        };
+    }
+
     private function finalizeSwap(SwapRequest $swapRequest, $offeredProductId, $offeredAmount, $notes)
     {
         if (!$offeredProductId) {
@@ -291,7 +448,7 @@ class SwapRequestController extends Controller
             DB::transaction(function () use ($swapRequest, $offeredProductId, $offeredAmount, $notes) {
                 $this->inventory->reserveSwapItems($swapRequest);
 
-                $swapRequest->status = 'accepted';
+                $swapRequest->status = 'completed';
                 $swapRequest->offered_amount = $offeredAmount;
                 $swapRequest->message = $notes;
                 $swapRequest->reserved_until = null;
@@ -384,7 +541,22 @@ class SwapRequestController extends Controller
      */
     public function mySwaps()
     {
-        $swaps = Swap::with([
+        // Self-heal any swap requests that have both confirmations but were left in a paid-like state.
+        SwapRequest::with('orderConfirmation')
+            ->where(function ($q) {
+                $q->where('owner_id', Auth::id())
+                    ->orWhere('requester_id', Auth::id());
+            })
+            ->whereIn('status', ['paid', 'confirmation_pending'])
+            ->get()
+            ->each(function (SwapRequest $request) {
+                $confirmation = $request->orderConfirmation;
+                if ($confirmation && $confirmation->owner_confirmed_at && $confirmation->requester_confirmed_at) {
+                    $this->swapOrderService->completeSwapAfterConfirmation($request);
+                }
+            });
+
+        $completedSwaps = Swap::with([
             'requestedProduct',
             'offeredProduct',
             'ownerA',
@@ -394,9 +566,144 @@ class SwapRequestController extends Controller
             $q->where('owner_a_id', Auth::id())
               ->orWhere('owner_b_id', Auth::id());
         })
+        ->where('status', 'completed')
         ->latest()
         ->get();
 
-        return view('swaps.my_swaps', compact('swaps'));
+        $pendingSwapRequests = SwapRequest::with([
+            'product',
+            'offeredProduct',
+            'owner',
+            'requester',
+            'orderConfirmation',
+        ])
+        ->where(function ($q) {
+            $q->where('owner_id', Auth::id())
+              ->orWhere('requester_id', Auth::id());
+        })
+        ->whereNotNull('offered_product_id')
+        ->whereIn('status', ['awaiting_payment', 'paid', 'confirmation_pending'])
+                ->where(function ($q) {
+                        $q->whereDoesntHave('orderConfirmation')
+                            ->orWhereHas('orderConfirmation', function ($confirmQ) {
+                                    $confirmQ->whereNull('owner_confirmed_at')
+                                                     ->orWhereNull('requester_confirmed_at');
+                            });
+                })
+        ->latest()
+        ->get();
+
+        return view('swaps.my_swaps', compact('completedSwaps', 'pendingSwapRequests'));
+    }
+
+    // ================================
+    // Confirmation Flow (Phase 2.1)
+    // ================================
+
+    /**
+     * Show swap order confirmation page (after payment).
+     */
+    public function confirmation(SwapRequest $swapRequest)
+    {
+        // Only owner & requester can view
+        if (Auth::id() !== $swapRequest->owner_id && Auth::id() !== $swapRequest->requester_id) {
+            abort(403);
+        }
+
+        // Confirmation page is available during paid state and after completion for audit/history.
+        if (!in_array($swapRequest->status, ['paid', 'completed'], true)) {
+            return redirect()->route('swap.request.show', $swapRequest)
+                ->with('error', 'Swap is not awaiting confirmation.');
+        }
+
+        $swapRequest->load(['orderConfirmation', 'product', 'offeredProduct', 'owner', 'requester']);
+
+        return view('swaps.confirmation', compact('swapRequest'));
+    }
+
+    /**
+     * Confirm receipt of items (set owner_confirmed_at or requester_confirmed_at).
+     * If both confirmed, trigger fund release and completion.
+     */
+    public function confirmReceived(Request $request, SwapRequest $swapRequest)
+    {
+        // Authorization
+        if (Auth::id() !== $swapRequest->owner_id && Auth::id() !== $swapRequest->requester_id) {
+            abort(403);
+        }
+
+        // Must be in paid status
+        if ($swapRequest->status !== 'paid') {
+            return back()->with('error', 'Swap is not in confirmation phase.');
+        }
+
+        // Get confirmation record
+        $confirmation = $swapRequest->orderConfirmation;
+        if (!$confirmation) {
+            return back()->with('error', 'Confirmation record not found.');
+        }
+
+        // Validate input
+        $data = $request->validate([
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        // Determine if user is owner or requester
+        $isOwner = Auth::id() === $swapRequest->owner_id;
+
+        // Prevent double confirmation
+        if ($isOwner && $confirmation->owner_confirmed_at) {
+            return back()->with('info', 'You already confirmed receipt.');
+        }
+        if (!$isOwner && $confirmation->requester_confirmed_at) {
+            return back()->with('info', 'You already confirmed receipt.');
+        }
+
+        DB::transaction(function () use ($isOwner, $confirmation, $data, $swapRequest) {
+            // Set confirmation timestamp & notes
+            if ($isOwner) {
+                $confirmation->owner_confirmed_at = now();
+                $confirmation->owner_notes = $data['notes'] ?? null;
+            } else {
+                $confirmation->requester_confirmed_at = now();
+                $confirmation->requester_notes = $data['notes'] ?? null;
+            }
+            $confirmation->save();
+
+            // Check if both confirmed
+            if ($confirmation->owner_confirmed_at && $confirmation->requester_confirmed_at) {
+                $this->completeSwap($swapRequest);
+            } else {
+                // Notify other party that one confirmed
+                $otherUserId = $isOwner ? $swapRequest->requester_id : $swapRequest->owner_id;
+                $otherUser = \App\Models\User\User::find($otherUserId);
+                if ($otherUser) {
+                    $otherUser->notify(new SwapConfirmedNotification($swapRequest));
+                }
+            }
+        });
+
+        $swapRequest->refresh()->load('orderConfirmation');
+        $latestConfirmation = $swapRequest->orderConfirmation;
+
+        if ($swapRequest->status === 'completed' || ($latestConfirmation && $latestConfirmation->both_confirmed)) {
+            return redirect()->route('swap.mySwaps')
+                ->with('success', 'Swap completed! Both parties confirmed. Funds transferred to your wallet.');
+        }
+
+        return redirect()->route('swap.confirmation', $swapRequest)
+            ->with('success', 'Receipt confirmed. Awaiting the other party.');
+    }
+
+    /**
+     * Complete swap after both confirmations: release funds, create Swap record, send notifications.
+     */
+    private function completeSwap(SwapRequest $swapRequest): void
+    {
+        $this->swapOrderService->completeSwapAfterConfirmation($swapRequest);
+
+        // Send completion notifications to both parties
+        $swapRequest->owner->notify(new SwapCompletedNotification($swapRequest));
+        $swapRequest->requester->notify(new SwapCompletedNotification($swapRequest));
     }
 }

@@ -105,14 +105,16 @@
                     <th class="p-3 text-left">Joined</th>
                     <th class="p-3 text-left">Listings</th>
                     <th class="p-3 text-left">Transactions</th>
+                    <th class="p-3 text-left">Eco Score</th>
                     <th class="p-3 text-left">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach ($users as $user)
                     @php
-                        $listingsCount = $user->products()->count();
-                        $transactionsCount = $user->orders()->count();
+                        $listingsCount = $user->products_count ?? 0;
+                        $transactionsCount = $user->orders_count ?? 0;
+                        $ecoScore = (float) ($user->total_eco_score ?? 0);
                         $canManage = $admin->canManageUser($user);
                         $status = $user->account_status ?? 'active';
                     @endphp
@@ -152,6 +154,9 @@
                         <td class="p-3">{{ $user->created_at->format('M j, Y') }}</td>
                         <td class="p-3">{{ $listingsCount }}</td>
                         <td class="p-3">{{ $transactionsCount }}</td>
+                        <td class="p-3">
+                            <span class="font-semibold text-[#006a38]">{{ number_format($ecoScore, 2) }}</span>
+                        </td>
                         <td class="p-3">
                             <div class="flex items-center gap-2">
                                 <a href="{{ route('admin.users.show', $user) }}" class="btn-pill btn-pill-soft !px-2 !py-1 text-xs">View</a>

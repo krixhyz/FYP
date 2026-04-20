@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\User;
 
+use App\Models\SwapRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
@@ -19,11 +20,13 @@ class NotificationController extends Controller
             ->take(10)
             ->get()
             ->map(function ($notification) {
+                $user = Auth::user();
+
                 return [
                     'id' => $notification->id,
                     'type' => $notification->data['type'] ?? 'general',
                     'message' => $notification->data['message'] ?? 'Notification',
-                    'redirect_url' => $notification->data['redirect_url'] ?? '#',
+                    'redirect_url' => $this->resolveRedirectUrl($notification, $user),
                     'created_at_human' => $notification->created_at?->diffForHumans(),
                     'read_at' => $notification->read_at,
                 ];
@@ -83,5 +86,37 @@ class NotificationController extends Controller
         }
 
         return redirect()->route('notifications.index');
+    }
+
+    private function resolveRedirectUrl($notification, $user): string
+    {
+        $fallbackUrl = $notification->data['redirect_url'] ?? '#';
+        $type = $notification->data['type'] ?? 'general';
+        $swapRequestId = $notification->data['swap_request_id'] ?? null;
+
+        if (!$swapRequestId || !in_array($type, ['swap', 'swapAccept', 'swapCounter', 'swapReject'], true)) {
+            return $fallbackUrl;
+        }
+
+        $swapRequest = SwapRequest::find($swapRequestId);
+        if (!$swapRequest) {
+            return route('notifications.index');
+        }
+
+        if ($type !== 'swapAccept') {
+            return route('swap.request.show', $swapRequest->id);
+        }
+
+        $payerId = match ($swapRequest->money_direction) {
+            'requester_offers_cash' => $swapRequest->requester_id,
+            'owner_asks_cash' => $swapRequest->owner_id,
+            default => null,
+        };
+
+        if ($payerId && (int) $user->id === (int) $payerId && $swapRequest->status === 'awaiting_payment') {
+            return route('swap.checkout', $swapRequest->id);
+        }
+
+        return route('swap.request.show', $swapRequest->id);
     }
 }

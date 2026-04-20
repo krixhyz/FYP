@@ -33,7 +33,7 @@ class RentalRequestNotification extends Notification implements ShouldBroadcastN
             'product_id'        => $this->rentalRequest->product_id,
             'renter_id'         => $this->rentalRequest->renter_id,
             'message'           => 'You have a new rental request for "' . optional($this->rentalRequest->product)->title . '" from ' . optional($this->rentalRequest->renter)->name . '.',
-            'redirect_url'      => route('rental.review', $this->rentalRequest->id),
+            'redirect_url'      => route('rental.myRentals', ['tab' => 'incoming', 'request' => $this->rentalRequest->id]),
         ];
     }
 
@@ -45,7 +45,7 @@ class RentalRequestNotification extends Notification implements ShouldBroadcastN
             'product_title'     => optional($this->rentalRequest->product)->title,
             'renter_name'       => optional($this->rentalRequest->renter)->name,
             'message'           => 'You have a new rental request for "' . optional($this->rentalRequest->product)->title . '" from ' . optional($this->rentalRequest->renter)->name . '.',
-            'redirect_url'      => route('rental.review', $this->rentalRequest->id),
+            'redirect_url'      => route('rental.myRentals', ['tab' => 'incoming', 'request' => $this->rentalRequest->id]),
         ]);
     }
 

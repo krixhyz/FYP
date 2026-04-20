@@ -7,7 +7,6 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Notifications\Messages\BroadcastMessage;
-use Illuminate\Broadcasting\PrivateChannel;
 
 class DisputeStatusUpdated extends Notification implements ShouldBroadcastNow
 {
@@ -45,11 +44,6 @@ class DisputeStatusUpdated extends Notification implements ShouldBroadcastNow
             'message'      => "Your dispute #{$this->dispute->id} has been updated to: {$statusLabel}.",
             'redirect_url' => route('dispute.my'),
         ]);
-    }
-
-    public function broadcastOn(): PrivateChannel
-    {
-        return new PrivateChannel('App.Models.User.' . $this->dispute->reporter_id);
     }
 
     public function broadcastAs(): string

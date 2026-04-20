@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Models\RentalRequest;
+use App\Models\SwapRequest;
+use App\Models\Review;
 use App\Services\UserVerificationService;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
@@ -46,8 +48,23 @@ class ProductController extends Controller
         $search = trim((string) $request->query('search', ''));
         $parentCategoryId = $request->query('category');
         $listingType = $request->query('listing_type');
-        $minPrice = $request->query('min_price');
-        $maxPrice = $request->query('max_price');
+        $minPrice = $request->filled('min_price') && is_numeric($request->query('min_price'))
+            ? (float) $request->query('min_price')
+            : null;
+        $maxPrice = $request->filled('max_price') && is_numeric($request->query('max_price'))
+            ? (float) $request->query('max_price')
+            : null;
+
+        // Ignore non-positive values and normalize reversed ranges.
+        if ($minPrice !== null && $minPrice <= 0) {
+            $minPrice = null;
+        }
+        if ($maxPrice !== null && $maxPrice <= 0) {
+            $maxPrice = null;
+        }
+        if ($minPrice !== null && $maxPrice !== null && $minPrice > $maxPrice) {
+            [$minPrice, $maxPrice] = [$maxPrice, $minPrice];
+        }
 
         $productsQuery = Product::query()
             ->where('status', 'available')
@@ -82,11 +99,43 @@ class ProductController extends Controller
                         ->orWhere('type', $listingType);
                 });
             })
-            ->when(is_numeric($minPrice), function ($q) use ($minPrice) {
-                $q->where('price', '>=', (float) $minPrice);
-            })
-            ->when(is_numeric($maxPrice), function ($q) use ($maxPrice) {
-                $q->where('price', '<=', (float) $maxPrice);
+            ->when($minPrice !== null || $maxPrice !== null, function ($q) use ($minPrice, $maxPrice) {
+                $q->where(function ($priceFilter) use ($minPrice, $maxPrice) {
+                    // Sell/swap listings use products.price
+                    $priceFilter->where(function ($sellSwapFilter) use ($minPrice, $maxPrice) {
+                        $sellSwapFilter->where(function ($typeFilter) {
+                            $typeFilter->whereJsonContains('type', 'sell')
+                                ->orWhereJsonContains('type', 'swap')
+                                ->orWhere('type', 'like', '%"sell"%')
+                                ->orWhere('type', 'like', '%"swap"%')
+                                ->orWhere('type', 'sell')
+                                ->orWhere('type', 'swap');
+                        })
+                            ->when($minPrice !== null, function ($inner) use ($minPrice) {
+                                $inner->where('price', '>=', $minPrice);
+                            })
+                            ->when($maxPrice !== null, function ($inner) use ($maxPrice) {
+                                $inner->where('price', '<=', $maxPrice);
+                            });
+                    })
+                    // Rent listings show deposit on cards, so filter against rent_deposit
+                    ->orWhere(function ($rentFilter) use ($minPrice, $maxPrice) {
+                        $rentFilter->where(function ($typeFilter) {
+                            $typeFilter->whereJsonContains('type', 'rent')
+                                ->orWhere('type', 'like', '%"rent"%')
+                                ->orWhere('type', 'rent');
+                        })
+                            ->whereHas('rentals', function ($rentalQuery) use ($minPrice, $maxPrice) {
+                                $rentalQuery
+                                    ->when($minPrice !== null, function ($inner) use ($minPrice) {
+                                        $inner->where('rent_deposit', '>=', $minPrice);
+                                    })
+                                    ->when($maxPrice !== null, function ($inner) use ($maxPrice) {
+                                        $inner->where('rent_deposit', '<=', $maxPrice);
+                                    });
+                            });
+                    });
+                });
             })
             ->latest();
 
@@ -193,7 +242,7 @@ class ProductController extends Controller
             'description' => 'required|string',
             'category_id' => 'required|exists:categories,id',
             'condition' => 'required|in:NEW,LIKE_NEW,GOOD,FAIR,WORN_FOR_PARTS',
-            'price' => 'nullable|numeric|min:0',
+            'price' => 'required_if:listing_type.*,sell,swap|numeric|gt:0',
             'listing_type' => 'required|array|min:1',
             'listing_type.*' => 'in:sell,rent,swap',
             'images' => 'nullable|array|max:6',
@@ -330,7 +379,7 @@ public function update(Request $request, $id)
         'description' => 'required|string',
         'category_id' => 'required|exists:categories,id',
         'condition' => 'required|in:NEW,LIKE_NEW,GOOD,FAIR,WORN_FOR_PARTS',
-        'price' => 'nullable|numeric|min:0',
+        'price' => 'required_if:listing_type.*,sell,swap|numeric|gt:0',
         'listing_type' => 'required|array|min:1',
         'listing_type.*' => 'in:sell,rent,swap',
         'images' => 'nullable|array|max:6',
@@ -510,20 +559,15 @@ public function update(Request $request, $id)
         }])
         ->get();
 
-    $swapRequests = \App\Models\Swap::with(['requestedProduct', 'offeredProduct', 'ownerA', 'ownerB'])
-        ->whereHas('requestedProduct', function ($query) use ($user) {
-            $query->where('user_id', $user->id);
-        })
-        ->where('status', 'pending')
+    $swapRequests = SwapRequest::with(['requestedProduct', 'offeredProduct', 'requester'])
+        ->where('owner_id', $user->id)
+        ->where('status', 'requested')
         ->latest()
         ->get();
 
-    $activeSwaps = \App\Models\Swap::with(['requestedProduct', 'offeredProduct', 'ownerA', 'ownerB'])
-        ->where(function ($query) use ($user) {
-            $query->whereHas('requestedProduct', fn($q) => $q->where('user_id', $user->id))
-                ->orWhereHas('offeredProduct', fn($q) => $q->where('user_id', $user->id));
-        })
-        ->where('status', 'accepted')
+    $activeSwaps = SwapRequest::with(['requestedProduct', 'offeredProduct', 'requester'])
+        ->where('owner_id', $user->id)
+        ->whereIn('status', ['countered', 'awaiting_payment', 'paid'])
         ->latest()
         ->get();
 
@@ -641,6 +685,24 @@ public function myPurchases()
         ->latest()
         ->get();
 
+    $orderReviewedIds = Review::where('reviewer_id', $user->id)
+        ->whereNotNull('order_id')
+        ->pluck('order_id')
+        ->map(fn($id) => (int) $id)
+        ->all();
+
+    $rentalReviewedIds = Review::where('reviewer_id', $user->id)
+        ->whereNotNull('rented_rental_id')
+        ->pluck('rented_rental_id')
+        ->map(fn($id) => (int) $id)
+        ->all();
+
+    $swapReviewedIds = Review::where('reviewer_id', $user->id)
+        ->whereNotNull('swap_id')
+        ->pluck('swap_id')
+        ->map(fn($id) => (int) $id)
+        ->all();
+
     return view('products.my_purchases', compact(
         'rentedRentals',
         'pendingRentalRequests',
@@ -648,7 +710,10 @@ public function myPurchases()
         'orders',
         'swaps',
         'pendingSwapRequests',
-        'awaitingSwapPaymentRequests'
+        'awaitingSwapPaymentRequests',
+        'orderReviewedIds',
+        'rentalReviewedIds',
+        'swapReviewedIds'
     ));
 }
 
@@ -687,10 +752,11 @@ public function show($id)
         ? Wishlist::where('user_id', Auth::id())->where('product_id', $product->id)->exists()
         : false;
 
-    // Calculate owner's average rating and review count
-    $ownerReviews = \App\Models\Review::whereIn('product_id', $product->user->products()->pluck('id'))->get();
-    $ownerAvg = $ownerReviews->count() > 0 ? $ownerReviews->avg('rating') : 0;
-    $ownerCount = $ownerReviews->count();
+    // Calculate seller's average rating and review count from user-targeted reviews.
+    $ownerReviews = \App\Models\Review::where('reviewee_id', $product->user_id)
+        ->whereNotNull('rating');
+    $ownerCount = (int) $ownerReviews->count();
+    $ownerAvg = $ownerCount > 0 ? (float) $ownerReviews->avg('rating') : 0;
 
     return view('products.show', compact('product', 'isWishlisted', 'ownerAvg', 'ownerCount'));
 }

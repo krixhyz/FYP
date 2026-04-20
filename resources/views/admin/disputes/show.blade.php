@@ -6,10 +6,50 @@
     <a href="{{ route('admin.disputes') }}" class="btn-pill btn-pill-soft !px-3 !py-1.5 text-xs">Back to Disputes</a>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
 
-    {{-- Dispute Details --}}
-    <div class="lg:col-span-2 space-y-4">
+    {{-- Left Column: Evidence + Parties --}}
+    <div class="space-y-4 lg:col-span-4">
+        <div class="surface-card p-5">
+            <h3 class="text-lg font-extrabold mb-3">Dispute Evidence</h3>
+            @if(!empty($dispute->evidence_photos))
+                <div class="grid grid-cols-2 gap-3">
+                    @foreach($dispute->evidence_photos as $photo)
+                        <a href="{{ asset('storage/' . $photo) }}" target="_blank" class="block overflow-hidden rounded-lg border border-[rgba(189,202,189,0.1)] bg-[#f9f9f9]">
+                            <img src="{{ asset('storage/' . $photo) }}" alt="Evidence photo" class="h-32 w-full object-cover">
+                        </a>
+                    @endforeach
+                </div>
+            @else
+                <p class="font-manrope text-sm text-[#888888]">No evidence photos were attached for this dispute.</p>
+            @endif
+        </div>
+
+        <div class="surface-card p-5">
+            <h3 class="text-lg font-extrabold mb-3">Reporter</h3>
+            <p class="font-medium">{{ $dispute->reporter?->name ?? 'N/A' }}</p>
+            <p class="font-manrope text-sm text-[#444746]">{{ $dispute->reporter?->email }}</p>
+            @if($dispute->reporter)
+                <a href="{{ route('admin.users.show', $dispute->reporter->id) }}"
+                   class="mt-2 inline-block text-xs text-[#006a38] hover:underline font-semibold">View profile</a>
+            @endif
+        </div>
+
+        <div class="surface-card p-5">
+            <h3 class="text-lg font-extrabold mb-3">Counterparty</h3>
+            @if($counterparty)
+                <p class="font-medium">{{ $counterparty->name }}</p>
+                <p class="font-manrope text-sm text-[#444746]">{{ $counterparty->email }}</p>
+                <a href="{{ route('admin.users.show', $counterparty->id) }}"
+                   class="mt-2 inline-block text-xs text-[#006a38] hover:underline font-semibold">View profile</a>
+            @else
+                <p class="font-manrope text-sm text-[#888888]">Counterparty could not be resolved for this dispute.</p>
+            @endif
+        </div>
+    </div>
+
+    {{-- Right Column: Everything Else --}}
+    <div class="space-y-4 lg:col-span-8">
         <div class="surface-card p-6">
             <div class="flex items-start justify-between gap-3 mb-4">
                 <div>
@@ -38,19 +78,6 @@
             <div class="font-manrope text-[#444746] leading-relaxed">
                 <p>{{ $dispute->description }}</p>
             </div>
-
-            @if(!empty($dispute->evidence_photos))
-                <div class="mt-5">
-                    <p class="text-sm font-extrabold mb-3">Evidence Photos</p>
-                    <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
-                        @foreach($dispute->evidence_photos as $photo)
-                            <a href="{{ asset('storage/' . $photo) }}" target="_blank" class="block overflow-hidden rounded-lg border border-[rgba(189,202,189,0.1)] bg-[#f9f9f9]">
-                                <img src="{{ asset('storage/' . $photo) }}" alt="Evidence photo" class="h-32 w-full object-cover">
-                            </a>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
         </div>
 
         {{-- Transaction Context --}}
@@ -106,33 +133,7 @@
         @endif
     </div>
 
-    {{-- Resolution Panel --}}
-    <div class="space-y-4">
-        {{-- Reporter Info --}}
-        <div class="surface-card p-5">
-            <h3 class="text-lg font-extrabold mb-3">Reporter</h3>
-            <p class="font-medium">{{ $dispute->reporter?->name ?? 'N/A' }}</p>
-            <p class="font-manrope text-sm text-[#444746]">{{ $dispute->reporter?->email }}</p>
-            @if($dispute->reporter)
-                <a href="{{ route('admin.users.show', $dispute->reporter->id) }}"
-                   class="mt-2 inline-block text-xs text-[#006a38] hover:underline font-semibold">View profile</a>
-            @endif
-        </div>
-
-        <div class="surface-card p-5">
-            <h3 class="text-lg font-extrabold mb-3">Counterparty</h3>
-            @if($counterparty)
-                <p class="font-medium">{{ $counterparty->name }}</p>
-                <p class="font-manrope text-sm text-[#444746]">{{ $counterparty->email }}</p>
-                <a href="{{ route('admin.users.show', $counterparty->id) }}"
-                   class="mt-2 inline-block text-xs text-[#006a38] hover:underline font-semibold">View profile</a>
-            @else
-                <p class="font-manrope text-sm text-[#888888]">Counterparty could not be resolved for this dispute.</p>
-            @endif
-        </div>
-
-        {{-- Resolution Form --}}
-        <div class="surface-card p-5">
+    <div class="surface-card p-5">
             <h3 class="text-lg font-extrabold mb-4">Update Status</h3>
 
             @if($requiresEscalation)
@@ -158,31 +159,13 @@
                 @method('PATCH')
 
                 <div>
-                    <label class="field-label">Set Status</label>
-                    <select name="status" class="input-field !py-2 text-sm">
-                        @foreach(['in_review','resolved','dismissed'] as $s)
-                            <option value="{{ $s }}" @selected($dispute->status === $s)>
-                                {{ ucfirst(str_replace('_',' ',$s)) }}
-                            </option>
-                        @endforeach
+                    <label class="field-label">Action</label>
+                    <select name="action" class="input-field !py-2 text-sm">
+                        <option value="start_review" @selected(old('action') === 'start_review' || $dispute->status === 'open')>Move to In Review</option>
+                        <option value="resolve_reporter" @selected(old('action') === 'resolve_reporter')>Resolve in Favor of Reporter{{ $dispute->reporter ? ': ' . $dispute->reporter->name : '' }}</option>
+                        <option value="resolve_counterparty" @selected(old('action') === 'resolve_counterparty')>Resolve in Favor of Counterparty{{ !empty($counterparty?->name) ? ': ' . $counterparty->name : '' }}</option>
+                        <option value="dismiss_report" @selected(old('action') === 'dismiss_report' || $dispute->status === 'dismissed')>Dismiss Report (Counterparty favored)</option>
                     </select>
-                </div>
-
-                <div>
-                    <label class="field-label">Decision</label>
-                    <select name="favored_party" class="input-field !py-2 text-sm">
-                        <option value="">Select favored party for final resolution</option>
-                        <option value="reporter" @selected(old('favored_party', $dispute->favored_party) === 'reporter')>
-                            Favor Reporter{{ $dispute->reporter ? ': ' . $dispute->reporter->name : '' }}
-                        </option>
-                        <option value="counterparty" @selected(old('favored_party', $dispute->favored_party) === 'counterparty')>
-                            Favor Counterparty{{ !empty($counterparty?->name) ? ': ' . $counterparty->name : '' }}
-                        </option>
-                    </select>
-                    <p class="mt-1 text-xs text-[#666]">Required when status is set to resolved or dismissed.</p>
-                    @error('favored_party')
-                        <p class="mt-1 text-xs text-[#ba1a1a]">{{ $message }}</p>
-                    @enderror
                 </div>
 
                 @if($dispute->transaction_type === 'rental')
@@ -216,8 +199,11 @@
                         class="btn-pill btn-pill-dark w-full justify-center !py-2.5 disabled:opacity-40 disabled:cursor-not-allowed">
                     Save &amp; Notify Reporter
                 </button>
+
+                @error('action')
+                    <p class="text-xs text-[#ba1a1a]">{{ $message }}</p>
+                @enderror
             </form>
-        </div>
     </div>
 
 </div>

@@ -131,7 +131,7 @@
         {{-- Sell Price --}}
         <div id="priceSection" class="transition-all duration-300 {{ in_array('sell', $selectedTypes) ? '' : 'hidden' }}">
              <label class="field-label">Price (For Sale)</label>
-            <input type="number" name="price" step="0.01"
+            <input type="number" name="price" min="0.01" step="0.01"
                    value="{{ old('price', $product->price ?? '') }}"
                  class="input-field @error('price') border-red-500 @enderror">
             @error('price')

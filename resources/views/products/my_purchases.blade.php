@@ -2,6 +2,10 @@
 
 @section('content')
 @php
+    $orderReviewedIds = $orderReviewedIds ?? [];
+    $rentalReviewedIds = $rentalReviewedIds ?? [];
+    $swapReviewedIds = $swapReviewedIds ?? [];
+
     $completedOrders = $orders->where('status', 'completed');
     $pendingOrders = $orders->where('status', 'pending');
     $totalSpent = $completedOrders->sum(fn($o) => $o->total_price ?? (($o->unit_price ?? $o->product?->price ?? 0) * ($o->quantity ?? 1)));
@@ -156,7 +160,11 @@
                                     </form>
                                 @endif
                                 @if($order->status === 'completed')
-                                    <a href="{{ route('review.create', ['type' => 'order', 'id' => $order->id]) }}" class="bg-[#f0f8f5] border border-[#d97706] text-[#d97706] px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(217,119,6,0.06)] transition-all">Leave Review</a>
+                                    @if(in_array((int) $order->id, $orderReviewedIds, true))
+                                        <button type="button" disabled class="cursor-not-allowed bg-[#f3f3f3] border border-[#cfcfcf] text-[#888888] px-4 py-2 font-space text-[10px] font-bold uppercase rounded">Reviewed</button>
+                                    @else
+                                        <a href="{{ route('review.create', ['type' => 'order', 'id' => $order->id]) }}" class="bg-[#f0f8f5] border border-[#d97706] text-[#d97706] px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(217,119,6,0.06)] transition-all">Leave Review</a>
+                                    @endif
                                 @endif
                                 @if(in_array($order->status, ['pending','completed']))
                                     <a href="{{ route('dispute.create', ['type' => 'order', 'id' => $order->id]) }}" class="bg-[#f9f9f9] border border-[#ba1a1a] text-[#ba1a1a] px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(186,26,26,0.06)] transition-all">Report Issue</a>
@@ -227,7 +235,11 @@
 
                             <!-- Actions -->
                             <div class="flex gap-2 flex-wrap">
-                                <a href="{{ route('review.create', ['type' => 'rental', 'id' => $rental->id]) }}" class="bg-[#f0f8f5] border border-[#d97706] text-[#d97706] px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(217,119,6,0.06)] transition-all">Leave Review</a>
+                                @if(in_array((int) $rental->id, $rentalReviewedIds, true))
+                                    <button type="button" disabled class="cursor-not-allowed bg-[#f3f3f3] border border-[#cfcfcf] text-[#888888] px-4 py-2 font-space text-[10px] font-bold uppercase rounded">Reviewed</button>
+                                @else
+                                    <a href="{{ route('review.create', ['type' => 'rental', 'id' => $rental->id]) }}" class="bg-[#f0f8f5] border border-[#d97706] text-[#d97706] px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(217,119,6,0.06)] transition-all">Leave Review</a>
+                                @endif
                                 <a href="{{ route('dispute.create', ['type' => 'rental', 'id' => $rental->id]) }}" class="bg-[#f9f9f9] border border-[#ba1a1a] text-[#ba1a1a] px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(186,26,26,0.06)] transition-all">Report Issue</a>
                             </div>
                         </div>
@@ -305,7 +317,11 @@
 
                             <!-- Actions -->
                             <div class="flex gap-2 flex-wrap">
-                                <a href="{{ route('review.create', ['type' => 'swap', 'id' => $swap->id]) }}" class="bg-[#f0f8f5] border border-[#d97706] text-[#d97706] px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(217,119,6,0.06)] transition-all">Leave Review</a>
+                                @if(in_array((int) $swap->id, $swapReviewedIds, true))
+                                    <button type="button" disabled class="cursor-not-allowed bg-[#f3f3f3] border border-[#cfcfcf] text-[#888888] px-4 py-2 font-space text-[10px] font-bold uppercase rounded">Reviewed</button>
+                                @else
+                                    <a href="{{ route('review.create', ['type' => 'swap', 'id' => $swap->id]) }}" class="bg-[#f0f8f5] border border-[#d97706] text-[#d97706] px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(217,119,6,0.06)] transition-all">Leave Review</a>
+                                @endif
                             </div>
                         </div>
                     </div>

@@ -37,6 +37,32 @@
                     $type       = $notification->data['type'] ?? 'general';
                     $canView    = $redirectUrl !== '#';
 
+                    if (in_array($type, ['swap', 'swapAccept', 'swapCounter', 'swapReject'], true) && !empty($notification->data['swap_request_id'])) {
+                        $swapReq = \App\Models\SwapRequest::find($notification->data['swap_request_id']);
+
+                        if (!$swapReq) {
+                            $redirectUrl = route('notifications.index');
+                            $canView = true;
+                        } elseif ($type === 'swapAccept') {
+                            $payerId = match ($swapReq->money_direction) {
+                                'requester_offers_cash' => $swapReq->requester_id,
+                                'owner_asks_cash' => $swapReq->owner_id,
+                                default => null,
+                            };
+
+                            if ($payerId && (int) auth()->id() === (int) $payerId && $swapReq->status === 'awaiting_payment') {
+                                $redirectUrl = route('swap.checkout', $swapReq->id);
+                            } else {
+                                $redirectUrl = route('swap.request.show', $swapReq->id);
+                            }
+
+                            $canView = true;
+                        } else {
+                            $redirectUrl = route('swap.request.show', $swapReq->id);
+                            $canView = true;
+                        }
+                    }
+
                     if ($type === 'rental' && !empty($notification->data['rental_request_id'])) {
                         $rentalReq = \App\Models\RentalRequest::find($notification->data['rental_request_id']);
 
@@ -47,7 +73,7 @@
                             $redirectUrl = route('products.myListings');
                             $canView = true;
                         } else {
-                            $redirectUrl = route('rental.review', $rentalReq->id);
+                            $redirectUrl = route('rental.myRentals', ['tab' => 'incoming', 'request' => $rentalReq->id]);
                             $canView = true;
                         }
                     }

@@ -56,13 +56,13 @@
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <label for="min_price" class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] block mb-1.5">Min Price</label>
-                <input id="min_price" type="number" min="0" step="0.01" name="min_price" value="{{ $minPrice ?? request('min_price') }}"
+                <input id="min_price" type="number" min="0.01" step="0.01" name="min_price" value="{{ $minPrice ?? request('min_price') }}"
                     class="bg-[#f3f3f3] border-0 border-b-2 border-gray-400 px-3 py-2.5 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 w-full">
             </div>
 
             <div>
                 <label for="max_price" class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] block mb-1.5">Max Price</label>
-                <input id="max_price" type="number" min="0" step="0.01" name="max_price" value="{{ $maxPrice ?? request('max_price') }}"
+                <input id="max_price" type="number" min="0.01" step="0.01" name="max_price" value="{{ $maxPrice ?? request('max_price') }}"
                     class="bg-[#f3f3f3] border-0 border-b-2 border-gray-400 px-3 py-2.5 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 w-full">
             </div>
         </div>

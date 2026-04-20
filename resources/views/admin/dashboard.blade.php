@@ -100,9 +100,9 @@
 @else
     <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <article class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)] p-5">
-            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Pending Users</p>
-            <p class="mt-3 font-space font-bold text-4xl text-[#1a1c1c]">{{ $pendingUsers }}</p>
-            <p class="mt-1 font-manrope text-sm text-[#444746]">verification queue</p>
+            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Pending Profile Verifications</p>
+            <p class="mt-3 font-space font-bold text-4xl text-[#1a1c1c]">{{ $pendingProfileVerifications }}</p>
+            <p class="mt-1 font-manrope text-sm text-[#444746]">admin review queue</p>
         </article>
         <article class="bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)] p-5">
             <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Flagged Listings</p>
@@ -131,7 +131,10 @@
                             <div>
                                 <p class="font-manrope font-bold text-lg text-[#1a1c1c]">{{ $candidate->name }}</p>
                                 <p class="font-manrope text-sm text-[#888888]">{{ $candidate->email }}</p>
-                                <p class="mt-1 font-manrope text-xs text-[#444746]">Email verification pending</p>
+                                <p class="mt-1 font-manrope text-xs text-[#444746]">Profile verification pending</p>
+                                <p class="font-manrope text-xs text-[#888888]">
+                                    Email status: {{ $candidate->email_verified_at ? 'Verified (user-side)' : 'Not verified (user-side)' }}
+                                </p>
                             </div>
                             <span class="font-space font-bold text-xs px-2 py-1 bg-[#f59e0b] text-white">Pending</span>
                         </div>

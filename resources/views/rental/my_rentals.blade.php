@@ -103,8 +103,8 @@
                                     <p class="font-space font-bold text-sm text-[#006a38]">{{ $rental->duration ?? 'N/A' }} days</p>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-[#888] mb-1">Daily Rate</p>
-                                    <p class="font-space font-bold text-sm text-[#006a38]">{{ $rental->daily_rate ? 'Rs. ' . number_format($rental->daily_rate, 0) : 'N/A' }}</p>
+                                    <p class="text-xs text-[#888] mb-1">{{ ($rental->rent_type ?? 'daily') === 'hourly' ? 'Hourly Rate' : 'Daily Rate' }}</p>
+                                    <p class="font-space font-bold text-sm text-[#006a38]">{{ (($rental->rent_fare ?? $rental->rental?->rent_fare) !== null) ? 'Rs. ' . number_format((float) ($rental->rent_fare ?? $rental->rental?->rent_fare), 0) : 'N/A' }}</p>
                                 </div>
                                 <div>
                                     <p class="text-xs text-[#888] mb-1">Rental Period</p>
@@ -194,8 +194,8 @@
                                     <p class="font-space font-bold text-sm text-[#006a38]">{{ $rental->duration ?? 'N/A' }} days</p>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-[#888] mb-1">Daily Rate</p>
-                                    <p class="font-space font-bold text-sm text-[#006a38]">{{ $rental->daily_rate ? 'Rs. ' . number_format($rental->daily_rate, 0) : 'N/A' }}</p>
+                                    <p class="text-xs text-[#888] mb-1">{{ ($rental->rent_type ?? 'daily') === 'hourly' ? 'Hourly Rate' : 'Daily Rate' }}</p>
+                                    <p class="font-space font-bold text-sm text-[#006a38]">{{ (($rental->rent_fare ?? $rental->rental?->rent_fare) !== null) ? 'Rs. ' . number_format((float) ($rental->rent_fare ?? $rental->rental?->rent_fare), 0) : 'N/A' }}</p>
                                 </div>
                                 <div>
                                     <p class="text-xs text-[#888] mb-1">Returned</p>
@@ -235,7 +235,7 @@
     @if($incomingRequests->count() > 0)
         <div class="space-y-4">
             @foreach($incomingRequests as $req)
-                <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6 hover:shadow-[0_8px_12px_rgba(0,0,0,0.1)] transition-all">
+                <div id="incoming-request-{{ $req->id }}" class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6 hover:shadow-[0_8px_12px_rgba(0,0,0,0.1)] transition-all">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                         <!-- Product Details -->
                         <div class="border border-[rgba(189,202,189,0.1)] rounded-lg p-4 bg-[#f9f9f9]">
@@ -302,7 +302,7 @@
                             </div>
 
                             <div class="mt-auto space-y-2">
-                                <a href="{{ route('rental.review', $req->id) }}" class="block w-full bg-[#006a38] text-white px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[#004a29] transition-all text-center">Review Details</a>
+                                <a href="{{ route('rental.myRentals', ['tab' => 'incoming', 'request' => $req->id]) }}" class="block w-full bg-[#006a38] text-white px-4 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[#004a29] transition-all text-center">Open In Incoming Tab</a>
                                 <form action="{{ route('rental.approve', $req->id) }}" method="POST">
                                     @csrf
                                     @method('PATCH')
@@ -466,24 +466,50 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const params = new URLSearchParams(window.location.search);
+    const initialTab = params.get('tab');
+    const requestId = params.get('request');
+
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
 
+    const activateTab = (tabId) => {
+        tabContents.forEach(content => content.classList.add('hidden'));
+        tabButtons.forEach(btn => {
+            btn.classList.remove('text-[#1a1c1c]', 'border-[#006a38]');
+            btn.classList.add('text-[#888]', 'border-transparent');
+        });
+
+        const selectedContent = document.getElementById(tabId);
+        const selectedButton = document.querySelector(`.tab-button[data-tab="${tabId}"]`);
+        if (selectedContent) {
+            selectedContent.classList.remove('hidden');
+        }
+        if (selectedButton) {
+            selectedButton.classList.remove('text-[#888]', 'border-transparent');
+            selectedButton.classList.add('text-[#1a1c1c]', 'border-[#006a38]');
+        }
+    };
+
     tabButtons.forEach(button => {
         button.addEventListener('click', function() {
-            tabContents.forEach(content => content.classList.add('hidden'));
-            tabButtons.forEach(btn => {
-                btn.classList.remove('text-[#1a1c1c]', 'border-[#006a38]');
-                btn.classList.add('text-[#888]', 'border-transparent');
-            });
-
             const tabId = this.getAttribute('data-tab');
-            document.getElementById(tabId).classList.remove('hidden');
-
-            this.classList.remove('text-[#888]', 'border-transparent');
-            this.classList.add('text-[#1a1c1c]', 'border-[#006a38]');
+            activateTab(tabId);
         });
     });
+
+    if (initialTab && document.querySelector(`.tab-button[data-tab="${initialTab}"]`)) {
+        activateTab(initialTab);
+    }
+
+    if (initialTab === 'incoming' && requestId) {
+        const target = document.getElementById(`incoming-request-${requestId}`);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('ring-2', 'ring-[#006a38]');
+            setTimeout(() => target.classList.remove('ring-2', 'ring-[#006a38]'), 2000);
+        }
+    }
 });
 </script>
 @endsection

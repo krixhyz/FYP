@@ -28,9 +28,22 @@ class ReviewController extends Controller
             abort(404, 'Transaction not found.');
         }
 
+        if (! $this->canReviewTransaction($type, $transaction)) {
+            abort(403, 'You are not allowed to review this transaction.');
+        }
+
+        if (! $reviewee) {
+            abort(403, 'Unable to resolve a valid review target for this transaction.');
+        }
+
         // Prevent self-review
         if ($reviewee && $reviewee->id === Auth::id()) {
             abort(403, 'You cannot review yourself.');
+        }
+
+        if ($existingReview) {
+            return redirect()->route('products.myPurchases')
+                ->with('info', 'You have already submitted a review for this transaction.');
         }
 
         return view('reviews.create', compact('type', 'id', 'transaction', 'reviewee', 'existingReview'));
@@ -51,10 +64,20 @@ class ReviewController extends Controller
         $type  = $request->type;
         $id    = $request->ref_id;
 
-        [$transaction, $reviewee] = $this->resolveTransaction($type, $id);
+        [$transaction, $reviewee, $existingReview] = $this->resolveTransaction($type, $id);
 
         if (! $transaction) abort(404);
+        if (! $this->canReviewTransaction($type, $transaction)) {
+            abort(403, 'You are not allowed to review this transaction.');
+        }
+        if (! $reviewee) {
+            abort(403, 'Unable to resolve a valid review target for this transaction.');
+        }
         if ($reviewee->id === Auth::id()) abort(403);
+        if ($existingReview) {
+            return redirect()->route('products.myPurchases')
+                ->with('info', 'You have already submitted a review for this transaction.');
+        }
 
         $data = [
             'reviewer_id'      => Auth::id(),
@@ -72,15 +95,7 @@ class ReviewController extends Controller
             $data['swap_id'] = $id;
         }
 
-        Review::updateOrCreate(
-            array_filter([
-                'reviewer_id'      => Auth::id(),
-                'order_id'         => $type === 'order'   ? $id : null,
-                'rented_rental_id' => $type === 'rental'  ? $id : null,
-                'swap_id'          => $type === 'swap'    ? $id : null,
-            ], fn($v) => $v !== null),
-            $data
-        );
+        Review::create($data);
 
         return redirect()->route('products.myPurchases')->with('success', 'Review submitted!');
     }
@@ -99,10 +114,10 @@ class ReviewController extends Controller
     {
         switch ($type) {
             case 'order':
-                $tx = Order::with('product.user', 'buyer')->find($id);
+                $tx = Order::with('product.user', 'buyer', 'seller')->find($id);
                 if (! $tx) return [null, null, null];
                 // Reviewer is buyer → reviewee is seller
-                $reviewee = $tx->product?->user;
+                $reviewee = $tx->seller ?? $tx->product?->user;
                 $existing = Review::where('reviewer_id', Auth::id())
                     ->where('order_id', $id)->first();
                 return [$tx, $reviewee, $existing];
@@ -126,5 +141,21 @@ class ReviewController extends Controller
         }
 
         return [null, null, null];
+    }
+
+    private function canReviewTransaction(string $type, $transaction): bool
+    {
+        $userId = Auth::id();
+
+        return match ($type) {
+            'order' => (int) $transaction->buyer_id === (int) $userId
+                && $transaction->status === 'completed'
+                && $transaction->transaction_type === 'buy',
+            'rental' => in_array((int) $userId, [(int) $transaction->renter_id, (int) $transaction->owner_id], true)
+                && $transaction->status === 'completed',
+            'swap' => in_array((int) $userId, [(int) $transaction->owner_a_id, (int) $transaction->owner_b_id], true)
+                && $transaction->status === 'completed',
+            default => false,
+        };
     }
 }

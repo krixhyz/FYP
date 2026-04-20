@@ -1,6 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $direction = $swapRequest->money_direction;
+    $payableAmount = $direction === 'owner_asks_cash'
+        ? (float) ($swapRequest->asking_amount ?? 0)
+        : (float) ($swapRequest->offered_amount ?? 0);
+
+    $payerLabel = $direction === 'owner_asks_cash' ? 'Owner pays requester' : 'Requester pays owner';
+@endphp
 <div class="max-w-3xl mx-auto px-8 md:px-16 py-12 space-y-8">
     <!-- Hero Section -->
     <section class="bg-[#f3f3f3] px-6 md:px-8 py-8 border-b border-[rgba(189,202,189,0.3)]">
@@ -20,8 +28,9 @@
                 <p class="font-manrope text-sm text-[#1a1c1c] mt-2">{{ $swapRequest->offeredProduct?->title ?? 'N/A' }}</p>
             </div>
             <div class="bg-[#006a38] p-4 text-white">
-                <p class="font-space text-[11px] font-bold uppercase tracking-widest">Cash Top-up</p>
-                <p class="font-space font-bold text-xl text-white mt-2">Rs. {{ number_format($swapRequest->offered_amount ?? 0, 2) }}</p>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest">Cash Transfer</p>
+                <p class="font-space font-bold text-xl text-white mt-2">Rs. {{ number_format($payableAmount, 2) }}</p>
+                <p class="font-manrope text-xs text-green-100 mt-1">{{ $payerLabel }}</p>
             </div>
             <div class="bg-[#f3f3f3] p-4">
                 <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Service Charge</p>
