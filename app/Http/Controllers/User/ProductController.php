@@ -17,6 +17,8 @@ use App\Models\Review;
 use App\Services\UserVerificationService;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\URL;
+use Carbon\Carbon;
 
 
 
@@ -237,12 +239,25 @@ class ProductController extends Controller
                 ->withErrors(['email' => 'Email must be verified to create a product.']);
         }
 
+        $selectedTypes = (array) $request->input('listing_type', []);
+        if (!in_array('rent', $selectedTypes, true)) {
+            // Hidden rent fields can still be posted by the browser; clear them when rent is not selected.
+            $request->merge([
+                'rent_deposit' => null,
+                'rent_fare' => null,
+                'rent_type' => null,
+                'available_from' => null,
+                'end_date' => null,
+                'rent_duration' => null,
+            ]);
+        }
+
         $validator = Validator::make(array_merge($request->all(), ['images' => $tempImages]), [
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'category_id' => 'required|exists:categories,id',
             'condition' => 'required|in:NEW,LIKE_NEW,GOOD,FAIR,WORN_FOR_PARTS',
-            'price' => 'required_if:listing_type.*,sell,swap|numeric|gt:0',
+            'price' => 'required_if:listing_type.*,sell,swap|nullable|numeric|gt:0',
             'listing_type' => 'required|array|min:1',
             'listing_type.*' => 'in:sell,rent,swap',
             'images' => 'nullable|array|max:6',
@@ -261,6 +276,8 @@ class ProductController extends Controller
                 ->with('temp_product_images', $tempImages)
                 ->withErrors($validator);
         }
+
+        $validated = $validator->validated();
 
    
         // Check 5-product cap for UNVERIFIED users
@@ -289,30 +306,30 @@ class ProductController extends Controller
         // Create product entry
         $product = Product::create([
             'user_id' => Auth::id(),
-            'title' => $request->title,
-            'description' => $request->description,
-            'category_id' => $request->category_id,
-            'condition' => $request->condition,
-            'price' => $request->price,
-            'quantity' => $request->quantity,
-            'type' => $request->listing_type,
+            'title' => $validated['title'],
+            'description' => $validated['description'],
+            'category_id' => $validated['category_id'],
+            'condition' => $validated['condition'],
+            'price' => $validated['price'] ?? null,
+            'quantity' => $validated['quantity'],
+            'type' => $validated['listing_type'],
             'image' => $coverImage,
             'images' => $imagePaths ?: null,
             'status' => 'available',
             'approval_status' => $approvalStatus,
-            'rent_duration' => in_array('rent', $request->listing_type) ? $request->rent_duration : null,
+            'rent_duration' => in_array('rent', $validated['listing_type']) ? $validated['rent_duration'] : null,
         ]);
 
         // If rent selected, create a rental record
-        if (in_array('rent', $request->listing_type)) {
-            $rental = Rental::create([
+        if (in_array('rent', $validated['listing_type'])) {
+            Rental::create([
                 'product_id' => $product->id,
                 'owner_id' => Auth::id(),
-                'rent_fare' => $request->rent_fare,
-                'rent_deposit' => $request->rent_deposit,
-                'rent_type' => $request->rent_type,
-                'available_from' => $request->available_from,
-                'available_duration' => $request->rent_duration,
+                'rent_fare' => $validated['rent_fare'],
+                'rent_deposit' => $validated['rent_deposit'],
+                'rent_type' => $validated['rent_type'],
+                'available_from' => Carbon::parse($validated['available_from'])->startOfDay(),
+                'available_duration' => $validated['rent_duration'],
                 'status' => 'available'
             ]);
         }
@@ -374,12 +391,25 @@ public function update(Request $request, $id)
         $tempImages = $this->storeUploadedImagesTemporarily($request->file('images'), $tempImages);
     }
 
+    $selectedTypes = (array) $request->input('listing_type', []);
+    if (!in_array('rent', $selectedTypes, true)) {
+        // Hidden rent fields can still be posted by the browser; clear them when rent is not selected.
+        $request->merge([
+            'rent_deposit' => null,
+            'rent_fare' => null,
+            'rent_type' => null,
+            'available_from' => null,
+            'end_date' => null,
+            'rent_duration' => null,
+        ]);
+    }
+
     $validator = Validator::make(array_merge($request->all(), ['images' => $tempImages]), [
         'title' => 'required|string|max:255',
         'description' => 'required|string',
         'category_id' => 'required|exists:categories,id',
         'condition' => 'required|in:NEW,LIKE_NEW,GOOD,FAIR,WORN_FOR_PARTS',
-        'price' => 'required_if:listing_type.*,sell,swap|numeric|gt:0',
+        'price' => 'required_if:listing_type.*,sell,swap|nullable|numeric|gt:0',
         'listing_type' => 'required|array|min:1',
         'listing_type.*' => 'in:sell,rent,swap',
         'images' => 'nullable|array|max:6',
@@ -387,6 +417,7 @@ public function update(Request $request, $id)
         'remove_images.*' => 'string',
         'rent_deposit' => 'required_if:listing_type.*,rent|nullable|numeric|min:0',
         'rent_fare' => 'required_if:listing_type.*,rent|nullable|numeric|min:0',
+        'rent_type' => 'required_if:listing_type.*,rent|nullable|in:hourly,daily',
         'available_from' => 'required_if:listing_type.*,rent|nullable|date|after_or_equal:today',
         'end_date' => 'required_if:listing_type.*,rent|nullable|date|after_or_equal:available_from',
         'rent_duration' => 'required_if:listing_type.*,rent|nullable|integer|min:1',
@@ -399,6 +430,8 @@ public function update(Request $request, $id)
             ->with('temp_product_images', $tempImages)
             ->withErrors($validator);
     }
+
+    $validated = $validator->validated();
 
     // Build existing images list, removing any checked for deletion
     $existingImages = $product->images ?? [];
@@ -425,29 +458,29 @@ public function update(Request $request, $id)
 
     // Update product
     $product->update([
-        'title' => $request->title,
-        'description' => $request->description,
-        'category_id' => $request->category_id,
-        'condition' => $request->condition,
-        'price' => $request->price,
-        'quantity' => $request->quantity,
-        'type' => $request->listing_type,
+        'title' => $validated['title'],
+        'description' => $validated['description'],
+        'category_id' => $validated['category_id'],
+        'condition' => $validated['condition'],
+        'price' => $validated['price'] ?? null,
+        'quantity' => $validated['quantity'],
+        'type' => $validated['listing_type'],
         'image' => $coverImage,
         'images' => $existingImages ?: null,
-        'rent_duration' => in_array('rent', $request->listing_type) ? $request->rent_duration : null,
+        'rent_duration' => in_array('rent', $validated['listing_type']) ? $validated['rent_duration'] : null,
     ]);
 
     // Handle rent details
-    if (in_array('rent', $request->listing_type)) {
-        $rentals = Rental::updateOrCreate(
+    if (in_array('rent', $validated['listing_type'])) {
+        Rental::updateOrCreate(
             ['product_id' => $product->id],
             [
                 'owner_id' => Auth::id(),
-                'rent_fare' => $request->rent_fare,
-                'rent_deposit' => $request->rent_deposit,
-                'rent_type' => $request->rent_type,
-                'available_from' => $request->available_from,
-                'available_duration' => $request->rent_duration,
+                'rent_fare' => $validated['rent_fare'],
+                'rent_deposit' => $validated['rent_deposit'],
+                'rent_type' => $validated['rent_type'],
+                'available_from' => Carbon::parse($validated['available_from'])->startOfDay(),
+                'available_duration' => $validated['rent_duration'],
                 'status' => 'available',
             ]
         );
@@ -776,8 +809,18 @@ public function buy($id)
         abort(404, 'This product is not available for purchase.');
     }
     
-    // Redirect to order checkout
-    return redirect()->route('order.checkout.product', $product->id);
+    // Redirect to buyer-bound checkout link
+    $checkoutUrl = URL::temporarySignedRoute(
+        'order.checkout.product',
+        now()->addMinutes(15),
+        [
+            'product' => $product->id,
+            'quantity' => 1,
+            'buyer' => Auth::id(),
+        ]
+    );
+
+    return redirect($checkoutUrl);
 }
 
 public function rent($id)
@@ -793,6 +836,12 @@ public function rent($id)
     // Check if product is available for renting
     if (!in_array('rent', $product->type) || !$product->rentals) {
         abort(404, 'This product is not available for rental.');
+    }
+
+    // Prevent owner from entering renter flow
+    if (Auth::check() && $product->user_id === Auth::id()) {
+        return redirect()->route('products.show', $product->id)
+            ->with('error', 'You cannot rent your own item.');
     }
     
     // Redirect to rental request form

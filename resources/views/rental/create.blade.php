@@ -8,6 +8,15 @@
         <p class="mt-2 font-manrope text-sm text-[#444746]">Select your rental window and submit a request.</p>
     </section>
 
+    @if($errors->any())
+        <div class="border-2 border-[#ba1a1a] bg-[rgba(186,26,26,0.06)] px-4 py-3 font-manrope text-sm text-[#7f1d1d] space-y-1">
+            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#ba1a1a]">Please fix the following</p>
+            @foreach($errors->all() as $error)
+                <p>{{ $error }}</p>
+            @endforeach
+        </div>
+    @endif
+
     @php
         $rental = $product->rentals()->first();
         $ownerEndDate = null;
@@ -56,11 +65,17 @@
                 <div>
                     <label for="startDate" class="label">Start Date</label>
                     <input type="date" name="start_date" id="startDate" class="input" value="{{ old('start_date') }}" required>
+                    @error('start_date')
+                        <p class="mt-1 text-sm text-[#ba1a1a]">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 <div>
                     <label for="endDate" class="label">End Date</label>
                     <input type="date" name="end_date" id="endDate" class="input" value="{{ old('end_date') }}" required>
+                    @error('end_date')
+                        <p class="mt-1 text-sm text-[#ba1a1a]">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 <p id="rentalFormError" class="hidden text-sm font-manrope text-[#ba1a1a]"></p>
@@ -75,6 +90,12 @@
                 <input type="hidden" name="rent_deposit" id="rentDeposit" value="{{ $rental ? $rental->rent_deposit : 0 }}">
                 <input type="hidden" name="duration" id="duration" value="0">
                 <input type="hidden" name="total_amount" id="totalAmountInput" value="0">
+                @error('duration')
+                    <p class="text-sm text-[#ba1a1a]">{{ $message }}</p>
+                @enderror
+                @error('total_amount')
+                    <p class="text-sm text-[#ba1a1a]">{{ $message }}</p>
+                @enderror
 
                 <button type="submit" class="btn-pill btn-pill-dark w-full justify-center">Submit Rental Request</button>
             </form>

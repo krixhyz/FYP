@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Services\InventoryReservationService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use App\Http\Controllers\Controller;
 
 class OrderController extends Controller
@@ -51,14 +52,28 @@ class OrderController extends Controller
                 return back()->with('error', $e->getMessage());
             }
 
-            return redirect()
-                ->route('order.checkout.product', ['product' => $product->id, 'quantity' => $requestedQty])
+            $checkoutUrl = URL::temporarySignedRoute(
+                'order.checkout.product',
+                now()->addMinutes(15),
+                [
+                    'product' => $product->id,
+                    'quantity' => $requestedQty,
+                    'buyer' => Auth::id(),
+                ]
+            );
+
+            return redirect($checkoutUrl)
                 ->with('success', 'Review and complete payment to place this order.');
         });
     }
 
     public function checkoutProduct(Request $request, Product $product, InventoryReservationService $inventory)
     {
+        if (!$request->hasValidSignature() || (int) $request->query('buyer') !== (int) Auth::id()) {
+            return redirect()->route('products.index')
+                ->with('error', 'This checkout link is invalid, expired, or belongs to another user.');
+        }
+
         if ($product->user_id === Auth::id()) {
             return redirect()->route('products.show', $product->id)->with('error', 'You cannot buy your own product.');
         }
@@ -81,24 +96,73 @@ class OrderController extends Controller
             'quantity.max' => "Quantity cannot exceed available stock ({$availableQty}).",
         ]);
 
+        $quantity = (int) $validated['quantity'];
+
         try {
-            $inventory->ensurePurchasableQuantity($product, (int) $validated['quantity'], now());
+            $order = DB::transaction(function () use ($product, $quantity, $inventory) {
+                $lockedProduct = Product::where('id', $product->id)->lockForUpdate()->firstOrFail();
+                $inventory->ensurePurchasableQuantity($lockedProduct, $quantity, now());
+
+                $reservationMinutes = (int) config('esewa.reservation_minutes');
+                $reservedUntil = now()->addMinutes(max($reservationMinutes, 5));
+                $unitPrice = (float) ($lockedProduct->price ?? 0);
+                $subtotal = $unitPrice * $quantity;
+                $serviceFee = round($subtotal * 0.03, 2);
+                $totalAmount = $subtotal + $serviceFee;
+
+                $pendingOrder = Order::where('buyer_id', Auth::id())
+                    ->where('product_id', $lockedProduct->id)
+                    ->where('status', 'pending')
+                    ->where('reserved_until', '>', now())
+                    ->lockForUpdate()
+                    ->latest('id')
+                    ->first();
+
+                if ($pendingOrder) {
+                    $pendingOrder->fill([
+                        'seller_id' => $lockedProduct->user_id,
+                        'transaction_type' => 'buy',
+                        'quantity' => $quantity,
+                        'unit_price' => $unitPrice,
+                        'total_price' => $subtotal,
+                        'subtotal' => $subtotal,
+                        'service_fee' => $serviceFee,
+                        'total_amount' => $totalAmount,
+                        'payment_status' => 'pending',
+                        'reserved_until' => $reservedUntil,
+                    ]);
+                    $pendingOrder->save();
+
+                    return $pendingOrder;
+                }
+
+                return Order::create([
+                    'buyer_id' => Auth::id(),
+                    'seller_id' => $lockedProduct->user_id,
+                    'product_id' => $lockedProduct->id,
+                    'transaction_type' => 'buy',
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'total_price' => $subtotal,
+                    'subtotal' => $subtotal,
+                    'service_fee' => $serviceFee,
+                    'total_amount' => $totalAmount,
+                    'status' => 'pending',
+                    'payment_status' => 'pending',
+                    'reserved_until' => $reservedUntil,
+                ]);
+            });
         } catch (\RuntimeException $e) {
             return redirect()->route('products.show', $product->id)->with('error', $e->getMessage());
         }
 
-        $quantity = (int) $validated['quantity'];
-
-        return view('orders.checkout', compact('product', 'quantity'));
+        return view('orders.checkout', compact('order'));
     }
 
     public function checkout($orderId)
     {
         $order = Order::with('product')->findOrFail($orderId);
-
-        if ($order->buyer_id !== Auth::id()) {
-            abort(403, 'Unauthorized');
-        }
+        $this->authorize('buyerAccess', $order);
 
         if ($order->status !== 'pending') {
             return redirect()->route('products.myPurchases')->with('info', 'This order is no longer awaiting checkout.');
@@ -109,9 +173,7 @@ class OrderController extends Controller
 
     public function cancel(Order $order)
     {
-        if ($order->buyer_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('buyerAccess', $order);
 
         if ($order->status !== 'pending') {
             return back()->with('error', 'Only pending orders can be cancelled.');
@@ -125,9 +187,7 @@ class OrderController extends Controller
 
     public function cancelFromCheckout(Order $order)
     {
-        if ($order->buyer_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('buyerAccess', $order);
 
         if ($order->status === 'pending') {
             $order->status = 'cancelled';
@@ -173,9 +233,7 @@ class OrderController extends Controller
 
     public function sellerOrderDetail(Order $order)
     {
-        if ($order->seller_id !== Auth::id()) {
-            abort(403, 'Unauthorized');
-        }
+        $this->authorize('sellerAccess', $order);
 
         $order->load(['buyer', 'product', 'payment']);
 

@@ -19,6 +19,7 @@ use App\Services\KhaltiService;
 use App\Services\InventoryReservationService;
 use App\Services\EcoScoreService;
 use App\Services\WalletLedgerService;
+use App\Notifications\User\SwapPaymentReceivedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -159,9 +160,7 @@ class PaymentController extends Controller
 
     public function orderDetails(Order $order)
     {
-        if ($order->buyer_id !== Auth::id() && $order->seller_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('view', $order);
 
         $order->load(['product', 'payment', 'buyer', 'seller']);
 
@@ -343,10 +342,7 @@ class PaymentController extends Controller
     public function createOrderPayment(Request $request, Order $order, EsewaService $esewaService, KhaltiService $khaltiService)
     {
         $provider = $this->resolveProvider($request);
-
-        if ($order->buyer_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('buyerAccess', $order);
 
         if ($order->status !== 'pending') {
             return redirect()->route('products.myPurchases')->with('info', 'Order already processed.');
@@ -595,10 +591,7 @@ class PaymentController extends Controller
     {
         $provider = $this->resolveProvider($request);
         $pricingService = new CheckoutPricingService();
-
-        if ($rentalRequest->renter_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('pay', $rentalRequest);
 
         if ($rentalRequest->status !== 'approved') {
             return redirect()->route('products.index')->with('error', 'Rental request is not approved for payment.');
@@ -669,15 +662,13 @@ class PaymentController extends Controller
         $provider = $this->resolveProvider($request);
         $pricingService = new CheckoutPricingService();
 
+        $this->authorize('pay', $swapRequest);
+
         $payerId = match ($swapRequest->money_direction) {
             'requester_offers_cash' => $swapRequest->requester_id,
             'owner_asks_cash' => $swapRequest->owner_id,
             default => null,
         };
-
-        if (!$payerId || $payerId !== Auth::id()) {
-            abort(403);
-        }
 
         if ($swapRequest->status !== 'awaiting_payment') {
             return redirect()->route('dashboard')->with('error', 'Swap is not awaiting payment.');
@@ -1050,6 +1041,16 @@ class PaymentController extends Controller
             });
 
             $swapRequestId = $payment->request_payload['swap_request_id'] ?? null;
+            $swapRequest = SwapRequest::with(['owner', 'requester'])->find($swapRequestId);
+            if ($swapRequest) {
+                $counterParty = ((int) $payment->user_id === (int) $swapRequest->owner_id)
+                    ? $swapRequest->requester
+                    : $swapRequest->owner;
+
+                if ($counterParty) {
+                    $counterParty->notify(new SwapPaymentReceivedNotification($swapRequest));
+                }
+            }
 
             return redirect()->route('swap.mySwaps', [
                 'tab' => 'pending',

@@ -22,12 +22,19 @@ class SwapPaymentReceivedNotification extends Notification
 
     public function toDatabase(object $notifiable): DatabaseMessage
     {
+        $redirectUrl = route('swap.mySwaps', [
+            'tab' => 'pending',
+            'swap_request_id' => $this->swapRequest->id,
+        ]);
+
         return new DatabaseMessage(
             data: [
-                'title' => 'Payment Received for Your Swap',
-                'message' => 'Payment received for your swap with ' . $this->swapRequest->requester->name . '. Awaiting confirmation from both parties.',
+                'type' => 'swapPaymentReceived',
+                'title' => 'Swap Payment Received',
+                'message' => 'Payment is complete for your swap request. Open My Swaps to continue with dispatch and confirmation.',
                 'swap_request_id' => $this->swapRequest->id,
-                'action_url' => route('swap.confirmation', $this->swapRequest->id),
+                'redirect_url' => $redirectUrl,
+                'action_url' => $redirectUrl,
                 'icon' => 'success',
             ]
         );

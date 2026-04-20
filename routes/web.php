@@ -218,6 +218,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/swap/{swapRequest}/confirmation', [SwapRequestController::class, 'confirmation'])
         ->name('swap.confirmation');
     Route::get('/swap/{swapRequest}/confirm/received', function (\App\Models\SwapRequest $swapRequest) {
+        \Illuminate\Support\Facades\Gate::authorize('view', $swapRequest);
+
         return redirect()->route('swap.mySwaps', [
             'tab' => 'pending',
             'swap_request_id' => $swapRequest->id,

@@ -140,27 +140,31 @@
                 <!-- Renter's view: Show owner -->
                 <div class="mb-4 pb-4 border-b border-[rgba(189,202,189,0.1)]">
                     <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-2">Owner</p>
-                    <p class="font-space font-bold text-[#1a1c1c] mb-1">{{ $rental->owner->name }}</p>
+                    <a href="{{ route('users.show', $rental->owner) }}" class="font-space font-bold text-[#006a38] hover:underline mb-1 inline-block">{{ $rental->owner->name }}</a>
                     <p class="text-sm text-[#888]">{{ $rental->owner->email }}</p>
+                    <p class="text-sm text-[#888]">Phone: {{ $rental->owner->phone_number ?? 'Not provided' }}</p>
+                    <p class="text-sm text-[#888]">Address: {{ $rental->owner->address ?: trim(collect([$rental->owner->city?->name, $rental->owner->province?->name])->filter()->implode(', ')) ?: 'Not provided' }}</p>
                 </div>
             @elseif(Auth::id() === $rental->owner_id)
                 <!-- Owner's view: Show renter -->
                 <div class="mb-4 pb-4 border-b border-[rgba(189,202,189,0.1)]">
                     <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-2">Renter</p>
-                    <p class="font-space font-bold text-[#1a1c1c] mb-1">{{ $rental->renter->name }}</p>
+                    <a href="{{ route('users.show', $rental->renter) }}" class="font-space font-bold text-[#006a38] hover:underline mb-1 inline-block">{{ $rental->renter->name }}</a>
                     <p class="text-sm text-[#888]">{{ $rental->renter->email }}</p>
                 </div>
             @else
                 <!-- Admin/Other view: Show both -->
                 <div class="mb-4 pb-4 border-b border-[rgba(189,202,189,0.1)]">
                     <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-2">Renter</p>
-                    <p class="font-space font-bold text-[#1a1c1c] mb-1">{{ $rental->renter->name }}</p>
+                    <a href="{{ route('users.show', $rental->renter) }}" class="font-space font-bold text-[#006a38] hover:underline mb-1 inline-block">{{ $rental->renter->name }}</a>
                     <p class="text-sm text-[#888]">{{ $rental->renter->email }}</p>
                 </div>
                 <div>
                     <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-2">Owner</p>
-                    <p class="font-space font-bold text-[#1a1c1c] mb-1">{{ $rental->owner->name }}</p>
+                    <a href="{{ route('users.show', $rental->owner) }}" class="font-space font-bold text-[#006a38] hover:underline mb-1 inline-block">{{ $rental->owner->name }}</a>
                     <p class="text-sm text-[#888]">{{ $rental->owner->email }}</p>
+                    <p class="text-sm text-[#888]">Phone: {{ $rental->owner->phone_number ?? 'Not provided' }}</p>
+                    <p class="text-sm text-[#888]">Address: {{ $rental->owner->address ?: trim(collect([$rental->owner->city?->name, $rental->owner->province?->name])->filter()->implode(', ')) ?: 'Not provided' }}</p>
                 </div>
             @endif
         </div>

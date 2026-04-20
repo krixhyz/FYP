@@ -3,6 +3,17 @@
     if (!is_array($tempImages)) {
         $tempImages = [];
     }
+
+    $rentalConfig = $product->rentals ?? null;
+    $existingAvailableFrom = $rentalConfig?->available_from
+        ? \Carbon\Carbon::parse($rentalConfig->available_from)->format('Y-m-d')
+        : '';
+    $existingEndDate = '';
+    if ($rentalConfig?->available_from && $rentalConfig?->available_duration) {
+        $existingEndDate = \Carbon\Carbon::parse($rentalConfig->available_from)
+            ->addDays(max(((int) $rentalConfig->available_duration) - 1, 0))
+            ->format('Y-m-d');
+    }
 @endphp
 
 <div class="space-y-5">
@@ -146,7 +157,7 @@
             <div>
               <label class="field-label">Rent Deposit</label>
                 <input type="number" step="0.01" name="rent_deposit"
-                       value="{{ old('rent_deposit', $product->rentals->rent_deposit ?? '') }}"
+                      value="{{ old('rent_deposit', $rentalConfig?->rent_deposit ?? '') }}"
                   class="input-field @error('rent_deposit') border-red-500 @enderror">
                 @error('rent_deposit')
                     <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
@@ -156,7 +167,7 @@
             <div>
               <label class="field-label">Rent Fare</label>
                 <input type="number" step="0.01" name="rent_fare"
-                       value="{{ old('rent_fare', $product->rentals->rent_fare ?? '') }}"
+                      value="{{ old('rent_fare', $rentalConfig?->rent_fare ?? '') }}"
                   class="input-field @error('rent_fare') border-red-500 @enderror">
                 @error('rent_fare')
                     <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
@@ -167,8 +178,8 @@
               <label class="field-label">Rent Type</label>
               <select name="rent_type" class="input-field @error('rent_type') border-red-500 @enderror">
                 <option value="">Select Rent Type</option>
-                <option value="hourly" {{ old('rent_type', $product->rentals->rent_type ?? '') === 'hourly' ? 'selected' : '' }}>Hourly</option>
-                <option value="daily" {{ old('rent_type', $product->rentals->rent_type ?? '') === 'daily' ? 'selected' : '' }}>Daily</option>
+                                <option value="hourly" {{ old('rent_type', $rentalConfig?->rent_type ?? '') === 'hourly' ? 'selected' : '' }}>Hourly</option>
+                                <option value="daily" {{ old('rent_type', $rentalConfig?->rent_type ?? '') === 'daily' ? 'selected' : '' }}>Daily</option>
               </select>
               @error('rent_type')
                     <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
@@ -179,7 +190,7 @@
                 <div>
                   <label class="field-label">Start Date</label>
                     <input type="date" name="available_from" id="startDate"
-                              value="{{ old('available_from', $product->rentals->available_from ?? '') }}"
+                              value="{{ old('available_from', $existingAvailableFrom) }}"
                       class="input-field @error('available_from') border-red-500 @enderror">
                     @error('available_from')
                         <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
@@ -189,7 +200,7 @@
                 <div>
                   <label class="field-label">End Date</label>
                     <input type="date" name="end_date" id="endDate"
-                           value="{{ old('end_date', $product->rentals->end_date ?? '') }}"
+                              value="{{ old('end_date', $existingEndDate) }}"
                       class="input-field @error('end_date') border-red-500 @enderror">
                     @error('end_date')
                         <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
@@ -200,7 +211,7 @@
             <div>
               <label class="field-label">Available Duration (days)</label>
                 <input type="number" name="rent_duration" id="rentDuration" min="1"
-                       value="{{ old('rent_duration', $product->rent_duration ?? $product->rentals->available_duration ?? '') }}"
+                      value="{{ old('rent_duration', $product->rent_duration ?? $rentalConfig?->available_duration ?? '') }}"
                   class="input-field @error('rent_duration') border-red-500 @enderror">
                 @error('rent_duration')
                     <p class="text-red-600 text-xs mt-1">{{ $message }}</p>

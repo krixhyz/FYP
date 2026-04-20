@@ -1,8 +1,12 @@
 <?php
 
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -21,5 +25,33 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (AuthorizationException $e, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Access denied.',
+                ], 403);
+            }
+
+            return redirect()
+                ->route(Auth::check() ? 'dashboard' : 'login')
+                ->with('error', 'Access denied. You can only access your own transactions.');
+        });
+
+        $exceptions->render(function (HttpException $e, Request $request) {
+            if ($e->getStatusCode() !== 403) {
+                return null;
+            }
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Access denied.',
+                ], 403);
+            }
+
+            return redirect()
+                ->route(Auth::check() ? 'dashboard' : 'login')
+                ->with('error', 'Access denied. You can only access your own transactions.');
+        });
     })->create();

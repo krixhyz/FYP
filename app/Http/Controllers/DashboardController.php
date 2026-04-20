@@ -96,6 +96,10 @@ class DashboardController extends Controller
             'total_earnings' => $salesRevenue + $rentalRevenueOwner,
         ];
 
+        // Dashboard previews
+        $products = $sellerProducts->sortByDesc('created_at')->values();
+        $orders = $buyerOrders->sortByDesc('created_at')->values();
+
         // Eco Score Metrics
         $ecoMetrics = [
             'total_eco_score' => $user->getTotalEcoScore(),
@@ -103,6 +107,14 @@ class DashboardController extends Controller
             'eco_stats' => $user->getEcoStats(),
         ];
 
-        return view('dashboard', compact('sellerMetrics','buyerMetrics','workspaceMetrics','ecoMetrics','user'));
+        return view('dashboard', compact(
+            'sellerMetrics',
+            'buyerMetrics',
+            'workspaceMetrics',
+            'ecoMetrics',
+            'user',
+            'products',
+            'orders'
+        ));
     }
 }

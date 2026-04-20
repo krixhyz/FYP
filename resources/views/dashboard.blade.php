@@ -130,8 +130,22 @@
                     <a href="{{ route('products.show', $product->id) }}" class="group">
                         <div class="bg-[#f9f9f9] rounded-lg overflow-hidden border border-[rgba(189,202,189,0.1)] hover:border-[#006a38] transition-all">
                             <div class="aspect-square bg-[#e2e2e2] overflow-hidden relative">
-                                @if($product->images && $product->images->first())
-                                    <img src="{{ asset('storage/' . $product->images->first()->path) }}" alt="{{ $product->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+                                @php
+                                    $firstImage = null;
+                                    if (is_array($product->images) && !empty($product->images)) {
+                                        $firstImage = $product->images[0];
+                                    } elseif (is_string($product->images) && $product->images !== '') {
+                                        $firstImage = $product->images;
+                                    }
+
+                                    if (is_array($firstImage)) {
+                                        $firstImage = $firstImage['path'] ?? null;
+                                    }
+
+                                    $displayImage = $firstImage ?: $product->image;
+                                @endphp
+                                @if($displayImage)
+                                    <img src="{{ asset('storage/' . $displayImage) }}" alt="{{ $product->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
                                 @else
                                     <div class="w-full h-full flex items-center justify-center text-[#888]">
                                         <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">

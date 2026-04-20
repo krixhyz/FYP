@@ -135,17 +135,61 @@ class SwapRequestController extends Controller
             return back()->withErrors('Remove cash amounts when no cash is involved.');
         }
 
-        $swapRequest = SwapRequest::create([
-            'product_id' => $data['product_id'],
-            'offered_product_id' => $data['offered_product_id'] ?? null,
-            'owner_id' => $product->user_id,
-            'requester_id' => Auth::id(),
-            'asking_amount' => $data['asking_amount'] ?? null,
-            'offered_amount' => $data['offered_amount'] ?? null,
-            'money_direction' => $data['money_direction'],
-            'message' => $data['message'] ?? null,
-            'status' => 'requested',
-        ]);
+        $openStatuses = ['requested', 'countered', 'awaiting_payment', 'paid', 'confirmation_pending'];
+
+        try {
+            $swapRequest = DB::transaction(function () use ($data, $openStatuses) {
+                $productIds = collect([(int) $data['product_id'], (int) $data['offered_product_id']])->unique()->sort()->values()->all();
+                $lockedProducts = Product::whereIn('id', $productIds)->lockForUpdate()->get()->keyBy('id');
+
+                $lockedRequested = $lockedProducts->get((int) $data['product_id']);
+                $lockedOffered = $lockedProducts->get((int) $data['offered_product_id']);
+
+                if (!$lockedRequested || !$lockedOffered) {
+                    throw new \RuntimeException('Swap products are no longer available.');
+                }
+
+                if ($lockedRequested->status !== 'available' || (int) $lockedRequested->quantity < 1) {
+                    throw new \RuntimeException('Requested product is no longer available for swap.');
+                }
+
+                if ($lockedOffered->user_id !== Auth::id() || $lockedOffered->status !== 'available' || (int) $lockedOffered->quantity < 1) {
+                    throw new \RuntimeException('Your offered product is not available.');
+                }
+
+                $requestedOpenCount = SwapRequest::where('product_id', $lockedRequested->id)
+                    ->whereIn('status', $openStatuses)
+                    ->lockForUpdate()
+                    ->count();
+
+                if ($requestedOpenCount >= (int) $lockedRequested->quantity) {
+                    throw new \RuntimeException('This item already has the maximum number of open swap requests. Please try again later.');
+                }
+
+                $offeredOpenCount = SwapRequest::where('offered_product_id', $lockedOffered->id)
+                    ->whereIn('status', $openStatuses)
+                    ->lockForUpdate()
+                    ->count();
+
+                if ($offeredOpenCount >= (int) $lockedOffered->quantity) {
+                    throw new \RuntimeException('Your offered item is already tied to the maximum number of open swap requests.');
+                }
+
+                return SwapRequest::create([
+                    'product_id' => $lockedRequested->id,
+                    'offered_product_id' => $lockedOffered->id,
+                    'owner_id' => $lockedRequested->user_id,
+                    'requester_id' => Auth::id(),
+                    'asking_amount' => $data['asking_amount'] ?? null,
+                    'offered_amount' => $data['offered_amount'] ?? null,
+                    'money_direction' => $data['money_direction'],
+                    'message' => $data['message'] ?? null,
+                    'status' => 'requested',
+                ]);
+            });
+        } catch (\RuntimeException $e) {
+            return back()->withInput()->withErrors($e->getMessage());
+        }
 
         // Add to negotiation timeline
         $this->swapOrderService->createNegotiationEvent(
@@ -171,10 +215,12 @@ class SwapRequestController extends Controller
 
     public function show(SwapRequest $swapRequest)
 {
-    // Optional: authorize that the current user is owner or requester
-    if (Auth::id() !== $swapRequest->owner_id && Auth::id() !== $swapRequest->requester_id) {
-        abort(403);
-    }
+    $this->authorize('view', $swapRequest);
+
+        $payerId = $this->resolveSwapPayerId($swapRequest);
+        if ($swapRequest->status === 'awaiting_payment' && $payerId && (int) Auth::id() === (int) $payerId) {
+            return redirect()->route('swap.checkout', $swapRequest);
+        }
 
     return view('swaps.show', compact('swapRequest'));
 }
@@ -197,11 +243,7 @@ class SwapRequestController extends Controller
     public function accept($swapRequestId)
     {
         $swapRequest = SwapRequest::with(['requestedProduct', 'offeredProduct'])->findOrFail($swapRequestId);
-
-        // Only owner of requested product can accept
-        if ($swapRequest->product->user_id !== Auth::id()) {
-            abort(403, 'Unauthorized');
-        }
+        $this->authorize('ownerManage', $swapRequest);
 
         if ($swapRequest->status !== 'requested') {
             return redirect()->route('dashboard')->with('error', 'Swap already processed.');
@@ -252,10 +294,7 @@ class SwapRequestController extends Controller
     public function reject($swapRequestId)
     {
         $swapRequest = SwapRequest::findOrFail($swapRequestId);
-
-        if ($swapRequest->owner_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('ownerManage', $swapRequest);
 
         if ($swapRequest->status !== 'requested') {
             return redirect()->route('dashboard')->with('error', 'Swap already processed.');
@@ -273,9 +312,7 @@ class SwapRequestController extends Controller
 
     public function counterOffer(Request $request, SwapRequest $swapRequest)
     {
-        if ($swapRequest->owner_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('ownerManage', $swapRequest);
 
         if ($swapRequest->status !== 'requested') {
             return back()->with('error', 'Swap already processed.');
@@ -320,9 +357,7 @@ class SwapRequestController extends Controller
 
     public function acceptCounter(SwapRequest $swapRequest)
     {
-        if ($swapRequest->requester_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('requesterManage', $swapRequest);
 
         if ($swapRequest->status !== 'countered') {
             return back()->with('error', 'No counter offer to accept.');
@@ -385,9 +420,7 @@ class SwapRequestController extends Controller
 
     public function rejectCounter(SwapRequest $swapRequest)
     {
-        if ($swapRequest->requester_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('requesterManage', $swapRequest);
 
         if ($swapRequest->status !== 'countered') {
             return back()->with('error', 'No counter offer to reject.');
@@ -403,10 +436,9 @@ class SwapRequestController extends Controller
 
     public function checkout(SwapRequest $swapRequest)
     {
+        $this->authorize('pay', $swapRequest);
+
         $payerId = $this->resolveSwapPayerId($swapRequest);
-        if (!$payerId || $payerId !== Auth::id()) {
-            abort(403);
-        }
 
         if ($swapRequest->status !== 'awaiting_payment') {
             return redirect()->route('dashboard')->with('error', 'Swap is not awaiting payment.');
@@ -492,9 +524,7 @@ class SwapRequestController extends Controller
      */
     public function cancel(SwapRequest $swapRequest)
     {
-        if ($swapRequest->requester_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('requesterManage', $swapRequest);
 
         if (!in_array($swapRequest->status, ['requested', 'countered'])) {
             return back()->with('error', 'This swap request cannot be cancelled at this stage.');
@@ -605,10 +635,7 @@ class SwapRequestController extends Controller
      */
     public function confirmation(SwapRequest $swapRequest)
     {
-        // Only owner & requester can view
-        if (Auth::id() !== $swapRequest->owner_id && Auth::id() !== $swapRequest->requester_id) {
-            abort(403);
-        }
+        $this->authorize('view', $swapRequest);
 
         // Confirmation page is available during paid state and after completion for audit/history.
         if (!in_array($swapRequest->status, ['paid', 'completed'], true)) {
@@ -627,10 +654,7 @@ class SwapRequestController extends Controller
      */
     public function confirmReceived(Request $request, SwapRequest $swapRequest)
     {
-        // Authorization
-        if (Auth::id() !== $swapRequest->owner_id && Auth::id() !== $swapRequest->requester_id) {
-            abort(403);
-        }
+        $this->authorize('view', $swapRequest);
 
         // Must be in paid status
         if ($swapRequest->status !== 'paid') {

@@ -339,6 +339,19 @@
                         <div class="border border-[rgba(189,202,189,0.1)] rounded-lg p-4 bg-[#f9f9f9]">
                             <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-3">Rented Item</p>
                             <h3 class="font-space font-bold text-base text-[#1a1c1c] mb-2">{{ $rental->product?->title ?? 'Product' }}</h3>
+                            @php
+                                $rentedItemImage = collect($rental->product?->images ?? [])->first();
+                                $rentedItemImagePath = data_get($rentedItemImage, 'path', is_string($rentedItemImage) ? $rentedItemImage : null) ?? $rental->product?->image;
+                            @endphp
+                            @if($rentedItemImagePath)
+                                <img src="{{ asset('storage/' . $rentedItemImagePath) }}" alt="{{ $rental->product?->title ?? 'Product' }}" class="w-full h-40 object-cover rounded-lg mb-3">
+                            @else
+                                <div class="w-full h-40 bg-[#e2e2e2] rounded-lg flex items-center justify-center text-[#888] mb-3">
+                                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                                    </svg>
+                                </div>
+                            @endif
                             <p class="font-manrope text-sm text-[#666] line-clamp-3">{{ Str::limit($rental->product?->description, 100) }}</p>
                         </div>
 
@@ -412,6 +425,19 @@
                         <div class="border border-[rgba(189,202,189,0.1)] rounded-lg p-4 bg-[#f9f9f9]">
                             <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-3">Rented Item</p>
                             <h3 class="font-space font-bold text-base text-[#1a1c1c] mb-2">{{ $rental->product?->title ?? 'Product' }}</h3>
+                            @php
+                                $ownerCompletedImage = collect($rental->product?->images ?? [])->first();
+                                $ownerCompletedImagePath = data_get($ownerCompletedImage, 'path', is_string($ownerCompletedImage) ? $ownerCompletedImage : null) ?? $rental->product?->image;
+                            @endphp
+                            @if($ownerCompletedImagePath)
+                                <img src="{{ asset('storage/' . $ownerCompletedImagePath) }}" alt="{{ $rental->product?->title ?? 'Product' }}" class="w-full h-40 object-cover rounded-lg mb-3">
+                            @else
+                                <div class="w-full h-40 bg-[#e2e2e2] rounded-lg flex items-center justify-center text-[#888] mb-3">
+                                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                                    </svg>
+                                </div>
+                            @endif
                             <p class="font-manrope text-sm text-[#666] line-clamp-3">{{ Str::limit($rental->product?->description, 100) }}</p>
                         </div>
 
