@@ -1,11 +1,17 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="max-w-lg mx-auto mt-8 bg-white shadow-lg rounded-2xl p-6 border border-gray-100">
-    <h2 class="font-semibold text-2xl text-gray-800 text-center mb-6">Add New Listing</h2>
+<div class="mx-auto max-w-3xl space-y-8">
+    <section class="surface-card-strong p-6 sm:p-8">
+        <p class="section-kicker">Seller Workspace</p>
+        <h1 class="section-title mt-1">Add New Listing</h1>
+    </section>
 
-    <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data" class="space-y-5">
-        @include('products.form', ['buttonText' => 'Add Listing'])
-    </form>
+    <section class="surface-card p-5 sm:p-6">
+        <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data" class="space-y-5" novalidate>
+            @csrf
+            @include('products.form', ['buttonText' => 'Add Listing'])
+        </form>
+    </section>
 </div>
 @endsection

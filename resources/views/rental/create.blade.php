@@ -1,92 +1,106 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="max-w-7xl mx-auto py-4 sm:px-4 lg:px-6">
-    <h2 class="text-xl font-bold mb-3 text-center">Rent: {{ $product->title }}</h2>
+<div class="mx-auto max-w-4xl space-y-8">
+    <section class="surface-card-strong p-6 sm:p-8">
+        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Rent Workflow</p>
+        <h1 class="mt-4 font-space text-4xl font-bold text-[#1a1c1c]">Request Rental</h1>
+        <p class="mt-2 font-manrope text-sm text-[#444746]">Select your rental window and submit a request.</p>
+    </section>
 
-    <div class="bg-white shadow-sm rounded-md mx-auto flex flex-col md:flex-row overflow-hidden product-card max-w-[500px]">
-        {{-- Product Image --}}
-        <div class="md:w-1/3 p-2 text-center">
-            @if($product->image)
-                <img src="{{ asset('storage/' . $product->image) }}" 
-                     class="w-full h-24 object-contain rounded product-image" 
-                     alt="{{ $product->title }}">
-            @else
-                <div class="w-full h-24 bg-gray-200 flex items-center justify-center text-gray-500 text-xs rounded">
-                    No Image
-                </div>
-            @endif
+    @if($errors->any())
+        <div class="border-2 border-[#ba1a1a] bg-[rgba(186,26,26,0.06)] px-4 py-3 font-manrope text-sm text-[#7f1d1d] space-y-1">
+            <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#ba1a1a]">Please fix the following</p>
+            @foreach($errors->all() as $error)
+                <p>{{ $error }}</p>
+            @endforeach
         </div>
+    @endif
 
-        {{-- Product Info & Form --}}
-        <div class="md:w-2/3 p-3">
-            <h5 class="text-sm font-medium">{{ $product->title }}</h5>
-            <p class="text-gray-600 text-xs mt-1">{{ Str::limit($product->description, 100) }}</p>
-            <p class="text-xs mb-1"><strong>Category:</strong> {{ $product->category ?? 'General' }}</p>
-            <p class="text-xs mb-1"><strong>Available Quantity:</strong> {{ $product->quantity }}</p>
-            <p class="text-[11px] text-gray-500 mb-2">Note: Renting is limited to one unit per request.</p>
+    @php
+        $rental = $product->rentals()->first();
+        $ownerEndDate = null;
+        if ($rental && $rental->available_from && $rental->available_duration) {
+            $start = \Carbon\Carbon::parse($rental->available_from);
+            $ownerEndDate = $start->copy()->addDays($rental->available_duration - 1)->format('Y-m-d');
+        }
+    @endphp
 
-            @php
-                $rental = $product->rentals()->first();
-                $ownerEndDate = null;
-                if ($rental && $rental->available_from && $rental->available_duration) {
-                    $start = \Carbon\Carbon::parse($rental->available_from);
-                    $ownerEndDate = $start->copy()->addDays($rental->available_duration - 1)->format('Y-m-d');
-                }
-            @endphp
+    <section class="grid grid-cols-1 gap-6 md:grid-cols-[0.95fr_1.05fr]">
+        <article class="surface-card p-4">
+            <div class="h-56 overflow-hidden bg-[#f3f3f3]">
+                @if($product->image)
+                    <img src="{{ asset('storage/' . $product->image) }}" class="h-full w-full object-cover" alt="{{ $product->title }}">
+                @else
+                    <div class="flex h-full items-center justify-center text-[#888888]">No image available</div>
+                @endif
+            </div>
+            <h2 class="mt-3 text-xl font-bold">{{ $product->title }}</h2>
+            <p class="mt-1 font-manrope text-sm text-[#444746]">{{ Str::limit($product->description, 120) }}</p>
 
-            @if($rental)
-                <p class="text-xs mb-1"><strong>Rent Fare:</strong> Rs. {{ $rental->rent_fare }} per day</p>
-                <p class="text-xs mb-1"><strong>Deposit:</strong> Rs. {{ $rental->rent_deposit }}</p>
-                <p class="text-xs mb-1"><strong>Available Duration:</strong> 
-                    {{ $rental->available_duration ? $rental->available_duration . ' day(s)' : 'Not set' }}
-                </p>
-                <p class="text-xs mb-1"><strong>Available From:</strong> 
-                    {{ $rental->available_from ? \Carbon\Carbon::parse($rental->available_from)->format('Y-m-d') : 'Not set' }}
-                </p>
-                <p class="text-xs mb-1"><strong>Available Until:</strong> 
-                    {{ $ownerEndDate ?? 'Not set' }}
-                </p>
-            @else
-                <p class="text-xs text-red-500 mb-1">Rental information unavailable</p>
-            @endif
+            <div class="mt-4 space-y-2 bg-[#f3f3f3] p-4 text-sm">
+                <div class="flex justify-between"><span>Category</span><span class="font-semibold">{{ $product->category?->name ?? 'General' }}</span></div>
+                <div class="flex justify-between"><span>Available Quantity</span><span class="font-semibold">{{ $product->quantity }}</span></div>
+                @if($rental)
+                    <div class="flex justify-between"><span>Rent Fare</span><span class="font-semibold">Rs. {{ $rental->rent_fare }} / day</span></div>
+                    <div class="flex justify-between"><span>Deposit</span><span class="font-semibold">Rs. {{ $rental->rent_deposit }}</span></div>
+                    <div class="flex justify-between"><span>Available From</span><span class="font-semibold">{{ $rental->available_from ? \Carbon\Carbon::parse($rental->available_from)->format('Y-m-d') : 'Not set' }}</span></div>
+                    <div class="flex justify-between"><span>Available Until</span><span class="font-semibold">{{ $ownerEndDate ?? 'Not set' }}</span></div>
+                @else
+                    <p class="text-red-700">Rental information unavailable.</p>
+                @endif
+            </div>
+        </article>
 
-            <form action="{{ route('rental.store', $product->id) }}" method="POST" class="mt-2" id="rentalForm"
+        <article class="surface-card p-5">
+            <form action="{{ route('rental.store', $product->id) }}" method="POST" id="rentalForm"
                   data-rent-fare="{{ $rental ? $rental->rent_fare : 0 }}"
                   data-rent-deposit="{{ $rental ? $rental->rent_deposit : 0 }}"
-                  data-max-duration="{{ $rental ? $rental->duration : 100 }}"
+                  data-max-duration="{{ $product->rent_duration ?? ($rental ? $rental->available_duration : 100) }}"
                   data-owner-start-date="{{ $rental && $rental->available_from ? \Carbon\Carbon::parse($rental->available_from)->format('Y-m-d') : '' }}"
-                  data-owner-end-date="{{ $ownerEndDate }}">
+                  data-owner-end-date="{{ $ownerEndDate }}"
+                  class="space-y-4">
                 @csrf
 
-                <div class="mb-2">
-                    <label class="form-label text-xs font-bold">Start Date</label>
-                    <input type="date" name="start_date" id="startDate" class="form-control text-xs p-1.5 rounded" required>
+                <div>
+                    <label for="startDate" class="label">Start Date</label>
+                    <input type="date" name="start_date" id="startDate" class="input" value="{{ old('start_date') }}" required>
+                    @error('start_date')
+                        <p class="mt-1 text-sm text-[#ba1a1a]">{{ $message }}</p>
+                    @enderror
                 </div>
 
-                <div class="mb-2">
-                    <label class="form-label text-xs font-bold">End Date</label>
-                    <input type="date" name="end_date" id="endDate" class="form-control text-xs p-1.5 rounded" required>
+                <div>
+                    <label for="endDate" class="label">End Date</label>
+                    <input type="date" name="end_date" id="endDate" class="input" value="{{ old('end_date') }}" required>
+                    @error('end_date')
+                        <p class="mt-1 text-sm text-[#ba1a1a]">{{ $message }}</p>
+                    @enderror
                 </div>
 
-                <div class="mb-2 p-2 bg-gray-100 rounded">
-                    <p class="mb-0 text-xs font-bold">Estimated Total:</p>
-                    <p id="totalAmount" class="text-sm text-blue-600">Rs. 0</p>
+                <p id="rentalFormError" class="hidden text-sm font-manrope text-[#ba1a1a]"></p>
+
+                <div class="bg-accent-50 p-4">
+                    <p class="font-space text-[10px] font-bold uppercase tracking-widest text-[#444746]">Estimated Total</p>
+                    <p id="totalAmount" class="mt-2 font-manrope text-2xl font-bold text-[#006a38]">Rs. 0</p>
                 </div>
 
-                {{-- Hidden Inputs --}}
                 <input type="hidden" name="product_id" value="{{ $product->id }}">
                 <input type="hidden" name="rent_fare" id="rentFare" value="{{ $rental ? $rental->rent_fare : 0 }}">
                 <input type="hidden" name="rent_deposit" id="rentDeposit" value="{{ $rental ? $rental->rent_deposit : 0 }}">
                 <input type="hidden" name="duration" id="duration" value="0">
                 <input type="hidden" name="total_amount" id="totalAmountInput" value="0">
+                @error('duration')
+                    <p class="text-sm text-[#ba1a1a]">{{ $message }}</p>
+                @enderror
+                @error('total_amount')
+                    <p class="text-sm text-[#ba1a1a]">{{ $message }}</p>
+                @enderror
 
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs w-full">
-                    Request Rent
-                </button>
+                <button type="submit" class="btn-pill btn-pill-dark w-full justify-center">Submit Rental Request</button>
             </form>
-        </div>
-    </div>
+        </article>
+    </section>
 </div>
 
 <script>
@@ -108,8 +122,51 @@ if (form && startInput && endInput && totalAmountDisplay) {
     const ownerEndDate = form.dataset.ownerEndDate || '';
 
     const today = new Date().toISOString().split('T')[0];
-    startInput.setAttribute('min', ownerStartDate || today);
-    startInput.setAttribute('max', ownerEndDate);
+    const effectiveMinStart = ownerStartDate && ownerStartDate > today ? ownerStartDate : today;
+    startInput.setAttribute('min', effectiveMinStart);
+    if (ownerEndDate) {
+        startInput.setAttribute('max', ownerEndDate);
+    }
+
+    function toDate(dateString) {
+        return new Date(`${dateString}T00:00:00`);
+    }
+
+    function syncEndBounds() {
+        const minEnd = startInput.value || effectiveMinStart;
+        endInput.min = minEnd;
+
+        if (!startInput.value) {
+            endInput.max = ownerEndDate || '';
+            return;
+        }
+
+        const start = toDate(startInput.value);
+        const maxByDuration = new Date(start);
+        maxByDuration.setDate(maxByDuration.getDate() + maxDuration - 1);
+
+        let finalMax = maxByDuration;
+        if (ownerEndDate) {
+            const ownerEnd = toDate(ownerEndDate);
+            finalMax = maxByDuration < ownerEnd ? maxByDuration : ownerEnd;
+        }
+
+        endInput.max = finalMax.toISOString().split('T')[0];
+    }
+
+    function enforceEndWithinBounds() {
+        if (!endInput.value) {
+            return;
+        }
+
+        if (endInput.min && endInput.value < endInput.min) {
+            endInput.value = endInput.min;
+        }
+
+        if (endInput.max && endInput.value > endInput.max) {
+            endInput.value = endInput.max;
+        }
+    }
 
     function updateTotal() {
         if (!startInput.value || !endInput.value) {
@@ -119,11 +176,15 @@ if (form && startInput && endInput && totalAmountDisplay) {
             return;
         }
 
-        let start = new Date(startInput.value);
-        let end = new Date(endInput.value);
-        const maxEnd = new Date(ownerEndDate);
+        const start = toDate(startInput.value);
+        const end = toDate(endInput.value);
 
-        if (end > maxEnd) end = maxEnd;
+        if (end < start) {
+            totalAmountDisplay.textContent = 'Rs. 0';
+            durationInput.value = 0;
+            totalAmountInput.value = 0;
+            return;
+        }
 
         let diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
         if (diffDays > maxDuration) diffDays = maxDuration;
@@ -137,33 +198,91 @@ if (form && startInput && endInput && totalAmountDisplay) {
         totalAmountInput.value = total;
     }
 
-    startInput.addEventListener('change', () => {
-        const start = new Date(startInput.value);
-        const maxEnd = new Date(start);
-        maxEnd.setDate(maxEnd.getDate() + parseInt(maxDuration) - 1);
-
-        const ownerEnd = new Date(ownerEndDate);
-        const finalMax = maxEnd < ownerEnd ? maxEnd : ownerEnd;
-
-        endInput.min = startInput.value;
-        endInput.max = finalMax.toISOString().split('T')[0];
-
-        const currentEnd = new Date(endInput.value);
-        if (currentEnd > finalMax) {
-            endInput.value = endInput.max;
+    function calculateDurationDays() {
+        if (!startInput.value || !endInput.value) {
+            return 0;
         }
 
+        const start = toDate(startInput.value);
+        const end = toDate(endInput.value);
+
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+            return 0;
+        }
+
+        let diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        if (diffDays > maxDuration) {
+            diffDays = maxDuration;
+        }
+
+        return diffDays;
+    }
+
+    function showFormError(message) {
+        const formError = document.getElementById('rentalFormError');
+        if (!formError) {
+            return;
+        }
+
+        formError.textContent = message;
+        formError.classList.remove('hidden');
+    }
+
+    function clearFormError() {
+        const formError = document.getElementById('rentalFormError');
+        if (!formError) {
+            return;
+        }
+
+        formError.textContent = '';
+        formError.classList.add('hidden');
+    }
+
+    startInput.addEventListener('change', () => {
+        clearFormError();
+        syncEndBounds();
+
+        if (!endInput.value) {
+            endInput.value = startInput.value;
+        }
+
+        enforceEndWithinBounds();
+
         updateTotal();
     });
 
-    endInput.addEventListener('change', updateTotal);
+    endInput.addEventListener('change', () => {
+        clearFormError();
+        enforceEndWithinBounds();
+        updateTotal();
+    });
 
     form.addEventListener('submit', () => {
+        clearFormError();
+        syncEndBounds();
+        enforceEndWithinBounds();
         updateTotal();
+
+        const durationDays = calculateDurationDays();
+        if (durationDays > 0) {
+            durationInput.value = durationDays;
+            const total = (rentFare * durationDays + rentDeposit).toFixed(2);
+            totalAmountDisplay.textContent = `Rs. ${total}`;
+            totalAmountInput.value = total;
+        } else {
+            durationInput.value = 0;
+            totalAmountInput.value = 0;
+        }
+
         const submitButton = form.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.textContent = 'Submitting...';
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = 'Submitting...';
+        }
     });
+
+    syncEndBounds();
+    enforceEndWithinBounds();
 
     if (startInput.value && endInput.value) {
         updateTotal();

@@ -1,12 +1,17 @@
 <?php
 
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         channels: __DIR__.'/../routes/channels.php',
         health: '/up',
@@ -14,8 +19,39 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'admin' => \App\Http\Middleware\IsAdmin::class,
+            'super_admin' => \App\Http\Middleware\IsSuperAdmin::class,
+            'user_only' => \App\Http\Middleware\UserOnly::class,
+            'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (AuthorizationException $e, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Access denied.',
+                ], 403);
+            }
+
+            return redirect()
+                ->route(Auth::check() ? 'dashboard' : 'login')
+                ->with('error', 'Access denied. You can only access your own transactions.');
+        });
+
+        $exceptions->render(function (HttpException $e, Request $request) {
+            if ($e->getStatusCode() !== 403) {
+                return null;
+            }
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Access denied.',
+                ], 403);
+            }
+
+            return redirect()
+                ->route(Auth::check() ? 'dashboard' : 'login')
+                ->with('error', 'Access denied. You can only access your own transactions.');
+        });
     })->create();

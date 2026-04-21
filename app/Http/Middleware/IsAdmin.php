@@ -13,7 +13,7 @@ class IsAdmin
             return redirect()->route('login');
         }
 
-        if (!$request->user()->isAdmin()) {
+        if (!$request->user()->canAccessAdminPanel()) {
             abort(403, 'Admins only');
         }
 

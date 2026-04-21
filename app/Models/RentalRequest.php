@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\User\User;
 
 class RentalRequest extends Model
 {
@@ -19,7 +20,14 @@ class RentalRequest extends Model
         'duration',
         'total_amount',
         'rent_deposit',
+        'stock_reserved',
+        'reserved_until',
         'status',
+    ];
+
+    protected $casts = [
+        'stock_reserved' => 'boolean',
+        'reserved_until' => 'datetime',
     ];
 
     /** Relationships **/

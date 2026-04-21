@@ -1,282 +1,261 @@
-@extends('layouts.app')
+@extends('layouts.dashboard')
 
 @section('content')
-<div class="container mx-auto py-10 max-w-6xl space-y-12">
+@php
+    $activeProducts = $products->where('status', '!=', 'sold');
+    $listedUnits = $products->sum('quantity');
+    $soldUnits = $soldProducts->sum(fn($p) => $p->orders->sum(fn($o) => $o->quantity ?? 1));
+    $salesRevenue = $soldProducts->sum(fn($p) => $p->orders->sum(fn($o) => ($o->unit_price ?? $p->price ?? 0) * ($o->quantity ?? 1)));
+    $pendingActionCount = $pendingRequests->count() + $swapRequests->count();
+@endphp
 
-    {{-- ==================== HEADER ==================== --}}
-    <h2 class="font-semibold text-2xl text-gray-800 text-center mb-6">
-        My Listings Dashboard
-    </h2>
+<!-- Header Section -->
+<section class="px-0 md:px-8 py-8">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <p class="font-space text-[12px] font-bold uppercase tracking-widest text-[#888] mb-2">Seller Workspace</p>
+            <h1 class="font-space font-bold text-4xl text-[#1a1c1c] mb-2">My Listings</h1>
+            <p class="font-manrope text-base text-[#444746]">Manage your inventory, track requests, and monitor sales.</p>
+        </div>
+        <a href="{{ route('products.create') }}" class="bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-6 py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 transition-all rounded-lg h-fit">Add Listing</a>
+    </div>
+</section>
 
-    {{-- ==================== SECTION 1: My Products ==================== --}}
-    <div class="bg-white shadow-md rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-lg font-semibold mb-5 text-gray-800 flex items-center gap-2">
-            <span class="text-blue-600"></span> My Products
-        </h3>
+<!-- Quick Stats -->
+<section class="px-0 md:px-8 py-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6">
+        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-1">Active Listings</p>
+        <p class="font-space font-bold text-3xl text-[#006a38]">{{ $activeProducts->count() }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6">
+        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-1">Total Units</p>
+        <p class="font-space font-bold text-3xl text-[#006a38]">{{ $listedUnits }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6">
+        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-1">Units Sold</p>
+        <p class="font-space font-bold text-3xl text-[#006a38]">{{ $soldUnits }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6">
+        <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-1">Sales Revenue</p>
+        <p class="font-space font-bold text-3xl text-[#006a38]">Rs. {{ number_format($salesRevenue, 0) }}</p>
+    </div>
+</section>
 
-        <table class="w-full text-sm text-left text-gray-600 border-collapse">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
-                <tr>
-                    <th class="px-6 py-3">Image</th>
-                    <th class="px-6 py-3">Title</th>
-                    <th class="px-6 py-3">Price</th>
-                    <th class="px-6 py-3">Quantity</th>
-                    <th class="px-6 py-3">Status</th>
-                    <th class="px-6 py-3">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($products->where('status', '!=', 'sold') as $product)
-                    <tr class="border-b hover:bg-gray-50 transition">
-                        <td class="px-6 py-4">
-                            <img src="{{ asset('storage/' . $product->image) }}" alt="Image"
-                                 class="w-16 h-16 object-cover rounded-md shadow-sm border">
-                        </td>
-                        <td class="px-6 py-4 font-medium text-gray-900">{{ $product->title }}</td>
-                        <td class="px-6 py-4">
-                            @if($product->price)
-                                <span class="font-semibold text-gray-800">Rs. {{ $product->price }}</span>
-                            @else
-                                <span class="text-gray-400">—</span>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4">{{ $product->quantity }}</td>
-                        <td class="px-6 py-4">
-                            <form action="{{ route('products.updateStatus', $product->id) }}" method="POST">
-                                @csrf
-                                @method('PATCH')
-                                <select name="status" onchange="this.form.submit()"
-                                        class="border-gray-300 rounded-md text-sm p-1.5 focus:ring-2 focus:ring-blue-400">
-                                    <option value="available" {{ $product->status == 'available' ? 'selected' : '' }}>Available</option>
-                                    <option value="sold" {{ $product->status == 'sold' ? 'selected' : '' }}>Sold</option>
-                                    <option value="rented" {{ $product->status == 'rented' ? 'selected' : '' }}>Rented</option>
-                                    <option value="swapped" {{ $product->status == 'swapped' ? 'selected' : '' }}>Swapped</option>
-                                </select>
-                            </form>
-                        </td>
-                        <td class="px-6 py-4 flex flex-col sm:flex-row gap-2">
-                            <a href="{{ route('products.edit', $product->id) }}"
-                               class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-md font-medium transition">
-                                Edit
-                            </a>
-                            <form action="{{ route('products.destroy', $product->id) }}" method="POST"
-                                  onsubmit="return confirm('Are you sure you want to delete this product?')">
+<!-- Pending Requests Cards -->
+@if($pendingActionCount > 0)
+<section class="px-0 md:px-8 py-6">
+    <h2 class="font-space text-lg font-bold text-[#1a1c1c] mb-4">Pending Requests</h2>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Rental Requests -->
+        @if($pendingRequests->count() > 0)
+            <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)]">
+                <div class="px-6 py-4 border-b border-[rgba(189,202,189,0.1)] flex items-center justify-between">
+                    <h3 class="font-space font-bold text-sm uppercase tracking-widest text-[#1a1c1c]">Rental Requests</h3>
+                    <span class="bg-[#ffd580] text-[#664d03] text-[10px] font-space font-bold px-3 py-1 rounded">{{ $pendingRequests->count() }}</span>
+                </div>
+                <div class="divide-y divide-[rgba(189,202,189,0.1)]">
+                    @foreach($pendingRequests->take(3) as $request)
+                        <a href="{{ route('rental.review', $request->id) }}" class="block px-6 py-4 hover:bg-[#f9f9f9] transition-colors">
+                            <div class="flex items-start justify-between gap-3 mb-2">
+                                <h4 class="font-space font-bold text-sm text-[#1a1c1c] flex-1">{{ $request->product->title ?? 'N/A' }}</h4>
+                                <span class="text-[10px] font-space font-bold px-2 py-1 bg-[#f0f8f5] text-[#006a38] rounded flex-shrink-0">{{ $request->duration }}d</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs text-[#888]">
+                                <p>From: {{ $request->renter->name ?? 'N/A' }}</p>
+                                <p class="font-space font-bold text-[#006a38]">Rs. {{ number_format($request->total_amount, 0) }}</p>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+                @if($pendingRequests->count() > 3)
+                    <div class="px-6 py-3 bg-[#f9f9f9] text-center">
+                        <a href="#rental-requests" class="text-[12px] text-[#006a38] font-space font-bold hover:underline">View all {{ $pendingRequests->count() }} requests</a>
+                    </div>
+                @endif
+            </div>
+        @endif
+
+        <!-- Swap Requests -->
+        @if($swapRequests->count() > 0)
+            <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)]">
+                <div class="px-6 py-4 border-b border-[rgba(189,202,189,0.1)] flex items-center justify-between">
+                    <h3 class="font-space font-bold text-sm uppercase tracking-widest text-[#1a1c1c]">Swap Requests</h3>
+                    <span class="bg-[#ffd580] text-[#664d03] text-[10px] font-space font-bold px-3 py-1 rounded">{{ $swapRequests->count() }}</span>
+                </div>
+                <div class="divide-y divide-[rgba(189,202,189,0.1)]">
+                    @foreach($swapRequests->take(3) as $swap)
+                        <div class="px-6 py-4 hover:bg-[#f9f9f9] transition-colors">
+                            <div class="flex items-start justify-between gap-3 mb-3">
+                                <div class="flex-1 min-w-0">
+                                    <h4 class="font-space font-bold text-sm text-[#1a1c1c] mb-1">{{ $swap->requestedProduct->title ?? 'N/A' }}</h4>
+                                    <p class="text-xs text-[#888]">↔ {{ $swap->offeredProduct->title ?? 'N/A' }}</p>
+                                </div>
+                                <span class="text-[10px] font-space font-bold px-2 py-1 bg-[#f0f8f5] text-[#006a38] rounded flex-shrink-0">New</span>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <p class="text-xs text-[#888]">From: {{ $swap->requester?->name ?? 'N/A' }}</p>
+                                <div class="flex gap-2">
+                                    <form action="{{ route('swap.request.accept', $swap->id) }}" method="POST" class="flex-1">
+                                        @csrf
+                                        <button type="submit" class="w-full bg-[#006a38] text-white px-3 py-2 font-space text-[10px] font-bold uppercase text-center rounded hover:bg-[#004a29] transition-all">Accept</button>
+                                    </form>
+                                    <form action="{{ route('swap.request.reject', $swap->id) }}" method="POST" class="flex-1">
+                                        @csrf
+                                        <button type="submit" class="w-full bg-[#f9f9f9] border border-[#ba1a1a] text-[#ba1a1a] px-3 py-2 font-space text-[10px] font-bold uppercase text-center rounded hover:bg-[rgba(186,26,26,0.06)] transition-all">Reject</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+    </div>
+</section>
+@endif
+
+<!-- My Listings Grid -->
+<section class="px-0 md:px-8 py-6">
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="font-space text-lg font-bold text-[#1a1c1c]">Active Listings</h2>
+        <a href="#" class="text-[12px] text-[#006a38] font-space font-bold hover:underline">Filter</a>
+    </div>
+
+    @if($activeProducts->count() > 0)
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            @foreach($activeProducts as $product)
+                <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] overflow-hidden hover:shadow-[0_8px_12px_rgba(0,0,0,0.1)] transition-all">
+                    <!-- Image -->
+                    <div class="aspect-square bg-[#e2e2e2] overflow-hidden relative group">
+                        @php
+                            $firstImage = null;
+                            if (is_array($product->images) && !empty($product->images)) {
+                                $firstImage = $product->images[0];
+                            } elseif (is_string($product->images) && $product->images !== '') {
+                                $firstImage = $product->images;
+                            }
+
+                            if (is_array($firstImage)) {
+                                $firstImage = $firstImage['path'] ?? null;
+                            }
+
+                            $displayImage = $firstImage ?: $product->image;
+                        @endphp
+                        @if($displayImage)
+                            <img src="{{ asset('storage/' . $displayImage) }}" alt="{{ $product->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+                        @else
+                            <div class="w-full h-full flex items-center justify-center text-[#888]">
+                                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                        @endif
+                        <div class="absolute top-0 right-0 m-3">
+                            <span class="bg-[#006a38] text-white text-[10px] font-space font-bold px-3 py-1 rounded">{{ $product->quantity }} in stock</span>
+                        </div>
+                    </div>
+
+                    <!-- Content -->
+                    <div class="p-6">
+                        <a href="{{ route('products.show', $product->id) }}" class="block">
+                            <h3 class="font-space font-bold text-sm text-[#1a1c1c] mb-2 line-clamp-2 hover:text-[#006a38] transition-colors">{{ $product->title }}</h3>
+                        </a>
+                        
+                        <p class="text-sm text-[#888] mb-4 line-clamp-2">{{ Str::limit($product->description, 60) }}</p>
+
+                        <div class="mb-4 pb-4 border-b border-[rgba(189,202,189,0.1)]">
+                            <p class="font-space font-bold text-2xl text-[#006a38] mb-2">Rs. {{ number_format($product->price, 0) }}</p>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-space font-bold {{ $product->approval_status === 'APPROVED' ? 'bg-[#d4edda] text-[#155724]' : 'bg-[#ffd580] text-[#664d03]' }} px-2 py-1 rounded">
+                                    {{ ucfirst($product->approval_status) }}
+                                </span>
+                                <span class="text-[10px] font-space font-bold bg-[#f0f8f5] text-[#006a38] px-2 py-1 rounded">{{ ucfirst($product->status) }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex gap-2">
+                            <a href="{{ route('products.edit', $product->id) }}" class="flex-1 bg-[#006a38] text-white px-4 py-2 font-space text-[10px] font-bold uppercase text-center rounded hover:bg-[#004a29] transition-all">Edit</a>
+                            <form action="{{ route('products.destroy', $product->id) }}" method="POST" class="flex-1" onsubmit="return confirm('Delete this listing?')">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit"
-                                        class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-md font-medium transition">
-                                    Delete
-                                </button>
+                                <button type="submit" class="w-full bg-[#f9f9f9] border border-[#ba1a1a] text-[#ba1a1a] px-3 py-2 font-space text-[10px] font-bold uppercase rounded hover:bg-[rgba(186,26,26,0.06)] transition-all">Delete</button>
                             </form>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="6" class="text-center py-6 text-gray-500">No active products listed yet.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-
-    {{-- ==================== SECTION 2: Pending Rental Requests ==================== --}}
-    <div class="bg-white shadow-md rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-lg font-semibold mb-5 text-gray-800"> Pending Rental Requests</h3>
-
-        <x-section-table :data="$pendingRequests" empty="No pending rental requests.">
-            <x-slot name="header">
-                <tr>
-                    <th>Product</th>
-                    <th>Renter</th>
-                    <th>Duration</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </x-slot>
-
-            @foreach ($pendingRequests as $request)
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="px-6 py-4">{{ $request->product->title ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $request->renter->name ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $request->duration }} days</td>
-                    <td class="px-6 py-4">Rs. {{ $request->total_amount }}</td>
-                    <td class="px-6 py-4">
-                        <span class="bg-yellow-100 text-yellow-700 px-2 py-1 text-xs font-semibold rounded">
-                            {{ ucfirst($request->status) }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4">
-                        <a href="{{ route('rental.review', $request->id) }}"
-                           class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded">
-                            Review
-                        </a>
-                    </td>
-                </tr>
+                        </div>
+                    </div>
+                </div>
             @endforeach
-        </x-section-table>
-    </div>
+        </div>
+    @else
+        <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-12 text-center">
+            <svg class="w-16 h-16 text-[#ccc] mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m0 0l8-4m0 0l8 4m0 6l-8 4-8-4m0 0l8-4m0 0l8 4m0 6l-8 4-8-4"></path>
+            </svg>
+            <p class="font-manrope text-base text-[#888] mb-4">No active listings yet</p>
+            <a href="{{ route('products.create') }}" class="inline-block bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-6 py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 transition-all rounded-lg">Create Your First Listing</a>
+        </div>
+    @endif
+</section>
 
-    {{-- ==================== SECTION 3: Active Rentals ==================== --}}
-    <div class="bg-white shadow-md rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-lg font-semibold mb-5 text-gray-800"> Active Rentals</h3>
+<!-- Sold Products Section -->
+@if($soldProducts->count() > 0)
+<section class="px-0 md:px-8 py-6">
+    <h2 class="font-space text-lg font-bold text-[#1a1c1c] mb-4">Recently Sold</h2>
+    
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)]">
+        <div class="divide-y divide-[rgba(189,202,189,0.1)]">
+            @foreach($soldProducts->take(5) as $product)
+                @php
+                    $units = $product->orders->sum(fn($o) => $o->quantity ?? 1);
+                    $revenue = $product->orders->sum(fn($o) => ($o->unit_price ?? $product->price ?? 0) * ($o->quantity ?? 1));
+                    $firstImage = null;
+                    if (is_array($product->images) && !empty($product->images)) {
+                        $firstImage = $product->images[0];
+                    } elseif (is_string($product->images) && $product->images !== '') {
+                        $firstImage = $product->images;
+                    }
 
-        <x-section-table :data="$activeRentals" empty="No active rentals.">
-            <x-slot name="header">
-                <tr>
-                    <th>Product</th>
-                    <th>Renter</th>
-                    <th>From - To</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </x-slot>
+                    if (is_array($firstImage)) {
+                        $firstImage = $firstImage['path'] ?? null;
+                    }
 
-            @foreach ($activeRentals as $rental)
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="px-6 py-4">{{ $rental->product->title ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $rental->renter->name ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $rental->start_date }} → {{ $rental->end_date }}</td>
-                    <td class="px-6 py-4">Rs. {{ $rental->total_amount }}</td>
-                    <td class="px-6 py-4">
-                        <span class="bg-green-100 text-green-700 px-2 py-1 text-xs font-semibold rounded">
-                            {{ ucfirst($rental->status) }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4">
-                        <a href="#" class="bg-gray-700 hover:bg-gray-800 text-white text-xs px-3 py-1 rounded">
-                            View
-                        </a>
-
-                        @if($rental->status === 'active')
-                            <form action="{{ route('rental.return', $rental->id) }}" method="POST" class="inline">
-                                @csrf
-                                @method('PATCH')
-                                <button
-                                    class="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 rounded ml-1">
-                                    Mark Returned
-                                </button>
-                            </form>
-                        @endif
-                    </td>
-                </tr>
+                    $displayImage = $firstImage ?: $product->image;
+                @endphp
+                <div class="px-6 py-4 hover:bg-[#f9f9f9] transition-colors">
+                    <div class="flex items-start gap-4">
+                        <div class="w-20 h-20 bg-[#e2e2e2] rounded-lg overflow-hidden flex-shrink-0">
+                            @if($displayImage)
+                                <img src="{{ asset('storage/' . $displayImage) }}" alt="{{ $product->title }}" class="w-full h-full object-cover">
+                            @else
+                                <div class="w-full h-full flex items-center justify-center text-[#888]">
+                                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                </div>
+                            @endif
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-space font-bold text-sm text-[#1a1c1c] mb-2">{{ $product->title }}</h3>
+                            <div class="grid grid-cols-3 gap-4 text-xs text-[#888]">
+                                <div>
+                                    <p class="font-space font-bold text-[#006a38]">{{ $units }} units</p>
+                                </div>
+                                <div>
+                                    <p class="font-space font-bold text-[#006a38]">Rs. {{ number_format($revenue, 0) }}</p>
+                                </div>
+                                <div>
+                                    <p>{{ $product->orders->max('created_at')?->format('M d, Y') ?? '-' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             @endforeach
-        </x-section-table>
+        </div>
     </div>
+</section>
+@endif
 
-    {{-- ==================== SECTION 4: Swap Requests ==================== --}}
-    <div class="bg-white shadow-md rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-lg font-semibold mb-5 text-gray-800"> Swap Requests</h3>
-
-        <x-section-table :data="$swapRequests" empty="No pending swap requests.">
-            <x-slot name="header">
-                <tr>
-                    <th>Requested Product</th>
-                    <th>Offered Product</th>
-                    <th>Requester</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </x-slot>
-
-            @foreach ($swapRequests as $swap)
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="px-6 py-4">{{ $swap->requestedProduct->title ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $swap->offeredProduct->title ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $swap->requester->name ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">
-                        <span class="bg-blue-100 text-blue-700 px-2 py-1 text-xs font-semibold rounded">
-                            {{ ucfirst($swap->status) }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 flex gap-2">
-                        <a href="{{ route('swap.accept', $swap->id) }}"
-                           class="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 rounded">Accept</a>
-                        <a href="{{ route('swap.reject', $swap->id) }}"
-                           class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1 rounded">Reject</a>
-                    </td>
-                </tr>
-            @endforeach
-        </x-section-table>
-    </div>
-
-    {{-- ==================== SECTION 5: Active Swaps ==================== --}}
-    <div class="bg-white shadow-md rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-lg font-semibold mb-5 text-gray-800"> Swapped Products</h3>
-
-        <x-section-table :data="$activeSwaps" empty="No active swaps yet.">
-            <x-slot name="header">
-                <tr>
-                    <th>My Product</th>
-                    <th>Swapped With</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                </tr>
-            </x-slot>
-
-            @foreach ($activeSwaps as $swap)
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="px-6 py-4">{{ $swap->myProduct->title ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $swap->otherProduct->title ?? 'N/A' }}</td>
-                    <td class="px-6 py-4">{{ $swap->created_at->format('Y-m-d') }}</td>
-                    <td class="px-6 py-4">
-                        <span class="bg-green-100 text-green-700 px-2 py-1 text-xs font-semibold rounded">
-                            {{ ucfirst($swap->status) }}
-                        </span>
-                    </td>
-                </tr>
-            @endforeach
-        </x-section-table>
-    </div>
-
-    {{-- ==================== SECTION 6: Sales Summary ==================== --}}
-    <div class="bg-white shadow-md rounded-2xl p-6 border border-gray-100">
-        <h3 class="text-lg font-semibold mb-5 text-gray-800"> Sales Summary </h3>
-
-        <table class="w-full text-sm text-left text-gray-600 border-collapse">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
-                <tr>
-                    <th class="px-6 py-3">Product</th>
-                    <th class="px-6 py-3">Unit Price</th>
-                    <th class="px-6 py-3">Units Sold</th>
-                    <th class="px-6 py-3">Remaining Qty</th>
-                    <th class="px-6 py-3">Total Revenue</th>
-                    <th class="px-6 py-3">Status</th>
-                    <th class="px-6 py-3">Last Sale</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($soldProducts as $sold)
-                    @php
-                        $unitsSold = $sold->orders->sum(fn($o) => $o->quantity ?? 1);
-                        $totalRevenue = ($sold->price ?? 0) * $unitsSold;
-                        $lastSale = $sold->orders->max('created_at');
-                    @endphp
-                    <tr class="border-b hover:bg-gray-50 transition">
-                        <td class="px-6 py-4 font-medium text-gray-900">{{ $sold->title }}</td>
-                        <td class="px-6 py-4">Rs. {{ number_format($sold->price,2) }}</td>
-                        <td class="px-6 py-4">{{ $unitsSold }}</td>
-                        <td class="px-6 py-4">{{ $sold->quantity }}</td>
-                        <td class="px-6 py-4">Rs. {{ number_format($totalRevenue,2) }}</td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded text-xs
-                                @if($sold->status==='sold') bg-red-100 text-red-700
-                                @elseif($sold->status==='available') bg-green-100 text-green-700
-                                @else bg-gray-100 text-gray-600 @endif">
-                                {{ ucfirst($sold->status) }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4">{{ $lastSale ? $lastSale->format('Y-m-d') : '—' }}</td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="7" class="text-center py-6 text-gray-500">No sales yet.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-
-</div>
+<div class="h-8"></div>
 @endsection

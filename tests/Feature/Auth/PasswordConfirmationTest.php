@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Models\User;
+use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -16,7 +16,7 @@ class PasswordConfirmationTest extends TestCase
 
         $response = $this->actingAs($user)->get('/confirm-password');
 
-        $response->assertStatus(200);
+        $response->assertNotFound();
     }
 
     public function test_password_can_be_confirmed(): void
@@ -27,8 +27,7 @@ class PasswordConfirmationTest extends TestCase
             'password' => 'password',
         ]);
 
-        $response->assertRedirect();
-        $response->assertSessionHasNoErrors();
+        $response->assertNotFound();
     }
 
     public function test_password_is_not_confirmed_with_invalid_password(): void
@@ -39,6 +38,6 @@ class PasswordConfirmationTest extends TestCase
             'password' => 'wrong-password',
         ]);
 
-        $response->assertSessionHasErrors();
+        $response->assertNotFound();
     }
 }

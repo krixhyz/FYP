@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\User\User;
 
 class Product extends Model
 {
@@ -16,17 +17,24 @@ class Product extends Model
         'description',
         'flagged',
         'price',
-        'quantity', // NEW
+        'quantity',
         'type',
-        'category',
+        'category_id',
+        'condition',
         'image',
-        'status', 
+        'images',
+        'status',
+        'approval_status',
+        'rent_duration',
     ];
 
     protected $casts = [
-        'type' => 'array', // important for multi-type support
-        'quantity' => 'integer', // NEW
+        'type' => 'array',
+        'quantity' => 'integer',
         'flagged' => 'boolean',
+        'images' => 'array',
+        'approval_status' => 'string',
+        'condition' => 'string',
     ];
 
 
@@ -56,6 +64,29 @@ class Product extends Model
 
     // Fallback — return empty array
     return [];
+}
+
+public function setCategoryAttribute($value): void
+{
+    if (blank($value)) {
+        return;
+    }
+
+    $name = trim((string) $value);
+    if ($name === '') {
+        return;
+    }
+
+    $category = Category::firstOrCreate(
+        ['name' => ucfirst($name), 'parent_id' => null],
+        [
+            'base_co2_kg' => 1.00,
+            'reuse_pct' => 50.00,
+            'eco_points' => 10.00,
+        ]
+    );
+
+    $this->attributes['category_id'] = $category->id;
 }
 
 
@@ -94,5 +125,48 @@ public function orders()
     return $this->hasMany(\App\Models\Order::class); // NEW
 }
 
+public function reviews()
+{
+    return $this->hasMany(\App\Models\Review::class);
+}
 
+// Scopes for product filtering
+public function scopeApproved($query)
+{
+    return $query->where('approval_status', 'APPROVED');
+}
+
+public function scopePending($query)
+{
+    return $query->where('approval_status', 'PENDING');
+}
+
+public function scopeRejected($query)
+{
+    return $query->where('approval_status', 'REJECTED');
+}
+
+// Helper methods
+public function isApproved(): bool
+{
+    return $this->approval_status === 'APPROVED';
+}
+
+public function isPending(): bool
+{
+    return $this->approval_status === 'PENDING';
+}
+
+public function isRejected(): bool
+{
+    return $this->approval_status === 'REJECTED';
+}
+
+/**
+ * Relationship: Product belongs to a Category
+ */
+public function category(): BelongsTo
+{
+    return $this->belongsTo(Category::class);
+}
 }

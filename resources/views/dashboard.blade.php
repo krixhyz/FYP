@@ -1,305 +1,267 @@
-@extends('layouts.app')
+@extends('layouts.dashboard')
 
 @section('content')
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Hero -->
-        <div class="bg-gradient-to-r from-green-600 to-emerald-500 rounded-xl p-8 mb-8 text-white shadow-md">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="text-3xl font-bold mb-1">Welcome back, {{ auth()->user()->name ?? 'User' }}</h2>
-                    <p class="text-green-100 text-lg">You're ready to manage your listings and rentals.</p>
-                </div>
+<!-- Welcome Section -->
+<section class="px-0 md:px-8 py-8">
+    <div class="mb-2">
+        <p class="font-space text-[12px] font-bold uppercase tracking-widest text-[#888]">Welcome back</p>
+    </div>
+    <h1 class="font-space font-bold text-4xl text-[#1a1c1c] mb-2">{{ $user->name ?? 'User' }}</h1>
+    <p class="font-manrope text-base text-[#444746]">Your workspace dashboard with real-time metrics from your listings, orders, and rentals.</p>
+</section>
+
+<!-- Overview Cards -->
+<section class="px-0 md:px-8 py-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- Active Listings -->
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-1">Active Listings</p>
+                <p class="font-space font-bold text-3xl text-[#006a38]">{{ $sellerMetrics['active_units'] ?? 0 }}</p>
+            </div>
+            <div class="bg-[#f0f8f5] rounded-lg p-3">
+                <svg class="w-6 h-6 text-[#006a38]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                </svg>
             </div>
         </div>
+    </div>
 
-        <!-- Quick Actions -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <a href="{{ route('products.create') }}" class="group bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm hover:shadow-md border border-gray-200 dark:border-gray-700 transition-all">
-                <div class="flex items-center">
-                    <div class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center group-hover:bg-green-200 dark:group-hover:bg-green-800 transition-colors">
-                        <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                        </svg>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Add Listing</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Create a new rental listing</p>
-                    </div>
-                </div>
-            </a>
-
-            <a href="{{ route('products.myListings') }}" class="group bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm hover:shadow-md border border-gray-200 dark:border-gray-700 transition-all">
-                <div class="flex items-center">
-                    <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-800 transition-colors">
-                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18" />
-                        </svg>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">My Listings</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Manage your active listings</p>
-                    </div>
-                </div>
-            </a>
-
-            <a href="{{ route('products.myPurchases') }}" class="group bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm hover:shadow-md border border-gray-200 dark:border-gray-700 transition-all">
-                <div class="flex items-center">
-                    <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center group-hover:bg-purple-200 dark:group-hover:bg-purple-800 transition-colors">
-                        <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h18l-2 13H5L3 3zm5 16h8a2 2 0 104 0H8a2 2 0 10-4 0z" />
-                        </svg>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">My Purchases</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">View your rental history</p>
-                    </div>
-                </div>
-            </a>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-           <!-- Notifications -->
-<div class="lg:col-span-2">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Notifications</h3>
-            <span id="notification-badge" class="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                {{ auth()->user()->unreadNotifications->count() }} New
-            </span>
-        </div>
-
-        <div class="p-6 space-y-6 min-h-[200px]">
-            @php
-                $grouped = [
-                    'requests' => [],
-                    'accepted' => [],
-                    'rejected' => [],
-                ];
-
-                foreach (auth()->user()->unreadNotifications as $notification) {
-                    $type = $notification->data['type'] ?? 'unknown';
-                    $group = match(true) {
-                        in_array($type, ['rental', 'swap']) => 'requests',
-                        in_array($type, ['rentalAccept', 'swapAccept']) => 'accepted',
-                        in_array($type, ['rentalReject', 'swapReject']) => 'rejected',
-                        default => null,
-                    };
-                    if ($group) $grouped[$group][] = $notification;
-                }
-            @endphp
-
-            @foreach (['requests' => 'New Requests', 'accepted' => 'Accepted', 'rejected' => 'Rejected'] as $key => $label)
-                @if (count($grouped[$key]))
-                    <div>
-                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{{ $label }}</h4>
-                        <div class="space-y-3">
-                            @foreach ($grouped[$key] as $notification)
-                                @php
-                                    $type = $notification->data['type'] ?? 'unknown';
-                                    $id = $notification->id;
-
-                                    $message = match($type) {
-                                        'rentalAccept' => 'Your rental request has been accepted.',
-                                        'rentalReject' => 'Your rental request has been rejected.',
-                                        'swapAccept' => 'Your swap request has been accepted.',
-                                        'swapReject' => 'Your swap request has been rejected.',
-                                        'rental' => 'You have a new rental request.',
-                                        'swap' => 'You have a new swap request.',
-                                        default => $notification->data['message'] ?? 'You have a new notification.',
-                                    };
-
-                                    $readUrl = match(true) {
-                                        $type === 'rental' => route('rental.review', ['request' => $notification->data['rental_request_id'] ?? 0]),
-                                        $type === 'swap' => route('swap.request.incoming', $notification->data['swap_request_id'] ?? 0),
-                                        in_array($type, ['rentalAccept', 'swapAccept']) => route('products.myPurchases'),
-                                        default => request()->url(),
-                                    };
-                                @endphp
-
-                                <a href="{{ $readUrl }}" data-notification-id="{{ $id }}"
-                                   class="notification-item flex items-start space-x-4 p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors block"
-                                   onclick="event.preventDefault(); markReadAndRedirect(this);">
-                                    <div class="flex-shrink-0">
-                                        <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                                            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 8V6a2 2 0 00-2-2H5a2 2 0 00-2 2v2m18 0l-9 6-9-6m18 0v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8" />
-                                            </svg>
-                                        </div>
-                                    </div>
-
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $message }}</p>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $notification->created_at->diffForHumans() }}</p>
-
-                                        @if ($key === 'accepted')
-                                            <div class="mt-2">
-                                                <a href="{{ route('products.myPurchases') }}" class="text-blue-600 dark:text-blue-400 text-xs font-medium hover:underline">
-                                                    {{ $type === 'rentalAccept' ? 'View Rental →' : 'View Swap →' }}
-                                                </a>
-                                            </div>
-                                        @elseif ($key === 'requests')
-                                            <div class="mt-2">
-                                                <span class="text-blue-600 dark:text-blue-400 text-xs font-medium hover:underline">View Request →</span>
-                                            </div>
-                                        @endif
-                                    </div>
-                                </a>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
-            @endforeach
-
-            @if (count($grouped['requests']) + count($grouped['accepted']) + count($grouped['rejected']) === 0)
-                <div class="text-center py-8">
-                    <div class="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M3 8v8a2 2 0 002 2h14a2 2 0 002-2V8m-9 6v6" />
-                        </svg>
-                    </div>
-                    <p class="text-gray-500 dark:text-gray-400">No new notifications</p>
-                    <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">You're all caught up.</p>
-                </div>
-            @endif
+    <!-- Total Orders -->
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-1">Total Orders</p>
+                <p class="font-space font-bold text-3xl text-[#006a38]">{{ $buyerMetrics['purchases_count'] ?? 0 }}</p>
+            </div>
+            <div class="bg-[#f0f8f5] rounded-lg p-3">
+                <svg class="w-6 h-6 text-[#006a38]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                </svg>
+            </div>
         </div>
     </div>
-</div>
 
-
-            <!-- Quick Stats -->
-            <aside class="space-y-6">
-                {{-- Seller Metrics --}}
-                <div class="bg-white rounded-xl shadow p-5">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4">Seller Metrics</h3>
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <p class="text-gray-500">Units Listed</p>
-                            <p class="font-bold">{{ $sellerMetrics['total_units_listed'] }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500">Active Units</p>
-                            <p class="font-bold">{{ $sellerMetrics['active_units'] }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500">Units Sold</p>
-                            <p class="font-bold">{{ $sellerMetrics['units_sold'] }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500">Sales Revenue</p>
-                            <p class="font-bold">Rs. {{ number_format($sellerMetrics['sales_revenue'],2) }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500">Active Rentals (Owner)</p>
-                            <p class="font-bold">{{ $sellerMetrics['active_rentals_owner'] }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500">Rental Revenue</p>
-                            <p class="font-bold">Rs. {{ number_format($sellerMetrics['rental_revenue_owner'],2) }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Buyer Metrics --}}
-                <div class="bg-white rounded-xl shadow p-5">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4">Buyer Metrics</h3>
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <p class="text-gray-500">Purchases</p>
-                            <p class="font-bold">{{ $buyerMetrics['purchases_count'] }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500">Units Bought</p>
-                            <p class="font-bold">{{ $buyerMetrics['purchased_units'] }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500">Total Spent</p>
-                            <p class="font-bold">Rs. {{ number_format($buyerMetrics['total_spent'],2) }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500">Active Rentals (Renter)</p>
-                            <p class="font-bold">{{ $buyerMetrics['active_rentals_renter'] }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500">Completed Swaps</p>
-                            <p class="font-bold">{{ $buyerMetrics['completed_swaps'] }}</p>
-                        </div>
-                    </div>
-                </div>
-            </aside>
+    <!-- Active Rentals -->
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-1">Active Rentals</p>
+                <p class="font-space font-bold text-3xl text-[#006a38]">{{ $buyerMetrics['active_rentals_renter'] ?? 0 }}</p>
+            </div>
+            <div class="bg-[#f0f8f5] rounded-lg p-3">
+                <svg class="w-6 h-6 text-[#006a38]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                </svg>
+            </div>
         </div>
+    </div>
 
-        <div class="mt-8">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div class="p-5 border-b border-gray-100 flex items-center justify-between">
-            <h2 class="font-semibold">Flagged Products</h2>
-            <span class="text-sm text-gray-500">
-                These items were flagged by moderators. Review or edit to resolve.
-            </span>
+    <!-- Eco Score -->
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-1">Eco Score</p>
+                <p class="font-space font-bold text-3xl text-[#006a38]">{{ number_format($ecoMetrics['total_eco_score'] ?? 0, 0) }}</p>
+            </div>
+            <div class="bg-[#f0f8f5] rounded-lg p-3">
+                <svg class="w-6 h-6 text-[#006a38]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+            </div>
         </div>
-        <ul class="divide-y divide-gray-100">
-            @php
-                $flagged = auth()->user()->products()->where('flagged', true)->latest()->get();
-            @endphp
-            @forelse ($flagged as $product)
-                <li class="p-5">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <div class="font-medium">{{ $product->title }}</div>
-                            <div class="text-sm text-gray-500">{{ \Illuminate\Support\Str::limit($product->description, 120) }}</div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="px-2.5 py-1 rounded text-xs bg-red-100 text-red-700">Flagged</span>
-                            <a href="{{ route('products.edit', $product->id) }}"
-                               class="px-3 py-1 rounded bg-indigo-600 text-white text-xs hover:bg-indigo-700">Edit</a>
+    </div>
+</section>
+
+<!-- Main Content Grid -->
+<div class="px-0 md:px-8 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Recent Notifications (spans 2 columns) -->
+    <div class="lg:col-span-2 bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)]">
+        <div class="px-6 py-4 border-b border-[rgba(189,202,189,0.1)] flex items-center justify-between">
+            <h2 class="font-space text-sm font-bold uppercase tracking-widest text-[#1a1c1c]">Recent Notifications</h2>
+            <a href="{{ route('notifications.index') }}" class="text-[12px] text-[#006a38] font-space font-bold hover:underline">View All</a>
+        </div>
+        <div class="divide-y divide-[rgba(189,202,189,0.1)]">
+            @forelse ($user->unreadNotifications->take(3) as $notification)
+                <a href="{{ route('notifications.index') }}" class="block px-6 py-4 hover:bg-[#f9f9f9] transition-colors">
+                    <div class="flex items-start gap-3">
+                        <div class="w-2 h-2 rounded-full bg-[#006a38] mt-2 flex-shrink-0"></div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-manrope text-sm text-[#1a1c1c]">{{ $notification->data['message'] ?? 'New activity in your workspace.' }}</p>
+                            <p class="mt-1 font-manrope text-xs text-[#888]">{{ $notification->created_at->diffForHumans() }}</p>
                         </div>
                     </div>
-                </li>
+                </a>
             @empty
-                <li class="p-5 text-sm text-gray-500">No flagged products.</li>
+                <div class="px-6 py-8 text-center text-[#888]">
+                    <p class="font-manrope text-sm">No new notifications</p>
+                </div>
             @endforelse
-        </ul>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)] p-6">
+        <h2 class="font-space text-sm font-bold uppercase tracking-widest text-[#1a1c1c] mb-4">Quick Actions</h2>
+        <div class="space-y-3">
+            <a href="{{ route('products.create') }}" class="w-full block bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-4 py-3 font-space font-bold text-sm uppercase tracking-wider text-center rounded-lg hover:brightness-110 transition-all">New Listing</a>
+            <a href="{{ route('products.myListings') }}" class="w-full block bg-transparent border-2 border-[#006a38] text-[#006a38] px-4 py-3 font-space font-bold text-sm uppercase tracking-wider text-center rounded-lg hover:bg-[rgba(0,106,56,0.06)] transition-all">View Listings</a>
+            <a href="{{ route('wallet.index') }}" class="w-full block bg-transparent border-2 border-[#006a38] text-[#006a38] px-4 py-3 font-space font-bold text-sm uppercase tracking-wider text-center rounded-lg hover:bg-[rgba(0,106,56,0.06)] transition-all">Open Wallet</a>
+            <a href="{{ route('notifications.index') }}" class="w-full block bg-transparent border-2 border-[#006a38] text-[#006a38] px-4 py-3 font-space font-bold text-sm uppercase tracking-wider text-center rounded-lg hover:bg-[rgba(0,106,56,0.06)] transition-all">Check Inbox</a>
+        </div>
     </div>
 </div>
+
+<!-- My Listings Preview -->
+<section class="px-0 md:px-8 py-6">
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)]">
+        <div class="px-6 py-4 border-b border-[rgba(189,202,189,0.1)] flex items-center justify-between">
+            <h2 class="font-space text-sm font-bold uppercase tracking-widest text-[#1a1c1c]">My Listings</h2>
+            <a href="{{ route('products.myListings') }}" class="text-[12px] text-[#006a38] font-space font-bold hover:underline">View All</a>
+        </div>
+        
+        @php
+            $recentListings = collect($products ?? [])->take(3);
+        @endphp
+        
+        @if($recentListings->count() > 0)
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+                @foreach($recentListings as $product)
+                    <a href="{{ route('products.show', $product->id) }}" class="group">
+                        <div class="bg-[#f9f9f9] rounded-lg overflow-hidden border border-[rgba(189,202,189,0.1)] hover:border-[#006a38] transition-all">
+                            <div class="aspect-square bg-[#e2e2e2] overflow-hidden relative">
+                                @php
+                                    $firstImage = null;
+                                    if (is_array($product->images) && !empty($product->images)) {
+                                        $firstImage = $product->images[0];
+                                    } elseif (is_string($product->images) && $product->images !== '') {
+                                        $firstImage = $product->images;
+                                    }
+
+                                    if (is_array($firstImage)) {
+                                        $firstImage = $firstImage['path'] ?? null;
+                                    }
+
+                                    $displayImage = $firstImage ?: $product->image;
+                                @endphp
+                                @if($displayImage)
+                                    <img src="{{ asset('storage/' . $displayImage) }}" alt="{{ $product->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+                                @else
+                                    <div class="w-full h-full flex items-center justify-center text-[#888]">
+                                        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                        </svg>
+                                    </div>
+                                @endif
+                            </div>
+                            <div class="p-4">
+                                <h3 class="font-space font-bold text-sm text-[#1a1c1c] group-hover:text-[#006a38] line-clamp-2">{{ $product->title }}</h3>
+                                <div class="mt-2 flex items-center justify-between">
+                                    <p class="font-space font-bold text-lg text-[#006a38]">Rs. {{ number_format($product->price, 0) }}</p>
+                                    <span class="text-[10px] font-space font-bold px-2 py-1 rounded bg-[#f0f8f5] text-[#006a38]">{{ $product->quantity }} in stock</span>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                @endforeach
+            </div>
+        @else
+            <div class="px-6 py-8 text-center">
+                <p class="font-manrope text-sm text-[#888] mb-4">You haven't created any listings yet.</p>
+                <a href="{{ route('products.create') }}" class="inline-block bg-gradient-to-br from-[#006a38] to-[#09864a] text-white px-6 py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 transition-all rounded-lg">Create First Listing</a>
+            </div>
+        @endif
     </div>
+</section>
 
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+<!-- Recent Orders Preview -->
+<section class="px-0 md:px-8 py-6">
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)]">
+        <div class="px-6 py-4 border-b border-[rgba(189,202,189,0.1)] flex items-center justify-between">
+            <h2 class="font-space text-sm font-bold uppercase tracking-widest text-[#1a1c1c]">Recent Orders</h2>
+            <a href="{{ route('products.myPurchases') }}" class="text-[12px] text-[#006a38] font-space font-bold hover:underline">View All</a>
+        </div>
+        
+        @php
+            $recentOrders = collect($orders ?? [])->take(5);
+        @endphp
+        
+        @if($recentOrders->count() > 0)
+            <div class="divide-y divide-[rgba(189,202,189,0.1)]">
+                @foreach($recentOrders as $order)
+                    <div class="px-6 py-4 hover:bg-[#f9f9f9] transition-colors">
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex-1 min-w-0">
+                                <h3 class="font-space font-bold text-sm text-[#1a1c1c]">{{ $order->product?->title ?? 'Product' }}</h3>
+                                <div class="mt-1 flex items-center gap-4">
+                                    <p class="font-manrope text-xs text-[#888]">{{ $order->created_at->format('M d, Y') }}</p>
+                                    <p class="font-manrope text-xs text-[#888]">Qty: {{ $order->quantity ?? 1 }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 flex-shrink-0">
+                                <p class="font-space font-bold text-sm text-[#006a38]">Rs. {{ number_format($order->total_price ?? (($order->unit_price ?? 0) * ($order->quantity ?? 1)), 0) }}</p>
+                                <span class="text-[10px] font-space font-bold px-2 py-1 rounded {{ $order->status === 'pending' ? 'bg-[#ffd580] text-[#664d03]' : 'bg-[#d4edda] text-[#155724]' }}">
+                                    {{ ucfirst($order->status ?? 'pending') }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <div class="px-6 py-8 text-center">
+                <p class="font-manrope text-sm text-[#888]">No orders yet</p>
+            </div>
+        @endif
+    </div>
+</section>
 
-    <script>
-        // Dark mode toggle persistence
-        (function() {
-            if (localStorage.getItem('darkMode') === 'true') {
-                document.documentElement.classList.add('dark');
-            }
-            const toggle = document.getElementById('darkToggle');
-            toggle?.addEventListener('click', () => {
-                document.documentElement.classList.toggle('dark');
-                const isDark = document.documentElement.classList.contains('dark');
-                localStorage.setItem('darkMode', isDark);
-            });
-        })();
+<!-- Sustainability Impact -->
+<section class="px-0 md:px-8 py-6">
+    <div class="bg-white rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.07)] border border-[rgba(189,202,189,0.1)]">
+        <div class="px-6 py-4 border-b border-[rgba(189,202,189,0.1)]">
+            <h2 class="font-space text-sm font-bold uppercase tracking-widest text-[#1a1c1c]">Sustainability Impact</h2>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
+            <div class="text-center">
+                <div class="flex justify-center mb-3">
+                    <div class="bg-[#f0f8f5] rounded-full p-4">
+                        <svg class="w-8 h-8 text-[#006a38]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 015.646 5.646 9 9 0 0120.354 15.354z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-1">Items Reused</p>
+                <p class="font-space font-bold text-3xl text-[#006a38]">{{ $ecoMetrics['eco_stats']['transaction_count'] ?? 0 }}</p>
+            </div>
 
-        async function markReadAndRedirect(el) {
-    const id = el.dataset.notificationId;
-    const url = el.getAttribute('href') || "{{ route('products.myPurchases') }}"; // fallback if href is missing
+            <div class="text-center">
+                <div class="flex justify-center mb-3">
+                    <div class="bg-[#f0f8f5] rounded-full p-4">
+                        <svg class="w-8 h-8 text-[#006a38]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-1">Total Eco Points</p>
+                <p class="font-space font-bold text-3xl text-[#006a38]">{{ number_format($ecoMetrics['total_eco_score'] ?? 0, 0) }}</p>
+            </div>
 
-    if (!id) return window.location.href = url;
+            <div class="text-center">
+                <div class="flex justify-center mb-3">
+                    <div class="bg-[#f0f8f5] rounded-full p-4">
+                        <svg class="w-8 h-8 text-[#006a38]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#888] mb-1">Eco Level</p>
+                <p class="font-space font-bold text-3xl text-[#006a38]">{{ $ecoMetrics['current_eco_level'] ?? 'None' }}</p>
+            </div>
+        </div>
+    </div>
+</section>
 
-    try {
-        const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-        await fetch("{{ route('notifications.markRead') }}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': token,
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({ id })
-        });
-    } catch (e) {
-        console.error(e);
-    } finally {
-        window.location.href = url;
-    }
-}
-    </script>
+<div class="h-8"></div>
 @endsection

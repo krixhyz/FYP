@@ -6,15 +6,65 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? config('app.name', 'Laravel') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+    @auth
+    <script>
+        window.Laravel = {
+            userId: {{ auth()->id() }},
+            csrfToken: '{{ csrf_token() }}'
+        };
+    </script>
+    @endauth
 </head>
-<body class="min-h-screen bg-gray-50 text-gray-900 antialiased">
-    {{-- Navbar --}}
+<body class="bg-[#f9f9f9] font-manrope text-[#1a1c1c]">
     @include('layouts.navigation')
 
-    <main class="max-w-7xl mx-auto p-6">
-        @yield('content')
+    <main class="mx-auto mt-8 w-full max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+        <div class="surface-card p-4 sm:p-6 lg:p-8">
+            @yield('content')
+        </div>
     </main>
+
+    @include('layouts.footer')
+
+    @php
+        $flashToasts = [
+            'success' => session('success'),
+            'error' => session('error'),
+            'warning' => session('warning'),
+            'info' => session('info'),
+        ];
+    @endphp
+
+    @if(collect($flashToasts)->filter()->isNotEmpty())
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const flashToasts = @json($flashToasts);
+
+                const renderToast = (type, message) => {
+                    if (!message) return;
+
+                    if (window.toastr && typeof window.toastr[type] === 'function') {
+                        window.toastr[type](message);
+                        return;
+                    }
+
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(message, null, null, type);
+                    }
+                };
+
+                renderToast('success', flashToasts.success);
+                renderToast('error', flashToasts.error);
+                renderToast('warning', flashToasts.warning);
+                renderToast('info', flashToasts.info);
+            });
+        </script>
+    @endif
+
+    @stack('scripts')
 </body>
 
 </html>
