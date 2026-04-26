@@ -45,15 +45,37 @@
 
                 <div>
                     <label for="password" class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] block mb-1.5">Password</label>
-                    <input id="password" name="password" type="password" required
-                           class="bg-white border border-[rgba(68,71,70,0.2)] px-3 py-2.5 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 w-full rounded-md">
+                    <div class="relative">
+                        <input id="password" name="password" type="password" required
+                               class="bg-white border border-[rgba(68,71,70,0.2)] px-3 py-2.5 pr-16 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 w-full rounded-md"
+                               data-password-input>
+                        <button type="button"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 font-space text-[10px] font-bold uppercase tracking-widest text-[#006a38] hover:text-[#004a29] focus:outline-none focus:ring-2 focus:ring-[#006a38]/25"
+                                data-password-toggle
+                                data-target="password"
+                                aria-controls="password"
+                                aria-label="Show password">
+                            Show
+                        </button>
+                    </div>
                     @error('password')<p class="font-manrope text-sm text-[#ba1a1a] mt-1">{{ $message }}</p>@enderror
                 </div>
 
                 <div>
                     <label for="password_confirmation" class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] block mb-1.5">Confirm Password</label>
-                    <input id="password_confirmation" name="password_confirmation" type="password" required
-                           class="bg-white border border-[rgba(68,71,70,0.2)] px-3 py-2.5 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 w-full rounded-md">
+                    <div class="relative">
+                        <input id="password_confirmation" name="password_confirmation" type="password" required
+                               class="bg-white border border-[rgba(68,71,70,0.2)] px-3 py-2.5 pr-16 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 w-full rounded-md"
+                               data-password-input>
+                        <button type="button"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 font-space text-[10px] font-bold uppercase tracking-widest text-[#006a38] hover:text-[#004a29] focus:outline-none focus:ring-2 focus:ring-[#006a38]/25"
+                                data-password-toggle
+                                data-target="password_confirmation"
+                                aria-controls="password_confirmation"
+                                aria-label="Show password confirmation">
+                            Show
+                        </button>
+                    </div>
                 </div>
             </section>
 
@@ -68,6 +90,7 @@
                         <label for="province_id" class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] block mb-1.5">Province</label>
                         <select id="province_id"
                                 name="province_id"
+                            data-old-province="{{ old('province_id') }}"
                                 required
                                 class="bg-white border border-[rgba(68,71,70,0.2)] px-3 py-2.5 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 w-full rounded-md">
                             <option value="">Select province</option>
@@ -85,6 +108,7 @@
                         </div>
                         <select id="city_id"
                                 name="city_id"
+                            data-old-city="{{ old('city_id') }}"
                                 required
                                 class="bg-white border border-[rgba(68,71,70,0.2)] px-3 py-2.5 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 w-full rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
                             <option value="">Choose province first</option>
@@ -117,87 +141,4 @@
         </p>
     </form>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const provinceSelect = document.getElementById('province_id');
-            const citySelect = document.getElementById('city_id');
-            const loadingLabel = document.querySelector('[x-show="loadingCities"]');
-            const oldProvince = '{{ old('province_id') }}';
-            const oldCity = '{{ old('city_id') }}';
-
-            const setLoading = (loading) => {
-                citySelect.disabled = loading || !provinceSelect.value;
-                if (loadingLabel) {
-                    loadingLabel.style.display = loading ? 'inline' : 'none';
-                }
-            };
-
-            const resetCityOptions = (placeholder = 'Choose province first') => {
-                citySelect.innerHTML = '';
-                const option = document.createElement('option');
-                option.value = '';
-                option.textContent = placeholder;
-                citySelect.appendChild(option);
-            };
-
-            const populateCities = (cities, selectedCity = '') => {
-                resetCityOptions('Select city');
-
-                cities.forEach((city) => {
-                    const option = document.createElement('option');
-                    option.value = String(city.id);
-                    option.textContent = city.name;
-
-                    if (selectedCity && String(city.id) === String(selectedCity)) {
-                        option.selected = true;
-                    }
-
-                    citySelect.appendChild(option);
-                });
-            };
-
-            const fetchCities = async (provinceId, selectedCity = '') => {
-                if (!provinceId) {
-                    resetCityOptions();
-                    setLoading(false);
-                    return;
-                }
-
-                setLoading(true);
-
-                try {
-                    const response = await fetch(`/api/cities/${provinceId}`, {
-                        headers: { 'Accept': 'application/json' },
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Failed to load cities');
-                    }
-
-                    const payload = await response.json();
-                    const cities = Array.isArray(payload) ? payload : [];
-                    populateCities(cities, selectedCity);
-                    citySelect.disabled = false;
-                } catch (error) {
-                    resetCityOptions('No cities available');
-                    citySelect.disabled = true;
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            provinceSelect.addEventListener('change', () => {
-                fetchCities(provinceSelect.value, '');
-            });
-
-            if (oldProvince) {
-                provinceSelect.value = oldProvince;
-                fetchCities(oldProvince, oldCity);
-            } else {
-                resetCityOptions();
-                citySelect.disabled = true;
-                setLoading(false);
-            }
-        });
-    </script>
 @endsection

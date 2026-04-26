@@ -82,8 +82,9 @@
                 <!-- Image with Wishlist Heart -->
                 <div class="relative aspect-[4/3] bg-[#f3f3f3] overflow-hidden">
                     <a href="{{ route('products.show', $product->id) }}" class="absolute inset-0">
+                        @php use App\Helpers\ImageUrlHelper; @endphp
                         @if($product->image)
-                            <img src="{{ asset('storage/' . $product->image) }}"
+                            <img src="{{ ImageUrlHelper::getProductImageUrl($product->image) }}"
                                  alt="{{ $product->title }}"
                                  class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
                         @else

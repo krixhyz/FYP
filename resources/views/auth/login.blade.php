@@ -32,8 +32,19 @@
                 <label for="password" class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746]">Password</label>
                 <a href="{{ route('password.request') }}" class="font-space text-xs font-bold uppercase tracking-widest text-[#006a38] hover:text-[#004a29]">Forgot password?</a>
             </div>
-            <input id="password" name="password" type="password" required
-                   class="bg-[#f3f3f3] border-0 border-b-2 border-gray-400 px-3 py-2.5 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 w-full">
+            <div class="relative">
+                <input id="password" name="password" type="password" required
+                       class="bg-[#f3f3f3] border-0 border-b-2 border-gray-400 px-3 py-2.5 pr-16 font-manrope text-sm focus:border-[#006a38] focus:outline-none focus:ring-0 w-full"
+                       data-password-input>
+                <button type="button"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 font-space text-[10px] font-bold uppercase tracking-widest text-[#006a38] hover:text-[#004a29] focus:outline-none focus:ring-2 focus:ring-[#006a38]/25"
+                        data-password-toggle
+                        data-target="password"
+                        aria-controls="password"
+                        aria-label="Show password">
+                    Show
+                </button>
+            </div>
             @error('password')<p class="font-manrope text-sm text-[#ba1a1a] mt-1">{{ $message }}</p>@enderror
         </div>
 

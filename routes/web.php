@@ -55,7 +55,60 @@ use App\Http\Controllers\User\PaymentController;
 
 
 
-Route::view('/', 'landing')->name('landing');
+Route::get('/', function () {
+    $featuredProducts = \App\Models\Product::query()
+        ->with('category')
+        ->where('status', 'available')
+        ->where(function ($query) {
+            if (auth()->check()) {
+                $query->where('approval_status', 'APPROVED');
+                return;
+            }
+
+            $query->whereIn('approval_status', ['APPROVED', 'PENDING']);
+        })
+        ->when(auth()->check(), fn ($query) => $query->where('user_id', '!=', auth()->id()))
+        ->latest()
+        ->take(6)
+        ->get();
+
+    $parentCategories = \App\Models\Category::query()
+        ->whereNull('parent_id')
+        ->with(['children:id,parent_id'])
+        ->orderBy('name')
+        ->get();
+
+    $allCategoryIds = $parentCategories
+        ->flatMap(fn ($category) => collect([$category->id])->merge($category->children->pluck('id')))
+        ->unique()
+        ->values();
+
+    $visibleApprovalStatuses = auth()->check() ? ['APPROVED'] : ['APPROVED', 'PENDING'];
+
+    $productCountByCategoryId = \App\Models\Product::query()
+        ->selectRaw('category_id, COUNT(*) as total')
+        ->where('status', 'available')
+        ->whereIn('approval_status', $visibleApprovalStatuses)
+        ->whereIn('category_id', $allCategoryIds)
+        ->groupBy('category_id')
+        ->pluck('total', 'category_id');
+
+    $topCategories = $parentCategories
+        ->map(function ($category) use ($productCountByCategoryId) {
+            $relatedIds = collect([$category->id])->merge($category->children->pluck('id'));
+
+            $category->products_count = $relatedIds->sum(
+                fn ($id) => (int) ($productCountByCategoryId[(int) $id] ?? 0)
+            );
+
+            return $category;
+        })
+        ->sortByDesc('products_count')
+        ->take(6)
+        ->values();
+
+    return view('landing', compact('featuredProducts', 'topCategories'));
+})->name('landing');
 Route::get('/marketplace', [ProductController::class, 'index'])->name('products.index');
 
 

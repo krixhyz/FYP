@@ -224,6 +224,7 @@
             <label class="field-label">Product Images <span class="font-manrope text-[#888888] font-normal">(up to 6)</span></label>
 
             {{-- Existing images (edit mode) --}}
+            @php use App\Helpers\ImageUrlHelper; @endphp
             @if(!empty($product->images))
                 <p class="font-manrope text-xs text-[#444746] mb-2">Current images &mdash; check to remove:</p>
                 <div class="flex flex-wrap gap-3 mb-3">
@@ -231,7 +232,7 @@
                         <label class="relative cursor-pointer group">
                             <input type="checkbox" name="remove_images[]" value="{{ $imgPath }}"
                                    class="absolute top-1 left-1 z-10 accent-red-500">
-                            <img src="{{ asset('storage/'.$imgPath) }}"
+                            <img src="{{ ImageUrlHelper::getProductImageUrl($imgPath) }}"
                                  class="w-24 h-24 object-cover border-2 border-[#bdbdbd] group-hover:opacity-75 transition">
                             <span class="absolute bottom-1 right-1 bg-[#ba1a1a] text-white text-xs px-1 hidden group-hover:block">Remove</span>
                         </label>
@@ -239,7 +240,7 @@
                 </div>
             @elseif(!empty($product->image))
                 <div class="flex flex-wrap gap-3 mb-3">
-                    <img src="{{ asset('storage/'.$product->image) }}" class="w-24 h-24 object-cover border-2 border-[#bdbdbd]">
+                    <img src="{{ ImageUrlHelper::getProductImageUrl($product->image) }}" class="w-24 h-24 object-cover border-2 border-[#bdbdbd]">
                 </div>
             @endif
 
@@ -251,7 +252,7 @@
                             <input type="hidden" name="temp_images[]" value="{{ $tmpPath }}">
                             <input type="checkbox" name="remove_temp_images[]" value="{{ $tmpPath }}"
                                    class="absolute top-1 left-1 z-10 accent-red-500">
-                            <img src="{{ asset('storage/'.$tmpPath) }}"
+                            <img src="{{ ImageUrlHelper::getProductImageUrl($tmpPath) }}"
                                  class="w-24 h-24 object-cover border-2 border-[#bdbdbd] group-hover:opacity-75 transition">
                             <span class="absolute bottom-1 right-1 bg-[#ba1a1a] text-white text-xs px-1 hidden group-hover:block">Remove</span>
                         </label>

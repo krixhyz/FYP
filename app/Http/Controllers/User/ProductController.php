@@ -536,22 +536,27 @@ public function update(Request $request, $id)
     private function promoteTemporaryImages(array $tempImages): array
     {
         $finalImages = [];
-
+        $disk = config('filesystems.default');
         foreach ($tempImages as $tempPath) {
             if (!str_starts_with($tempPath, 'uploads/tmp-products/')) {
                 continue;
             }
-
             if (!Storage::disk('public')->exists($tempPath)) {
                 continue;
             }
-
             $extension = pathinfo($tempPath, PATHINFO_EXTENSION);
             $finalPath = 'uploads/products/' . time() . '_' . uniqid() . ($extension ? '.' . $extension : '');
-            Storage::disk('public')->move($tempPath, $finalPath);
-            $finalImages[] = $finalPath;
+            $fileContents = Storage::disk('public')->get($tempPath);
+            if ($disk === 'cloudinary') {
+                // Upload to Cloudinary disk
+                $cloudinaryPath = Storage::disk('cloudinary')->put($finalPath, $fileContents);
+                $finalImages[] = $cloudinaryPath;
+                Storage::disk('public')->delete($tempPath);
+            } else {
+                Storage::disk('public')->move($tempPath, $finalPath);
+                $finalImages[] = $finalPath;
+            }
         }
-
         return $finalImages;
     }
 
@@ -668,9 +673,16 @@ public function update(Request $request, $id)
             $product->images ?? [],
             $product->image ? [$product->image] : []
         ));
+        $disk = config('filesystems.default');
         foreach (array_unique($allImages) as $path) {
-            if (Storage::disk('public')->exists($path)) {
-                Storage::disk('public')->delete($path);
+            if ($disk === 'cloudinary') {
+                if (Storage::disk('cloudinary')->exists($path)) {
+                    Storage::disk('cloudinary')->delete($path);
+                }
+            } else {
+                if (Storage::disk('public')->exists($path)) {
+                    Storage::disk('public')->delete($path);
+                }
             }
         }
 
