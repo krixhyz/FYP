@@ -13,12 +13,11 @@
     <!-- Left Column — Image Gallery -->
     <div class="lg:col-span-1">
         @php
-            use App\Helpers\ImageUrlHelper;
             $allImages = array_filter(array_unique(array_merge($product->images ?? [], $product->image ? [$product->image] : [])));
         @endphp
         <div class="aspect-square w-full object-cover bg-[#e8e8e8] rounded-lg overflow-hidden" id="mainImage">
             @if(count($allImages) > 0)
-                <img id="mainImg" src="{{ ImageUrlHelper::getProductImageUrl(reset($allImages)) }}"
+                <img id="mainImg" src="{{ \App\Helpers\ImageUrlHelper::getProductImageUrl(reset($allImages)) }}"
                      alt="{{ $product->title }}"
                      class="h-full w-full object-cover">
             @else
@@ -34,9 +33,9 @@
         @if(count($allImages) > 1)
             <div class="flex gap-2 p-3">
                 @foreach($allImages as $img)
-                    <img src="{{ ImageUrlHelper::getProductImageUrl($img) }}"
+                    <img src="{{ \App\Helpers\ImageUrlHelper::getProductImageUrl($img) }}"
                          alt="thumbnail"
-                         onclick="document.getElementById('mainImg').src='{{ ImageUrlHelper::getProductImageUrl($img) }}'"
+                         onclick="document.getElementById('mainImg').src='{{ \App\Helpers\ImageUrlHelper::getProductImageUrl($img) }}'"
                          class="w-14 h-14 object-cover bg-[#e8e8e8] cursor-pointer outline outline-2 outline-transparent hover:outline-[#006a38] rounded transition">
                 @endforeach
             </div>
