@@ -11,6 +11,7 @@ use App\Models\User\User;
 use App\Notifications\User\DisputeFiledNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\Controller;
 
 class DisputeController extends Controller
@@ -235,13 +236,17 @@ class DisputeController extends Controller
         }
 
         $stored = [];
+        $disk = config('filesystems.default') === 'cloudinary' ? 'cloudinary' : 'public';
 
         foreach ($request->file('evidence_photos') as $file) {
             if (!$file) {
                 continue;
             }
 
-            $stored[] = $file->store('disputes/evidence', 'public');
+            $storedPath = Storage::disk($disk)->putFile('disputes/evidence', $file);
+            if ($storedPath) {
+                $stored[] = $storedPath;
+            }
         }
 
         return $stored;

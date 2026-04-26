@@ -15,8 +15,8 @@
             @if(!empty($dispute->evidence_photos))
                 <div class="grid grid-cols-2 gap-3">
                     @foreach($dispute->evidence_photos as $photo)
-                        <a href="{{ asset('storage/' . $photo) }}" target="_blank" class="block overflow-hidden rounded-lg border border-[rgba(189,202,189,0.1)] bg-[#f9f9f9]">
-                            <img src="{{ asset('storage/' . $photo) }}" alt="Evidence photo" class="h-32 w-full object-cover">
+                        <a href="{{ \App\Helpers\ImageUrlHelper::getDisputeImageUrl($photo) }}" target="_blank" class="block overflow-hidden rounded-lg border border-[rgba(189,202,189,0.1)] bg-[#f9f9f9]">
+                            <img src="{{ \App\Helpers\ImageUrlHelper::getDisputeImageUrl($photo) }}" alt="Evidence photo" class="h-32 w-full object-cover">
                         </a>
                     @endforeach
                 </div>
