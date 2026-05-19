@@ -12,21 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function showWishlistToast(message, type = 'info') {
-    if (window.toastr && typeof window.toastr[type] === 'function') {
-        window.toastr[type](message);
-        return;
-    }
-
-    if (typeof window.showToast === 'function') {
-        window.showToast(message, null, null, type);
-        return;
-    }
-
-    if (type === 'error') {
-        console.error(message);
-    } else {
-        console.log(message);
-    }
+    window.flasher[type](message);
 }
 
 /**
@@ -82,6 +68,29 @@ async function handleWishlistToggleSubmit(e) {
                 const textEl = button.querySelector('span');
                 if (textEl) {
                     textEl.textContent = data.saved ? 'Remove from Wishlist' : 'Add to Wishlist';
+                }
+            }
+
+            // If on wishlist page and item was removed, fade out and remove the card from DOM
+            if (!data.saved && window.location.pathname.includes('wishlist')) {
+                const card = form.closest('div[class*="bg-white"][class*="rounded-lg"]');
+                if (card) {
+                    // Animate fade and scale out
+                    card.style.transition = 'all 300ms ease-out';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+
+                    // Remove from DOM after animation completes
+                    setTimeout(() => {
+                        card.remove();
+
+                        // Check if grid is now empty
+                        const grid = document.querySelector('[class*="grid"][class*="grid-cols"]');
+                        if (grid && grid.children.length === 0) {
+                            // Reload page to show empty state
+                            location.reload();
+                        }
+                    }, 300);
                 }
             }
         } else {

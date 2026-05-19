@@ -7,6 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}?v=2">
     <link rel="shortcut icon" href="{{ asset('favicon.svg') }}?v=2">
     <title>{{ $title ?? config('app.name', 'Laravel') }}</title>
+    <link rel="stylesheet" href="{{ asset('vendor/flasher/flasher.min.css') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         [x-cloak] { display: none !important; }
@@ -31,6 +32,8 @@
 
     @include('layouts.footer')
 
+    <script src="{{ asset('vendor/flasher/flasher.min.js') }}"></script>
+
     @php
         $flashToasts = [
             'success' => session('success'),
@@ -48,13 +51,8 @@
                 const renderToast = (type, message) => {
                     if (!message) return;
 
-                    if (window.toastr && typeof window.toastr[type] === 'function') {
-                        window.toastr[type](message);
-                        return;
-                    }
-
-                    if (typeof window.showToast === 'function') {
-                        window.showToast(message, null, null, type);
+                    if (window.flasher && typeof window.flasher[type] === 'function') {
+                        window.flasher[type](message);
                     }
                 };
 

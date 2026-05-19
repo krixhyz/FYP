@@ -7,6 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}?v=2">
     <link rel="shortcut icon" href="{{ asset('favicon.svg') }}?v=2">
     <title>{{ $title ?? (auth()->user()?->isSuperAdmin() ? 'Super Admin Dashboard' : 'Admin Dashboard') }}</title>
+    <link rel="stylesheet" href="{{ asset('vendor/flasher/flasher.min.css') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[#f9f9f9] font-manrope text-[#1a1c1c]">
@@ -188,6 +189,8 @@
             </div>
         </main>
     </div>
+
+    <script src="{{ asset('vendor/flasher/flasher.min.js') }}"></script>
 
 </body>
 </html>

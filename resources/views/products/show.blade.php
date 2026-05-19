@@ -49,7 +49,14 @@
         <p class="font-manrope text-sm text-[#444746] mb-4">{{ ucfirst($product->category->name ?? 'General') }}</p>
 
         <!-- Product Detail Container with Alpine.js State -->
-        <div x-data="{ mode: '' }">
+        @php
+            $defaultMode = in_array('rent', $product->type, true)
+                ? 'rent'
+                : (in_array('swap', $product->type, true)
+                    ? 'swap'
+                    : (in_array('sell', $product->type, true) ? 'buy' : ''));
+        @endphp
+        <div x-data="{ mode: '{{ $defaultMode }}' }">
 
             <!-- Type Chips (mode selector) -->
             <div class="flex gap-2 mb-6">

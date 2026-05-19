@@ -63,15 +63,14 @@ window.cartModule = {
 
     recalculateTotals: function() {
         const cartRows = Array.from(document.querySelectorAll('[data-cart-item]'));
-        if (cartRows.length > 0) {
+        const totalEl = document.querySelector('[data-cart-grand-total]');
+
+        if (totalEl) {
             const total = cartRows.reduce((sum, row) => {
                 return sum + parseFloat(row.getAttribute('data-line-total') || '0');
             }, 0);
 
-            const totalEl = document.querySelector('[data-cart-grand-total]');
-            if (totalEl) {
-                totalEl.textContent = this.formatCurrency(total);
-            }
+            totalEl.textContent = this.formatCurrency(total);
         }
 
         const checkoutRows = Array.from(document.querySelectorAll('[data-checkout-item]'));
@@ -98,21 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function showToastMessage(message, type = 'info') {
-    if (window.toastr && typeof window.toastr[type] === 'function') {
-        window.toastr[type](message);
-        return;
-    }
-
-    if (typeof window.showToast === 'function') {
-        window.showToast(message, null, null, type);
-        return;
-    }
-
-    if (type === 'error') {
-        console.error(message);
-    } else {
-        console.log(message);
-    }
+    window.flasher[type](message);
 }
 
 function getApiErrorMessage(data, fallback) {
@@ -247,6 +232,17 @@ function setupFormHandlers() {
     document.querySelectorAll('form[data-cart-action="remove"]').forEach(form => {
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            if (form.dataset.submitting === '1') {
+                return;
+            }
+
+            form.dataset.submitting = '1';
+            const submitButton = form.querySelector('button[type="submit"]');
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.classList.add('opacity-60', 'pointer-events-none');
+            }
             
             try {
                 const response = await fetch(form.action, {
@@ -272,13 +268,25 @@ function setupFormHandlers() {
                 if (data.success && data.cartCount !== undefined) {
                     showToastMessage(data.message || 'Item removed from cart', 'success');
                     window.cartModule.updateBadge(data.cartCount);
-                    
-                    // Remove row if present
+
                     const row = form.closest('[data-cart-item]');
                     if (row) {
-                        row.style.opacity = '0';
+                        const rowTotal = parseFloat(row.getAttribute('data-line-total') || '0');
+                        const grandTotalEl = document.querySelector('[data-cart-grand-total]');
+                        if (grandTotalEl) {
+                            const currentGrandTotal = parseFloat(grandTotalEl.dataset.rawValue || grandTotalEl.textContent.replace(/[^0-9.]/g, '') || '0');
+                            const nextGrandTotal = Math.max(0, currentGrandTotal - rowTotal);
+                            grandTotalEl.dataset.rawValue = String(nextGrandTotal);
+                            grandTotalEl.textContent = window.cartModule.formatCurrency(nextGrandTotal);
+                        }
+                    }
+                    
+                    // Remove row if present
+                    const cartRow = form.closest('[data-cart-item]');
+                    if (cartRow) {
+                        cartRow.style.opacity = '0';
                         setTimeout(() => {
-                            row.remove();
+                            cartRow.remove();
                             window.cartModule.recalculateTotals();
                         }, 300);
                     } else {
@@ -286,10 +294,20 @@ function setupFormHandlers() {
                     }
                 } else {
                     showToastMessage(getApiErrorMessage(data, 'Error removing from cart'), 'error');
+                    form.dataset.submitting = '0';
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.classList.remove('opacity-60', 'pointer-events-none');
+                    }
                 }
             } catch (error) {
                 console.error('[Cart] Remove error:', error);
                 showToastMessage('Error removing from cart', 'error');
+                form.dataset.submitting = '0';
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.classList.remove('opacity-60', 'pointer-events-none');
+                }
             }
         });
     });

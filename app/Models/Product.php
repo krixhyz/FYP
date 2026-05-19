@@ -101,6 +101,15 @@ public function rentals()
     return $this->hasOne(Rental::class);
 }
 
+public function getSwapBasePriceAttribute($value)
+{
+    if ($value !== null) {
+        return $value;
+    }
+
+    return in_array('swap', $this->type ?? [], true) ? $this->price : null;
+}
+
     /** 
      * Get the user that owns the product.
      */
