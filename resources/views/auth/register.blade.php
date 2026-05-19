@@ -3,6 +3,24 @@
 @section('guest-card-class', 'bg-white shadow-[0_20px_40px_rgba(26,28,28,0.06)] p-6 md:p-8 w-full max-w-4xl')
 
 @section('content')
+    <style>
+        /* Hide browser's built-in password reveal button (Chrome, Edge, Safari) */
+        input[type="password"]::-webkit-contacts-auto-fill-button,
+        input[type="password"]::-webkit-credentials-auto-fill-button {
+            display: none !important;
+        }
+        /* Hide Windows 10 password reveal button */
+        input[type="password"]::-ms-reveal {
+            display: none;
+        }
+        /* Prevent browser auto-fill styling from overlapping */
+        input[type="password"]::-webkit-autofill,
+        input[type="password"]::-webkit-autofill:hover,
+        input[type="password"]::-webkit-autofill:focus {
+            -webkit-appearance: none;
+        }
+    </style>
+
     <div class="text-center mb-6 md:mb-8">
         <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">Create Account</p>
         <h1 class="font-space font-bold text-3xl md:text-4xl text-[#1a1c1c] mb-1">Join Reloop</h1>

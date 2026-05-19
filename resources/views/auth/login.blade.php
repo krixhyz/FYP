@@ -1,6 +1,24 @@
 @extends('layouts.guest')
 
 @section('content')
+    <style>
+        /* Hide browser's built-in password reveal button (Chrome, Edge, Safari) */
+        input[type="password"]::-webkit-contacts-auto-fill-button,
+        input[type="password"]::-webkit-credentials-auto-fill-button {
+            display: none !important;
+        }
+        /* Hide Windows 10 password reveal button */
+        input[type="password"]::-ms-reveal {
+            display: none;
+        }
+        /* Prevent browser auto-fill styling from overlapping */
+        input[type="password"]::-webkit-autofill,
+        input[type="password"]::-webkit-autofill:hover,
+        input[type="password"]::-webkit-autofill:focus {
+            -webkit-appearance: none;
+        }
+    </style>
+
     <div>
         <p class="font-space text-[11px] font-bold uppercase tracking-widest text-[#444746] mb-2">Welcome Back</p>
         <h1 class="font-space font-bold text-4xl text-[#1a1c1c] mb-1">Sign In To Continue</h1>
