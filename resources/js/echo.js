@@ -7,7 +7,45 @@
  *  - Prepends the notification into the dropdown list (no page refresh)
  */
 let pollingIntervalId = null;
-const shownFallbackToastIds = new Set();
+
+// Persist shown toast IDs in sessionStorage so toasts don't re-fire on page navigation.
+// sessionStorage clears automatically when the browser tab is closed.
+const TOAST_STORAGE_KEY = 'reloop_shown_notif_ids';
+
+function getShownIds() {
+    try {
+        return new Set(JSON.parse(sessionStorage.getItem(TOAST_STORAGE_KEY) || '[]'));
+    } catch {
+        return new Set();
+    }
+}
+
+function markIdShown(id) {
+    try {
+        const ids = getShownIds();
+        ids.add(String(id));
+        sessionStorage.setItem(TOAST_STORAGE_KEY, JSON.stringify([...ids]));
+    } catch {
+        // sessionStorage unavailable — silently ignore
+    }
+}
+
+function hasIdBeenShown(id) {
+    return getShownIds().has(String(id));
+}
+
+function renderNotificationToast(message, type = 'info') {
+    if (window.flasher && typeof window.flasher[type] === 'function') {
+        try {
+            window.flasher[type](message);
+            return true;
+        } catch (error) {
+            console.warn('[Echo] Flasher toast failed:', error);
+        }
+    }
+
+    return false;
+}
 
 if (window.Echo && window.Laravel && window.Laravel.userId) {
     const channelName = `App.Models.User.${window.Laravel.userId}`;
@@ -30,13 +68,25 @@ if (window.Echo && window.Laravel && window.Laravel.userId) {
             const redirectUrl = notification.redirect_url || null;
             const notifId     = notification.id          || null;   // UUID from Laravel
 
-            // 1. Show clickable toast
-            showToast(
-                message,
-                redirectUrl,
-                notifId,
-                mapNotificationTypeToToastType(notification.type)
-            );
+            // Guard: only show the toast once per session.
+            // Pusher can re-deliver the same event if the subscription re-establishes
+            // (e.g. the user navigated and the WebSocket reconnected).
+            if (notifId && hasIdBeenShown(notifId)) {
+                return;
+            }
+
+            // 1. Prefer Flasher/Toastr; only use the custom toast as a fallback.
+            const toastType = mapNotificationTypeToToastType(notification.type);
+            if (!renderNotificationToast(message, toastType)) {
+                showToast(
+                    message,
+                    redirectUrl,
+                    notifId,
+                    toastType
+                );
+            }
+
+            if (notifId) markIdShown(notifId);
 
             // 2. Prepend into dropdown (if the dropdown helper is available)
             if (typeof prependNotificationToDropdown === 'function') {
@@ -221,8 +271,8 @@ function showToast(message, redirectUrl = null, notifId = null, type = 'info') {
         dismissToast(toast);
     });
 
-    // Auto-dismiss after 5 s
-    const timer = setTimeout(() => dismissToast(toast), 5000);
+    // Auto-dismiss after 1.5 s
+    const timer = setTimeout(() => dismissToast(toast), 1500);
     toast._dismissTimer = timer;
 }
 
@@ -293,7 +343,7 @@ function showCartSuccessToast(message) {
         dismissToast(toast);
     });
 
-    const timer = setTimeout(() => dismissToast(toast), 5000);
+    const timer = setTimeout(() => dismissToast(toast), 1500);
     toast._dismissTimer = timer;
 }
 
@@ -342,7 +392,7 @@ function showCartErrorToast(message) {
         dismissToast(toast);
     });
 
-    const timer = setTimeout(() => dismissToast(toast), 5000);
+    const timer = setTimeout(() => dismissToast(toast), 1500);
     toast._dismissTimer = timer;
 }
 
@@ -393,15 +443,18 @@ async function syncNotificationsFallback() {
 
             const isUnread = item.read_at === null;
 
-            // Show toast once per unread notification even if the dropdown/page already has it.
-            if (isUnread && !shownFallbackToastIds.has(item.id)) {
-                showToast(
-                    item.message || 'You have a new notification',
-                    item.redirect_url || null,
-                    item.id,
-                    mapNotificationTypeToToastType(item.type)
-                );
-                shownFallbackToastIds.add(item.id);
+            // Show toast once per session — sessionStorage prevents re-firing on page navigations.
+            if (isUnread && !hasIdBeenShown(item.id)) {
+                const toastType = mapNotificationTypeToToastType(item.type);
+                if (!renderNotificationToast(item.message || 'You have a new notification', toastType)) {
+                    showToast(
+                        item.message || 'You have a new notification',
+                        item.redirect_url || null,
+                        item.id,
+                        toastType
+                    );
+                }
+                markIdShown(item.id);
             }
 
             if (hasNotificationInDom(item.id)) continue;

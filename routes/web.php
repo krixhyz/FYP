@@ -254,6 +254,7 @@ Route::middleware(['auth'])->group(function () {
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\Admin\WalletPayoutController;
+use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
@@ -292,6 +293,12 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::patch('/wallet/payouts/{payoutRequest}/reject', [WalletPayoutController::class, 'reject'])->name('wallet.payouts.reject');
     Route::patch('/wallet/payouts/{payoutRequest}/paid', [WalletPayoutController::class, 'markPaid'])->name('wallet.payouts.paid');
     Route::get('/reports', [AdminController::class, 'reports'])->name('reports');
+    // Categories CRUD (both admin and super admin)
+    Route::get('/categories', [AdminCategoryController::class, 'index'])->name('categories');
+    Route::post('/categories', [AdminCategoryController::class, 'store'])->name('categories.store');
+    Route::put('/categories/{category}', [AdminCategoryController::class, 'update'])->name('categories.update');
+    Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy'])->name('categories.destroy');
+
     Route::get('/analytics', [AdminController::class, 'analytics'])->middleware('super_admin')->name('analytics');
     Route::get('/system-config', [AdminController::class, 'systemConfig'])->middleware('super_admin')->name('system.config');
     Route::post('/system-config', [AdminController::class, 'systemConfigUpdate'])->middleware('super_admin')->name('system.config.update');

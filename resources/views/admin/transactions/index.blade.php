@@ -27,13 +27,13 @@
         </form>
     </div>
 
-    @if(!auth()->user()->isSuperAdmin())
+    <!-- @if(!auth()->user()->isSuperAdmin())
         <div class="mb-5 border-2 border-blue-300 bg-blue-50 px-5 py-4 font-manrope text-sm text-blue-700">
             <p class="font-space font-bold">Transaction History</p>
             <p class="font-semibold">Limited Access</p>
             <p class="text-sm mt-1">You can monitor transactions and resolve disputes. Cannot configure payment gateways or access raw financial data.</p>
         </div>
-    @endif
+    @endif -->
 
     @if($financialSummary)
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">

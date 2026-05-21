@@ -162,17 +162,28 @@
                     <!-- Action Buttons (Push to bottom) -->
                     <div class="flex gap-2 mt-auto">
                         @if(Auth::check() && Auth::id() !== $product->user_id && in_array('sell', $product->type ?? [], true))
-                            <form action="{{ route('cart.store', $product->id) }}" method="POST" class="flex-1" data-cart-action="add">
-                                @csrf
-                                <input type="hidden" name="quantity" value="1">
-                                <button type="submit" title="Add to cart" class="w-full flex h-8 items-center justify-center gap-1 bg-white border border-[#006a38] text-[#006a38] font-space text-xs font-bold uppercase tracking-wider hover:bg-[#f0f8f0] transition">
-                                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                              d="M12 4v16m8-8H4" />
-                                    </svg>
-                                    Cart
-                                </button>
-                            </form>
+                            @if(in_array($product->id, $cartProductIds ?? []))
+                                <a href="{{ route('cart.index') }}" class="flex-1">
+                                    <button type="button" title="Already in cart" class="w-full flex h-8 items-center justify-center gap-1 bg-[#e8f5ee] border border-[#006a38] text-[#006a38] font-space text-xs font-bold uppercase tracking-wider cursor-default opacity-75">
+                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        In Cart
+                                    </button>
+                                </a>
+                            @else
+                                <form action="{{ route('cart.store', $product->id) }}" method="POST" class="flex-1" data-cart-action="add" data-cart-url="{{ route('cart.index') }}">
+                                    @csrf
+                                    <input type="hidden" name="quantity" value="1">
+                                    <button type="submit" title="Add to cart" class="w-full flex h-8 items-center justify-center gap-1 bg-white border border-[#006a38] text-[#006a38] font-space text-xs font-bold uppercase tracking-wider hover:bg-[#f0f8f0] transition">
+                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                  d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Cart
+                                    </button>
+                                </form>
+                            @endif
                         @endif
 
                         <a href="{{ route('products.show', $product->id) }}" class="{{ Auth::check() && Auth::id() !== $product->user_id && in_array('sell', $product->type ?? [], true) ? 'flex-1' : 'w-full' }}">

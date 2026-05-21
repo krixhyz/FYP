@@ -29,6 +29,12 @@
             'icon' => 'M17 20h5V10H2v10h5m10 0H7m10 0v-5a5 5 0 10-10 0v5m10 0H7',
         ],
         [
+            'label' => 'Categories',
+            'route' => 'admin.categories',
+            'active' => ['admin.categories*'],
+            'icon' => 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z',
+        ],
+        [
             'label' => 'Content Moderation',
             'route' => 'admin.content',
             'active' => ['admin.content*', 'admin.products*'],
@@ -190,7 +196,30 @@
         </main>
     </div>
 
+    @stack('scripts')
     <script src="{{ asset('vendor/flasher/flasher.min.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!window.flasher || typeof window.flasher.renderOptions !== 'function') {
+                return;
+            }
+
+            window.flasher.renderOptions({
+                flasher: {
+                    timeout: 1500,
+                    timeouts: {
+                        success: 1500,
+                        info: 1500,
+                        warning: 1500,
+                        error: 1500,
+                    },
+                    position: 'top-right',
+                    direction: 'top',
+                },
+            });
+        });
+    </script>
 
 </body>
 </html>

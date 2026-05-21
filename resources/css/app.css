@@ -9,6 +9,106 @@
   border-radius: 0 !important;
 }
 
+/* Shared notification styling */
+.fl-wrapper,
+#toast-container {
+  z-index: 9999 !important;
+}
+
+.fl-wrapper {
+  width: min(24rem, calc(100vw - 2rem)) !important;
+}
+
+.fl-wrapper[data-position^='top-'] {
+  top: 1rem !important;
+}
+
+.fl-wrapper[data-position^='bottom-'] {
+  bottom: 1rem !important;
+}
+
+.fl-wrapper[data-position$='-right'] {
+  right: 1rem !important;
+}
+
+.fl-wrapper[data-position$='-left'] {
+  left: 1rem !important;
+}
+
+.fl-wrapper .fl-container,
+.fl-flasher,
+#toast-container > div,
+.toast-item {
+  border-radius: 1rem !important;
+  border: 1px solid rgba(26, 28, 28, 0.08) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 18px 40px rgba(26, 28, 28, 0.12) !important;
+}
+
+.fl-flasher,
+#toast-container > div,
+.toast-item {
+  overflow: hidden;
+}
+
+.fl-flasher {
+  padding: 0.9rem 1rem !important;
+}
+
+.fl-flasher .fl-close,
+#toast-container .toast-close-button,
+.toast-close {
+  opacity: 0.45;
+}
+
+.fl-flasher .fl-progress-bar,
+#toast-container .toast-progress {
+  height: 3px !important;
+  opacity: 0.65;
+}
+
+#toast-container > div {
+  width: min(24rem, calc(100vw - 2rem)) !important;
+  margin: 0 0 0.6rem !important;
+  padding: 0.9rem 0.95rem 0.9rem 1rem !important;
+  color: #1a1c1c !important;
+}
+
+#toast-container > .toast-success {
+  background-color: rgba(209, 250, 229, 0.96) !important;
+  color: #065f46 !important;
+}
+
+#toast-container > .toast-info {
+  background-color: rgba(219, 234, 254, 0.96) !important;
+  color: #1e40af !important;
+}
+
+#toast-container > .toast-warning {
+  background-color: rgba(254, 243, 199, 0.96) !important;
+  color: #92400e !important;
+}
+
+#toast-container > .toast-error {
+  background-color: rgba(254, 226, 226, 0.96) !important;
+  color: #7f1d1d !important;
+}
+
+.fl-wrapper .fl-container.fl-show,
+#toast-container > div:hover,
+.toast-item:hover {
+  transform: translateY(0) scale(1) !important;
+}
+
+.fl-wrapper .fl-container,
+.fl-flasher,
+#toast-container > div,
+.toast-item {
+  transition: transform 180ms ease, opacity 180ms ease, box-shadow 180ms ease !important;
+}
+
 /* Exception for explicitly allowed circles (e.g. spinners) */
 .allow-circle { border-radius: 9999px !important; }
 

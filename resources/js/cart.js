@@ -61,17 +61,39 @@ window.cartModule = {
         }
     },
 
+    updateEmptyState: function() {
+        const cartRows = Array.from(document.querySelectorAll('[data-cart-item]'));
+        const hasItems = cartRows.length > 0;
+
+        const emptyState = document.querySelector('[data-cart-empty-state]');
+        if (emptyState) {
+            emptyState.classList.toggle('hidden', hasItems);
+        }
+
+        const itemsList = document.querySelector('[data-cart-items-list]');
+        if (itemsList) {
+            itemsList.classList.toggle('hidden', !hasItems);
+        }
+
+        const summaryPanel = document.querySelector('[data-cart-summary-panel]');
+        if (summaryPanel) {
+            summaryPanel.classList.toggle('hidden', !hasItems);
+        }
+    },
+
     recalculateTotals: function() {
         const cartRows = Array.from(document.querySelectorAll('[data-cart-item]'));
         const totalEl = document.querySelector('[data-cart-grand-total]');
+        const total = cartRows.reduce((sum, row) => {
+            return sum + parseFloat(row.getAttribute('data-line-total') || '0');
+        }, 0);
 
         if (totalEl) {
-            const total = cartRows.reduce((sum, row) => {
-                return sum + parseFloat(row.getAttribute('data-line-total') || '0');
-            }, 0);
-
+            totalEl.dataset.rawValue = String(total);
             totalEl.textContent = this.formatCurrency(total);
         }
+
+        this.updateEmptyState();
 
         const checkoutRows = Array.from(document.querySelectorAll('[data-checkout-item]'));
         if (checkoutRows.length > 0) {
@@ -91,6 +113,7 @@ window.cartModule = {
 document.addEventListener('DOMContentLoaded', () => {
     // Initial load on page load
     window.cartModule.fetchCount();
+    window.cartModule.recalculateTotals();
     
     // Setup all cart forms
     setupFormHandlers();
@@ -163,6 +186,14 @@ function setupFormHandlers() {
                 if (response.ok && data.success && data.cartCount !== undefined) {
                     showToastMessage('Item added to cart', 'success');
                     window.cartModule.updateBadge(data.cartCount);
+
+                    // Replace the add form with a static "In Cart" link
+                    const cartUrl = form.dataset.cartUrl || '/cart';
+                    const inCartEl = document.createElement('a');
+                    inCartEl.href = cartUrl;
+                    inCartEl.className = 'flex-1';
+                    inCartEl.innerHTML = `<button type="button" class="w-full flex h-8 items-center justify-center gap-1 bg-[#e8f5ee] border border-[#006a38] text-[#006a38] font-space text-xs font-bold uppercase tracking-wider cursor-default opacity-75"><svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>In Cart</button>`;
+                    form.replaceWith(inCartEl);
                 } else {
                     const message = getApiErrorMessage(data, response.status === 419
                         ? 'Session expired. Please refresh and try again.'
@@ -268,18 +299,6 @@ function setupFormHandlers() {
                 if (data.success && data.cartCount !== undefined) {
                     showToastMessage(data.message || 'Item removed from cart', 'success');
                     window.cartModule.updateBadge(data.cartCount);
-
-                    const row = form.closest('[data-cart-item]');
-                    if (row) {
-                        const rowTotal = parseFloat(row.getAttribute('data-line-total') || '0');
-                        const grandTotalEl = document.querySelector('[data-cart-grand-total]');
-                        if (grandTotalEl) {
-                            const currentGrandTotal = parseFloat(grandTotalEl.dataset.rawValue || grandTotalEl.textContent.replace(/[^0-9.]/g, '') || '0');
-                            const nextGrandTotal = Math.max(0, currentGrandTotal - rowTotal);
-                            grandTotalEl.dataset.rawValue = String(nextGrandTotal);
-                            grandTotalEl.textContent = window.cartModule.formatCurrency(nextGrandTotal);
-                        }
-                    }
                     
                     // Remove row if present
                     const cartRow = form.closest('[data-cart-item]');

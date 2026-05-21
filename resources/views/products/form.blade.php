@@ -1,9 +1,4 @@
 @php
-    $tempImages = old('temp_images', session('temp_product_images', []));
-    if (!is_array($tempImages)) {
-        $tempImages = [];
-    }
-
     $rentalConfig = $product->rentals ?? null;
     $existingAvailableFrom = $rentalConfig?->available_from
         ? \Carbon\Carbon::parse($rentalConfig->available_from)->format('Y-m-d')
@@ -243,22 +238,6 @@
                 </div>
             @endif
 
-            @if(!empty($tempImages))
-                <p class="font-manrope text-xs text-[#444746] mb-2">Selected images kept from previous failed submission:</p>
-                <div class="flex flex-wrap gap-3 mb-3">
-                    @foreach($tempImages as $tmpPath)
-                        <label class="relative cursor-pointer group">
-                            <input type="hidden" name="temp_images[]" value="{{ $tmpPath }}">
-                            <input type="checkbox" name="remove_temp_images[]" value="{{ $tmpPath }}"
-                                   class="absolute top-1 left-1 z-10 accent-red-500">
-                            <img src="{{ \App\Helpers\ImageUrlHelper::getProductImageUrl($tmpPath) }}"
-                                 class="w-24 h-24 object-cover border-2 border-[#bdbdbd] group-hover:opacity-75 transition">
-                            <span class="absolute bottom-1 right-1 bg-[#ba1a1a] text-white text-xs px-1 hidden group-hover:block">Remove</span>
-                        </label>
-                    @endforeach
-                </div>
-            @endif
-
             <input type="file" name="images[]" multiple accept="image/*"
                    id="imageUploader"
                    class="w-full text-sm file:mr-2 file:py-1 file:px-3 file:border-0 file:bg-[#006a38] file:text-white hover:file:bg-[#09864a] cursor-pointer {{ ($errors->has('images') || $errors->has('images.*')) ? 'border-red-500' : '' }}">
@@ -312,6 +291,7 @@
     const imageUploader = document.getElementById('imageUploader');
     const newImagePreviews = document.getElementById('newImagePreviews');
     const MAX_IMAGES = 6;
+    const IMG_STORAGE_KEY = 'pf_imgs_{{ $product->id ?? "create" }}';
 
     // DataTransfer accumulates files across multiple open-dialog calls
     let dt = new DataTransfer();
@@ -333,6 +313,7 @@
         this.files = dt.files;
 
         renderPreviews();
+        persistImagesToSession();
     });
 
     function renderPreviews() {
@@ -371,7 +352,54 @@
         dt = newDt;
         imageUploader.files = dt.files;
         renderPreviews();
+        persistImagesToSession();
     }
+
+    // ── Session persistence for images across validation reloads ──────────────
+    function persistImagesToSession() {
+        if (!dt.files.length) {
+            sessionStorage.removeItem(IMG_STORAGE_KEY);
+            return;
+        }
+        const files = Array.from(dt.files);
+        const promises = files.map(file => new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => resolve({ name: file.name, type: file.type, data: e.target.result });
+            reader.readAsDataURL(file);
+        }));
+        Promise.all(promises).then(data => {
+            try {
+                sessionStorage.setItem(IMG_STORAGE_KEY, JSON.stringify(data));
+            } catch (e) {
+                // Quota exceeded (large images) — clear gracefully
+                sessionStorage.removeItem(IMG_STORAGE_KEY);
+            }
+        });
+    }
+
+    async function restoreImagesFromSession() {
+        const stored = sessionStorage.getItem(IMG_STORAGE_KEY);
+        if (!stored) return;
+        try {
+            const imageData = JSON.parse(stored);
+            const newDt = new DataTransfer();
+            for (const img of imageData) {
+                const res = await fetch(img.data);
+                const blob = await res.blob();
+                newDt.items.add(new File([blob], img.name, { type: img.type }));
+            }
+            dt = newDt;
+            if (imageUploader) imageUploader.files = dt.files;
+            renderPreviews();
+        } catch (e) {
+            sessionStorage.removeItem(IMG_STORAGE_KEY);
+        }
+    }
+
+    // Restore on page load only when there are server-side validation errors
+    @if ($errors->any())
+    document.addEventListener('DOMContentLoaded', restoreImagesFromSession);
+    @endif
 
     // Set min dates to today
     const today = new Date().toISOString().split('T')[0];
@@ -555,4 +583,156 @@
             updateEcoPreview();
         }
     });
+
+    // ──────────── CLIENT-SIDE FORM VALIDATION ────────────────────────────────
+    const form = document.querySelector('form');
+    
+    form?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Clear previous validation errors
+        const errorsContainer = form.querySelector('.bg-red-50');
+        if (errorsContainer) {
+            errorsContainer.remove();
+        }
+
+        const errors = validateForm();
+        
+        if (errors.length > 0) {
+            // Show validation errors
+            showValidationErrors(errors);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return false;
+        }
+        
+        // All validations passed - clear persisted images and submit
+        sessionStorage.removeItem(IMG_STORAGE_KEY);
+        form.submit();
+    });
+
+    function validateForm() {
+        const errors = [];
+        
+        // Title validation
+        const title = document.querySelector('input[name="title"]').value.trim();
+        if (!title) {
+            errors.push('Please enter a listing title.');
+        } else if (title.length < 3) {
+            errors.push('The title must be at least 3 characters.');
+        } else if (title.length > 255) {
+            errors.push('The title must not exceed 255 characters.');
+        }
+        
+        // Description validation
+        const description = document.querySelector('textarea[name="description"]').value.trim();
+        if (!description) {
+            errors.push('Please provide a description for your listing.');
+        } else if (description.length < 10) {
+            errors.push('The description must be at least 10 characters.');
+        } else if (description.length > 5000) {
+            errors.push('The description must not exceed 5000 characters.');
+        }
+        
+        // Category validation
+        const categoryId = document.querySelector('select[name="category_id"]')?.value;
+        if (!categoryId) {
+            errors.push('Please select a category.');
+        }
+        
+        // Condition validation
+        const condition = document.querySelector('input[name="condition"]:checked');
+        if (!condition) {
+            errors.push('Please select the item condition.');
+        }
+        
+        // Listing type validation
+        const listingTypes = Array.from(document.querySelectorAll('input[name="listing_type[]"]:checked'))
+            .map(input => input.value);
+        if (listingTypes.length === 0) {
+            errors.push('Please select at least one listing type.');
+        }
+        
+        // Quantity validation
+        const quantity = parseInt(document.querySelector('input[name="quantity"]').value);
+        if (!quantity || quantity < 1) {
+            errors.push('Quantity must be at least 1.');
+        } else if (quantity > 100) {
+            errors.push('Quantity cannot exceed 100.');
+        }
+        
+        // Price validation (required for sell/swap)
+        if (listingTypes.includes('sell') || listingTypes.includes('swap')) {
+            const price = parseFloat(document.querySelector('input[name="price"]').value);
+            if (!price || price <= 0) {
+                errors.push('Price is required for sell or swap listings and must be greater than 0.');
+            } else if (price > 99999999) {
+                errors.push('Price cannot exceed 99,999,999.');
+            }
+        }
+        
+        // Rent validation (required for rent)
+        if (listingTypes.includes('rent')) {
+            const rentDeposit = parseFloat(document.querySelector('input[name="rent_deposit"]').value);
+            if (!rentDeposit || rentDeposit < 0) {
+                errors.push('Rent deposit is required when rent is selected.');
+            } else if (rentDeposit > 99999999) {
+                errors.push('Rent deposit cannot exceed 99,999,999.');
+            }
+            
+            const rentFare = parseFloat(document.querySelector('input[name="rent_fare"]').value);
+            if (!rentFare || rentFare < 0) {
+                errors.push('Rent fare is required when rent is selected.');
+            } else if (rentFare > 99999999) {
+                errors.push('Rent fare cannot exceed 99,999,999.');
+            }
+            
+            const rentType = document.querySelector('select[name="rent_type"]').value;
+            if (!rentType) {
+                errors.push('Please select a rent type (hourly or daily).');
+            }
+            
+            const availableFrom = document.querySelector('input[name="available_from"]').value;
+            if (!availableFrom) {
+                errors.push('Please select the rental start date.');
+            }
+            
+            const endDate = document.querySelector('input[name="end_date"]').value;
+            if (!endDate) {
+                errors.push('Please select the rental end date.');
+            } else if (availableFrom && new Date(endDate) < new Date(availableFrom)) {
+                errors.push('Rental end date must be on or after the start date.');
+            }
+            
+            const rentDuration = parseInt(document.querySelector('input[name="rent_duration"]').value);
+            if (!rentDuration || rentDuration < 1) {
+                errors.push('Rental duration must be at least 1 day.');
+            } else if (rentDuration > 365) {
+                errors.push('Rental duration cannot exceed 365 days.');
+            }
+        }
+        
+        return errors;
+    }
+
+    function showValidationErrors(errors) {
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'bg-red-50 border border-red-300 rounded p-4 mb-4';
+        
+        const title = document.createElement('h4');
+        title.className = 'text-red-900 font-bold mb-2';
+        title.textContent = 'Please fix the following errors:';
+        errorContainer.appendChild(title);
+        
+        const list = document.createElement('ul');
+        list.className = 'text-red-700 text-sm space-y-1';
+        errors.forEach(error => {
+            const li = document.createElement('li');
+            li.textContent = '• ' + error;
+            list.appendChild(li);
+        });
+        errorContainer.appendChild(list);
+        
+        // Insert at the beginning of the form
+        form.insertBefore(errorContainer, form.firstChild);
+    }
 </script>

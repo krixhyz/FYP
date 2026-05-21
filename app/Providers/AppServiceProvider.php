@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\RentalRequest;
 use App\Models\RentedRentals;
 use Illuminate\Support\ServiceProvider;
@@ -10,6 +11,7 @@ use App\Models\Review;
 use App\Models\Dispute;
 use App\Models\SwapRequest;
 use App\Policies\OrderPolicy;
+use App\Policies\ProductPolicy;
 use App\Policies\RentalRequestPolicy;
 use App\Policies\RentedRentalPolicy;
 use App\Policies\SwapRequestPolicy;
@@ -80,6 +82,7 @@ class AppServiceProvider extends ServiceProvider
         Dispute::observe(DisputeObserver::class);
 
         Gate::policy(Order::class, OrderPolicy::class);
+        Gate::policy(Product::class, ProductPolicy::class);
         Gate::policy(RentalRequest::class, RentalRequestPolicy::class);
         Gate::policy(RentedRentals::class, RentedRentalPolicy::class);
         Gate::policy(SwapRequest::class, SwapRequestPolicy::class);

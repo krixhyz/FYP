@@ -58,7 +58,9 @@
                                         <input type="text" name="payout_reference" placeholder="Ref" class="input-field !py-1 text-xs w-24" required>
                                         <button class="btn-pill btn-pill-dark !px-3 !py-1 text-xs">Mark Paid</button>
                                     </form>
+                                @endif
 
+                                @if($payout->status === 'pending')
                                     <form method="POST" action="{{ route('admin.wallet.payouts.reject', $payout) }}" class="flex gap-2 items-center">
                                         @csrf
                                         @method('PATCH')

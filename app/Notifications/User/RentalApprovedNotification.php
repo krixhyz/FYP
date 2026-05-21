@@ -32,7 +32,7 @@ class RentalApprovedNotification extends Notification implements ShouldBroadcast
             ->subject('Your Rental Request Has Been Approved!')
             ->greeting('Hi ' . $notifiable->name . ',')
             ->line('Your rental request for "' . $this->rentalRequest->product->title . '" has been approved by the owner.')
-            ->action('Pay Rental', route('rental.payment', $this->rentalRequest->id))
+            ->line('Log in to Reloop to proceed with payment.')
             ->line('Thank you for using our platform!');
     }
 

@@ -77,6 +77,30 @@ class AdminController extends Controller
             ->whereYear('created_at', now()->year)
             ->sum('fee_amount');
 
+        // --- Chart data (last 6 months) ---
+        $chartMonths = collect();
+        for ($i = 5; $i >= 0; $i--) {
+            $chartMonths->push(now()->subMonths($i)->format('Y-m'));
+        }
+        $chartLabels = $chartMonths->map(fn($m) => date('M Y', strtotime($m . '-01')))->values()->toArray();
+
+        $revenueRaw = Payment::where('status', 'complete')
+            ->where('created_at', '>=', now()->subMonths(5)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, SUM(fee_amount) as revenue")
+            ->groupBy('month')->orderBy('month')
+            ->pluck('revenue', 'month');
+        $revenueChart = $chartMonths->map(fn($m) => round((float)($revenueRaw[$m] ?? 0), 2))->values()->toArray();
+
+        $usersRaw = User::where('created_at', '>=', now()->subMonths(5)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as cnt")
+            ->groupBy('month')->orderBy('month')
+            ->pluck('cnt', 'month');
+        $usersChart = $chartMonths->map(fn($m) => (int)($usersRaw[$m] ?? 0))->values()->toArray();
+
+        $txOrderCount  = Order::where('transaction_type', 'buy')->where('status', 'completed')->count();
+        $txRentalCount = RentedRentals::whereIn('status', ['completed', 'returned', 'active'])->count();
+        $txSwapCount   = Swap::where('status', 'completed')->count();
+
         return view('admin.dashboard', [
             'users' => $users,
             'products' => $products,
@@ -100,6 +124,12 @@ class AdminController extends Controller
             'completedTransactions' => $completedTransactions,
             'monthlyRevenue' => $monthlyRevenue,
             'isSuperAdmin' => $admin->isSuperAdmin(),
+            'chartLabels'   => $chartLabels,
+            'revenueChart'  => $revenueChart,
+            'usersChart'    => $usersChart,
+            'txOrderCount'  => $txOrderCount,
+            'txRentalCount' => $txRentalCount,
+            'txSwapCount'   => $txSwapCount,
         ]);
     }
 
@@ -348,7 +378,7 @@ class AdminController extends Controller
     public function userDelete($id)
     {
         $admin = auth()->user();
-        $user = User::findOrFail($id);
+        $user  = User::findOrFail($id);
 
         if (! $admin->canManageUser($user)) {
             abort(403, 'You cannot delete this user.');
@@ -358,9 +388,79 @@ class AdminController extends Controller
             abort(403, 'You cannot delete your own account from admin panel.');
         }
 
+        // Block deletion if this user has any active/pending obligations that would
+        // be wiped by the cascade, leaving other users' records in an inconsistent state.
+        $blockers = $this->getUserDeletionBlockers($user);
+        if (!empty($blockers)) {
+            return redirect()->back()->with(
+                'error',
+                'Cannot delete "' . $user->name . '": ' . implode(', ', $blockers) . '. Resolve these before deleting.'
+            );
+        }
+
+        \Log::warning('User hard-deleted by admin', [
+            'user_id'    => $user->id,
+            'user_email' => $user->email,
+            'admin_id'   => $admin->id,
+            'admin_role' => $admin->role,
+            'timestamp'  => now(),
+        ]);
+
         $user->delete();
 
-        return redirect()->route('admin.users')->with('success', 'User deleted successfully');
+        return redirect()->route('admin.users')->with('success', 'User deleted successfully.');
+    }
+
+    private function getUserDeletionBlockers(User $user): array
+    {
+        $reasons = [];
+
+        // Products with open obligations (pending orders, active rentals, open swaps)
+        $guardService = app(ProductDeletionGuardService::class);
+        $blockedProducts = $user->products()
+            ->get()
+            ->filter(fn($p) => !$guardService->canDelete($p));
+
+        if ($blockedProducts->isNotEmpty()) {
+            $titles = $blockedProducts->take(3)->pluck('title')->join(', ');
+            $extra  = $blockedProducts->count() > 3 ? ' and ' . ($blockedProducts->count() - 3) . ' more' : '';
+            $reasons[] = $blockedProducts->count() . ' listing(s) have active obligations (' . $titles . $extra . ')';
+        }
+
+        // Active rentals where this user is the renter (item physically with them)
+        $activeAsRenter = RentedRentals::where('renter_id', $user->id)
+            ->where('status', 'active')
+            ->count();
+        if ($activeAsRenter > 0) {
+            $reasons[] = "{$activeAsRenter} active rental(s) as renter — items not yet returned";
+        }
+
+        // Pending buy orders placed by this user (money taken, fulfilment in progress)
+        $pendingBuyOrders = Order::where('buyer_id', $user->id)
+            ->where('transaction_type', 'buy')
+            ->where('status', 'pending')
+            ->count();
+        if ($pendingBuyOrders > 0) {
+            $reasons[] = "{$pendingBuyOrders} pending purchase order(s)";
+        }
+
+        // Open swap requests initiated by this user
+        $openSwapsAsRequester = SwapRequest::where('requester_id', $user->id)
+            ->whereIn('status', ['requested', 'countered', 'awaiting_payment', 'paid'])
+            ->count();
+        if ($openSwapsAsRequester > 0) {
+            $reasons[] = "{$openSwapsAsRequester} open swap request(s) as requester";
+        }
+
+        // Pending payments (money in flight)
+        $pendingPayments = Payment::where('user_id', $user->id)
+            ->where('status', 'pending')
+            ->count();
+        if ($pendingPayments > 0) {
+            $reasons[] = "{$pendingPayments} payment(s) still pending";
+        }
+
+        return $reasons;
     }
 
     public function userStatus(Request $request, User $user)
@@ -862,30 +962,60 @@ class AdminController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        $monthStart = now()->startOfMonth();
+        $monthStart     = now()->startOfMonth();
         $lastMonthStart = now()->subMonth()->startOfMonth();
-        $lastMonthEnd = now()->subMonth()->endOfMonth();
+        $lastMonthEnd   = now()->subMonth()->endOfMonth();
 
-        $userGrowthThisMonth = User::where('created_at', '>=', $monthStart)->count();
-        $userGrowthLastMonth = User::whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])->count();
-
+        $userGrowthThisMonth    = User::where('created_at', '>=', $monthStart)->count();
+        $userGrowthLastMonth    = User::whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])->count();
         $listingGrowthThisMonth = Product::where('created_at', '>=', $monthStart)->count();
         $listingGrowthLastMonth = Product::whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])->count();
+        $revenueThisMonth       = (float) Payment::where('status', 'complete')->where('created_at', '>=', $monthStart)->sum('fee_amount');
+        $revenueLastMonth       = (float) Payment::where('status', 'complete')->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])->sum('fee_amount');
+        $totalProducts          = Product::count();
+        $activeUsers            = User::where('account_status', 'active')->count();
+        $totalUsers             = User::count();
 
-        $revenueThisMonth = (float) Payment::where('created_at', '>=', $monthStart)->sum('total_amount');
-        $revenueLastMonth = (float) Payment::whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])->sum('total_amount');
-        $totalProducts = Product::count();
-        $activeUsers = User::where('account_status', 'active')->count();
+        // --- 6-month chart data ---
+        $chartMonths = collect();
+        for ($i = 5; $i >= 0; $i--) {
+            $chartMonths->push(now()->subMonths($i)->format('Y-m'));
+        }
+        $chartLabels = $chartMonths->map(fn($m) => date('M Y', strtotime($m . '-01')))->values()->toArray();
+
+        $revenueRaw = Payment::where('status', 'complete')
+            ->where('created_at', '>=', now()->subMonths(5)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, SUM(fee_amount) as revenue")
+            ->groupBy('month')->orderBy('month')
+            ->pluck('revenue', 'month');
+        $revenueChart = $chartMonths->map(fn($m) => round((float)($revenueRaw[$m] ?? 0), 2))->values()->toArray();
+
+        $usersRaw = User::where('created_at', '>=', now()->subMonths(5)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as cnt")
+            ->groupBy('month')->orderBy('month')
+            ->pluck('cnt', 'month');
+        $usersChart = $chartMonths->map(fn($m) => (int)($usersRaw[$m] ?? 0))->values()->toArray();
+
+        $listingsRaw = Product::where('created_at', '>=', now()->subMonths(5)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as cnt")
+            ->groupBy('month')->orderBy('month')
+            ->pluck('cnt', 'month');
+        $listingsChart = $chartMonths->map(fn($m) => (int)($listingsRaw[$m] ?? 0))->values()->toArray();
+
+        $txOrderCount  = Order::where('transaction_type', 'buy')->where('status', 'completed')->count();
+        $txRentalCount = RentedRentals::whereIn('status', ['completed', 'returned', 'active'])->count();
+        $txSwapCount   = Swap::where('status', 'completed')->count();
+
+        $co2Saved = round($totalProducts * 0.0043, 1);
 
         return view('admin.analytics.index', compact(
-            'userGrowthThisMonth',
-            'userGrowthLastMonth',
-            'listingGrowthThisMonth',
-            'listingGrowthLastMonth',
-            'revenueThisMonth',
-            'revenueLastMonth',
-            'totalProducts',
-            'activeUsers'
+            'userGrowthThisMonth', 'userGrowthLastMonth',
+            'listingGrowthThisMonth', 'listingGrowthLastMonth',
+            'revenueThisMonth', 'revenueLastMonth',
+            'totalProducts', 'activeUsers', 'totalUsers',
+            'chartLabels', 'revenueChart', 'usersChart', 'listingsChart',
+            'txOrderCount', 'txRentalCount', 'txSwapCount',
+            'co2Saved'
         ));
     }
 

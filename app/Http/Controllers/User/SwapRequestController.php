@@ -282,6 +282,11 @@ class SwapRequestController extends Controller
 
             $swapRequest->requester->notify(new SwapAccepted($swapRequest));
 
+            if ($this->resolveSwapPayerId($swapRequest) === Auth::id()) {
+                return redirect()->route('swap.checkout', $swapRequest)
+                    ->with('success', 'Swap accepted. Please complete payment.');
+            }
+
             $payer = $this->resolveSwapPayerLabel($swapRequest);
             return redirect()->route('dashboard')->with('success', 'Swap accepted. ' . $payer . ' must complete payment.');
         }

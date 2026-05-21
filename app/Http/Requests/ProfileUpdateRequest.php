@@ -18,6 +18,7 @@ class ProfileUpdateRequest extends FormRequest
         $this->merge([
             'name' => trim((string) $this->input('name', '')),
             'email' => strtolower(trim((string) $this->input('email', ''))),
+            'phone_number' => preg_replace('/[^0-9]/', '', (string) $this->input('phone_number', '')),
         ]);
     }
 
@@ -38,6 +39,7 @@ class ProfileUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
+            'phone_number' => ['nullable', 'digits:10'],
             'province_id' => ['required', 'integer', 'exists:provinces,id'],
             'city_id' => [
                 'required',
@@ -51,6 +53,7 @@ class ProfileUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'phone_number.digits' => 'Phone number must be exactly 10 digits.',
             'name.required' => 'Please enter your full name.',
             'name.min' => 'Your full name must be at least 2 characters.',
             'email.required' => 'Please enter your email address.',

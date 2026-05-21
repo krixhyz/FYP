@@ -51,6 +51,19 @@
             @endif
         </div>
 
+        <div>
+            <label for="phone_number" class="field-label">Phone Number</label>
+            <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 font-manrope text-sm text-[#666666] pointer-events-none">+977</span>
+                <input id="phone_number" name="phone_number" type="tel"
+                    value="{{ old('phone_number', $user->phone_number ? substr(preg_replace('/[^0-9]+/', '', $user->phone_number), -10) : '') }}"
+                    placeholder="10 digits" maxlength="10" pattern="[0-9]{10}"
+                    class="input-field pl-14"
+                    oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)">
+            </div>
+            <x-input-error class="mt-2" :messages="$errors->get('phone_number')" />
+        </div>
+
         <div class="grid gap-4 sm:grid-cols-2">
             <div>
                 <label for="province_id" class="field-label">Province</label>
@@ -68,10 +81,10 @@
             <div>
                 <label for="city_id" class="field-label">City</label>
                 <div class="relative">
-                    <select id="city_id" name="city_id" class="input-field pr-9" :disabled="!provinceId || loadingCities" required>
+                    <select id="city_id" name="city_id" class="input-field pr-9" x-model="selectedCityId" :disabled="!provinceId || loadingCities" required>
                         <option value="" x-text="provinceId ? 'Select City' : 'Select Province first'"></option>
                         <template x-for="city in cities" :key="city.id">
-                            <option :value="city.id" x-text="city.name" :selected="String(selectedCityId) === String(city.id)"></option>
+                            <option :value="String(city.id)" x-text="city.name"></option>
                         </template>
                     </select>
                     <span x-show="loadingCities" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500">Loading...</span>

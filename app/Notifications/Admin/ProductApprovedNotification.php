@@ -4,27 +4,23 @@ namespace App\Notifications\Admin;
 
 use App\Models\Product;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class ProductApprovedNotification extends Notification implements ShouldQueue
+class ProductApprovedNotification extends Notification implements ShouldBroadcastNow
 {
     use Queueable;
 
-    protected $product;
+    public function __construct(protected Product $product) {}
 
-    public function __construct(Product $product)
+    public function via($notifiable): array
     {
-        $this->product = $product;
+        return ['mail', 'database', 'broadcast'];
     }
 
-    public function via($notifiable)
-    {
-        return ['mail', 'database'];
-    }
-
-    public function toMail($notifiable)
+    public function toMail($notifiable): MailMessage
     {
         return (new MailMessage)
             ->greeting('Hello ' . $notifiable->name . '!')
@@ -34,13 +30,25 @@ class ProductApprovedNotification extends Notification implements ShouldQueue
             ->line('Thank you for using our platform!');
     }
 
-    public function toArray($notifiable)
+    public function toArray($notifiable): array
     {
         return [
-            'product_id' => $this->product->id,
-            'product_title' => $this->product->title,
+            'type'            => 'productApproved',
+            'product_id'      => $this->product->id,
+            'product_title'   => $this->product->title,
             'approval_status' => 'APPROVED',
-            'message' => 'Your product listing has been approved.',
+            'message'         => "Your listing \"{$this->product->title}\" has been approved and is now live.",
+            'redirect_url'    => route('products.show', $this->product->id),
         ];
+    }
+
+    public function toBroadcast($notifiable): BroadcastMessage
+    {
+        return new BroadcastMessage($this->toArray($notifiable));
+    }
+
+    public function broadcastAs(): string
+    {
+        return 'product.approved';
     }
 }

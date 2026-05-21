@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Rental;
 use App\Models\RentedRentals;
 use App\Models\User\Wishlist;
+use App\Models\User\CartItem;
 use App\Models\User\RecentlyViewed;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
@@ -243,6 +244,10 @@ class ProductController extends Controller
             ? Wishlist::where('user_id', Auth::id())->pluck('product_id')->toArray()
             : [];
 
+        $cartProductIds = Auth::check()
+            ? CartItem::where('user_id', Auth::id())->pluck('product_id')->toArray()
+            : [];
+
         $recentlyViewed = collect();
         if (Auth::check()) {
             $recentlyViewed = RecentlyViewed::where('user_id', Auth::id())
@@ -259,6 +264,7 @@ class ProductController extends Controller
         return view('products.index', compact(
             'products',
             'wishlistedIds',
+            'cartProductIds',
             'recentlyViewed',
             'search',
             'parentCategoryId',
@@ -287,46 +293,6 @@ class ProductController extends Controller
     {
         $user = Auth::user();
 
-        $tempImages = $this->normalizeTempImages($request->input('temp_images', []));
-        $removeTempImages = $this->normalizeTempImages($request->input('remove_temp_images', []));
-
-        if (!empty($removeTempImages)) {
-            $this->deleteTemporaryImages($removeTempImages);
-            $tempImages = array_values(array_diff($tempImages, $removeTempImages));
-        }
-
-        if ($this->hasImageUploadError($request)) {
-            return back()
-                ->withInput()
-                ->with('temp_product_images', $tempImages)
-                ->withErrors(['images' => 'One or more images failed to upload. Make sure each image is 4 MB or smaller.']);
-        }
-
-        if ($request->hasFile('images')) {
-            $newImageValidator = Validator::make(
-                ['images' => $request->file('images')],
-                $this->uploadedImageRules(),
-                $this->uploadedImageMessages()
-            );
-
-            if ($newImageValidator->fails()) {
-                return back()
-                    ->withInput($request->except('images'))
-                    ->with('temp_product_images', $tempImages)
-                    ->withErrors($newImageValidator)
-                    ->withErrors(['images' => 'One or more images failed to upload. Make sure each image is 4 MB or smaller.']);
-            }
-
-            $tempImages = $this->storeUploadedImagesTemporarily($request->file('images'), $tempImages);
-        }
-
-        if (count($tempImages) > 6) {
-            return back()
-                ->withInput($request->except('images'))
-                ->with('temp_product_images', $tempImages)
-                ->withErrors(['images' => 'You can upload up to 6 images only.']);
-        }
-
         // Check if email is verified
         if (!$user->email_verified_at) {
             return redirect()->route('verification.notice')
@@ -347,7 +313,7 @@ class ProductController extends Controller
         }
 
         $validator = Validator::make(
-            array_merge($request->all(), ['images' => $tempImages]),
+            $request->all(),
             $this->productValidationRules(),
             $this->productValidationMessages(),
             $this->productValidationAttributes()
@@ -356,7 +322,6 @@ class ProductController extends Controller
         if ($validator->fails()) {
             return back()
                 ->withInput($request->except('images'))
-                ->with('temp_product_images', $tempImages)
                 ->withErrors($validator);
         }
 
@@ -379,8 +344,8 @@ class ProductController extends Controller
             }
         }
 
-        // Promote temporary images to final product images
-        $imagePaths = $this->promoteTemporaryImages($tempImages);
+        // Upload images directly to final location
+        $imagePaths = $this->uploadProductImages($request->file('images') ?? []);
         $coverImage = $imagePaths[0] ?? null;
 
         // Determine approval_status based on profile_status
@@ -417,8 +382,6 @@ class ProductController extends Controller
             ]);
         }
 
-        $request->session()->forget('temp_product_images');
-
         return redirect()->route('dashboard')->with('success', 'Listing added successfully!');
     }
 
@@ -428,6 +391,7 @@ class ProductController extends Controller
   public function edit($id)
 {
     $product = Product::where('user_id', Auth::id())->with('rentals')->findOrFail($id);
+    $this->authorize('modify', $product);
     $action = route('products.update', $product->id); // form submission URL
     $method = 'PUT';                                 // HTTP method
 
@@ -438,39 +402,7 @@ class ProductController extends Controller
 public function update(Request $request, $id)
 {
     $product = Product::where('user_id', Auth::id())->findOrFail($id);
-
-    $tempImages = $this->normalizeTempImages($request->input('temp_images', []));
-    $removeTempImages = $this->normalizeTempImages($request->input('remove_temp_images', []));
-
-    if (!empty($removeTempImages)) {
-        $this->deleteTemporaryImages($removeTempImages);
-        $tempImages = array_values(array_diff($tempImages, $removeTempImages));
-    }
-
-    if ($this->hasImageUploadError($request)) {
-        return back()
-            ->withInput()
-            ->with('temp_product_images', $tempImages)
-            ->withErrors(['images' => 'One or more images failed to upload. Make sure each image is 4 MB or smaller.']);
-    }
-
-    if ($request->hasFile('images')) {
-        $newImageValidator = Validator::make(
-            ['images' => $request->file('images')],
-            $this->uploadedImageRules(),
-            $this->uploadedImageMessages()
-        );
-
-        if ($newImageValidator->fails()) {
-            return back()
-                ->withInput($request->except('images'))
-                ->with('temp_product_images', $tempImages)
-                ->withErrors($newImageValidator)
-                ->withErrors(['images' => 'One or more images failed to upload. Make sure each image is 4 MB or smaller.']);
-        }
-
-        $tempImages = $this->storeUploadedImagesTemporarily($request->file('images'), $tempImages);
-    }
+    $this->authorize('modify', $product);
 
     $selectedTypes = (array) $request->input('listing_type', []);
     if (!in_array('rent', $selectedTypes, true)) {
@@ -486,7 +418,7 @@ public function update(Request $request, $id)
     }
 
     $validator = Validator::make(
-        array_merge($request->all(), ['images' => $tempImages]),
+        $request->all(),
         $this->productValidationRules(true),
         $this->productValidationMessages(),
         $this->productValidationAttributes()
@@ -495,7 +427,6 @@ public function update(Request $request, $id)
     if ($validator->fails()) {
         return back()
             ->withInput($request->except('images'))
-            ->with('temp_product_images', $tempImages)
             ->withErrors($validator);
     }
 
@@ -509,16 +440,15 @@ public function update(Request $request, $id)
         $existingImages = array_values(array_filter($existingImages, fn($p) => $p !== $removePath));
     }
 
-    // Promote temporary images and merge with existing
-    $promotedTempImages = $this->promoteTemporaryImages($tempImages);
-    if (!empty($promotedTempImages)) {
-        $existingImages = array_merge($existingImages, $promotedTempImages);
+    // Upload new images directly and merge with existing
+    $uploadedImages = $this->uploadProductImages($request->file('images') ?? []);
+    if (!empty($uploadedImages)) {
+        $existingImages = array_merge($existingImages, $uploadedImages);
     }
 
     if (count($existingImages) > 6) {
         return back()
             ->withInput($request->except('images'))
-            ->with('temp_product_images', $tempImages)
             ->withErrors(['images' => 'You can upload up to 6 images only.']);
     }
 
@@ -557,83 +487,35 @@ public function update(Request $request, $id)
         Rental::where('product_id', $product->id)->delete();
     }
 
-    $request->session()->forget('temp_product_images');
-
     return redirect()->route('products.myListings')->with('success', 'Listing updated successfully!');
 }
 
-    private function normalizeTempImages($paths): array
-    {
-        if (!is_array($paths)) {
-            return [];
-        }
-
-        $normalized = array_filter(array_map(function ($path) {
-            if (!is_string($path)) {
-                return null;
-            }
-
-            $clean = trim($path);
-            if ($clean === '' || !str_starts_with($clean, 'uploads/tmp-products/')) {
-                return null;
-            }
-
-            return $clean;
-        }, $paths));
-
-        return array_values(array_unique($normalized));
-    }
-
-    private function storeUploadedImagesTemporarily(array $files, array $existingTempImages = []): array
-    {
-        $tempImages = $existingTempImages;
-
-        foreach ($files as $file) {
-            if (count($tempImages) >= 6) {
-                break;
-            }
-
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $tempImages[] = $file->storeAs('uploads/tmp-products', $filename, 'public');
-        }
-
-        return array_values(array_unique($tempImages));
-    }
-
-    private function promoteTemporaryImages(array $tempImages): array
+    private function uploadProductImages(array $files): array
     {
         $finalImages = [];
         $disk = config('filesystems.default');
-        foreach ($tempImages as $tempPath) {
-            if (!str_starts_with($tempPath, 'uploads/tmp-products/')) {
-                continue;
+
+        foreach ($files as $file) {
+            if (count($finalImages) >= 6) {
+                break;
             }
-            if (!Storage::disk('public')->exists($tempPath)) {
-                continue;
-            }
-            $extension = pathinfo($tempPath, PATHINFO_EXTENSION);
-            $finalPath = 'uploads/products/' . time() . '_' . uniqid() . ($extension ? '.' . $extension : '');
-            $fileContents = Storage::disk('public')->get($tempPath);
+
+            $extension = $file->getClientOriginalExtension();
+            $filename = time() . '_' . uniqid() . '.' . $extension;
+            $finalPath = 'uploads/products/' . $filename;
+
             if ($disk === 'cloudinary') {
-                // Upload to Cloudinary disk
-                $cloudinaryPath = Storage::disk('cloudinary')->put($finalPath, $fileContents);
+                // Upload directly to Cloudinary
+                $cloudinaryPath = Storage::disk('cloudinary')->put($finalPath, file_get_contents($file));
                 $finalImages[] = $cloudinaryPath;
-                Storage::disk('public')->delete($tempPath);
             } else {
-                Storage::disk('public')->move($tempPath, $finalPath);
+                // Upload to public disk
+                $file->storeAs('uploads/products', $filename, 'public');
                 $finalImages[] = $finalPath;
             }
         }
-        return $finalImages;
-    }
 
-    private function deleteTemporaryImages(array $tempImages): void
-    {
-        foreach ($tempImages as $tempPath) {
-            if (str_starts_with($tempPath, 'uploads/tmp-products/')) {
-                Storage::disk('public')->delete($tempPath);
-            }
-        }
+        return $finalImages;
     }
 
 
@@ -709,6 +591,7 @@ public function update(Request $request, $id)
         ]);
 
         $product = Product::where('user_id', Auth::id())->findOrFail($id);
+        $this->authorize('modify', $product);
 
         // If attempting to mark sold but still has units, block it
         if ($request->status === 'sold' && $product->quantity > 0) {
@@ -732,6 +615,7 @@ public function update(Request $request, $id)
     public function destroy($id, ProductDeletionGuardService $deletionGuard)
     {
         $product = Product::where('user_id', Auth::id())->findOrFail($id);
+        $this->authorize('modify', $product);
 
         $blockerMessage = $deletionGuard->blockerMessage($product);
         if ($blockerMessage !== '') {

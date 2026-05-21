@@ -39,6 +39,10 @@ class WalletPayoutController extends Controller
 
     public function reject(Request $request, PayoutRequest $payoutRequest, WalletLedgerService $walletService)
     {
+        if ($payoutRequest->status !== 'pending') {
+            return back()->with('error', 'Only pending payout requests can be rejected.');
+        }
+
         $validated = $request->validate([
             'rejection_reason' => 'required|string|max:2000',
         ]);

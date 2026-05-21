@@ -34,6 +34,28 @@
 
     <script src="{{ asset('vendor/flasher/flasher.min.js') }}"></script>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!window.flasher || typeof window.flasher.renderOptions !== 'function') {
+                return;
+            }
+
+            window.flasher.renderOptions({
+                flasher: {
+                    timeout: 1500,
+                    timeouts: {
+                        success: 1500,
+                        info: 1500,
+                        warning: 1500,
+                        error: 1500,
+                    },
+                    position: 'top-right',
+                    direction: 'top',
+                },
+            });
+        });
+    </script>
+
     @php
         $flashToasts = [
             'success' => session('success'),

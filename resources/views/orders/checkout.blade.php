@@ -139,6 +139,8 @@
                 @enderror
             </div>
 
+            @include('partials.checkout_warning')
+
             <button type="submit" class="w-full bg-gradient-to-br from-[#006a38] to-[#09864a] text-white py-3 font-space font-bold text-sm uppercase tracking-wider hover:brightness-110 active:brightness-95 transition-all">Proceed to Payment</button>
         </form>
 

@@ -62,6 +62,11 @@ class User extends Authenticatable implements MustVerifyEmail
             'eco_level' => 'string',
         ];
     }
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new \App\Notifications\VerifyEmailNotification());
+    }
+
     public function cartItems()
     {
         return $this->hasMany(CartItem::class, 'user_id');

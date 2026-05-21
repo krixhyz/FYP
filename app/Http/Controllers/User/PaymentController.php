@@ -367,6 +367,13 @@ class PaymentController extends Controller
         $order->fill($buyerDetails);
         $order->save();
 
+        // Abandon any stale pending payment for this order so the user can switch gateways freely
+        if ($order->payment_id) {
+            Payment::where('id', $order->payment_id)
+                ->whereIn('status', ['pending', 'failed'])
+                ->update(['status' => 'abandoned']);
+        }
+
         $payment = $this->createPaymentForOrders([$order], 'order', $provider, $buyerDetails);
 
         return $this->initiatePayment($payment, $provider, $esewaService, $khaltiService, 'Order Payment');
@@ -375,16 +382,7 @@ class PaymentController extends Controller
     public function createCartPayment(Request $request, EsewaService $esewaService, KhaltiService $khaltiService, InventoryReservationService $inventory)
     {
         $validated = $this->validateCheckoutBuyerDetails($request);
-
-        // Log for debugging
-        \Log::info('createCartPayment - Validated buyer details', [
-            'buyer_name' => $validated['buyer_name'],
-            'buyer_phone' => $validated['buyer_phone'] ?? null,
-            'buyer_email' => $validated['buyer_email'],
-            'buyer_address' => substr($validated['buyer_address'] ?? '', 0, 100),
-        ]);
-
-        $provider = $this->resolveProvider($request);
+        $provider  = $this->resolveProvider($request);
 
         $cartItems = Auth::user()->cartItems()->with('product')->get();
 
@@ -392,14 +390,19 @@ class PaymentController extends Controller
             return redirect()->route('cart.checkout')->with('error', 'Cart is empty.');
         }
 
+        // Reservation window matches the standard buy-flow window
+        $reservedUntil = now()->addMinutes(max((int) config('esewa.reservation_minutes', 30), 15));
+
         try {
-            $items = DB::transaction(function () use ($cartItems, $inventory) {
-                $items = [];
+            // Create a pending Order for every cart item inside a single transaction.
+            // This acts as a soft reservation: ensurePurchasableQuantity counts pending
+            // Orders against available stock, so a concurrent buyer hitting the same
+            // single-stock product will be blocked here — before any money is taken.
+            $orders = DB::transaction(function () use ($cartItems, $inventory, $validated, $reservedUntil) {
+                $created = [];
                 $now = now();
 
-                $cartItems = $cartItems->sortBy('product_id')->values();
-
-                foreach ($cartItems as $item) {
+                foreach ($cartItems->sortBy('product_id')->values() as $item) {
                     $product = Product::where('id', $item->product_id)->lockForUpdate()->first();
 
                     if (!$product || $product->quantity < 1) {
@@ -412,34 +415,49 @@ class PaymentController extends Controller
                         throw new \RuntimeException(($product->title ?? 'Product') . ': ' . $e->getMessage());
                     }
 
-                    $unitPrice = (float) ($product->price ?? 0);
-                    $items[] = [
-                        'product_id' => $product->id,
-                        'quantity' => (int) $item->quantity,
-                        'unit_price' => $unitPrice,
-                        'total_price' => $unitPrice * (int) $item->quantity,
-                    ];
+                    $unitPrice  = (float) ($product->price ?? 0);
+                    $qty        = (int) $item->quantity;
+                    $subtotal   = $unitPrice * $qty;
+                    $serviceFee = round($subtotal * 0.03, 2);
+
+                    $created[] = Order::create([
+                        'buyer_id'         => Auth::id(),
+                        'seller_id'        => $product->user_id,
+                        'product_id'       => $product->id,
+                        'transaction_type' => 'buy',
+                        'quantity'         => $qty,
+                        'unit_price'       => $unitPrice,
+                        'total_price'      => $subtotal,
+                        'subtotal'         => $subtotal,
+                        'service_fee'      => $serviceFee,
+                        'total_amount'     => $subtotal + $serviceFee,
+                        'status'           => 'pending',
+                        'payment_status'   => 'pending',
+                        'reserved_until'   => $reservedUntil,
+                        'buyer_name'       => $validated['buyer_name'],
+                        'buyer_phone'      => $validated['buyer_phone'] ?? null,
+                        'buyer_email'      => $validated['buyer_email'],
+                        'buyer_address'    => $validated['buyer_address'] ?? null,
+                    ]);
                 }
 
-                return $items;
+                return $created;
             });
         } catch (\RuntimeException $e) {
             return redirect()->route('cart.checkout')->with('error', $e->getMessage());
         }
 
-        $payment = $this->createPaymentForOrderItems($items, 'cart', $provider);
-
-        // Add buyer details to payment payload
         $buyerDetails = [
-            'buyer_name' => $validated['buyer_name'],
-            'buyer_phone' => $validated['buyer_phone'] ?? null,
-            'buyer_email' => $validated['buyer_email'],
+            'buyer_name'    => $validated['buyer_name'],
+            'buyer_phone'   => $validated['buyer_phone'] ?? null,
+            'buyer_email'   => $validated['buyer_email'],
             'buyer_address' => $validated['buyer_address'] ?? null,
         ];
-        $payload = $payment->request_payload ?? [];
-        $payload['buyer_details'] = $buyerDetails;
-        $payment->request_payload = $payload;
-        $payment->save();
+
+        // Links all pending Orders to the Payment via order.payment_id.
+        // On gateway success, completePaymentBySource picks them up as legacyOrders.
+        // On gateway failure, failPaymentBySource cancels them and releases the reservation.
+        $payment = $this->createPaymentForOrders($orders, 'cart', $provider, $buyerDetails);
 
         return $this->initiatePayment($payment, $provider, $esewaService, $khaltiService, 'Cart Checkout');
     }
@@ -467,6 +485,10 @@ class PaymentController extends Controller
 
         if ($payment->status === 'complete') {
             return $this->alreadyProcessedRedirect($payment);
+        }
+
+        if ($payment->status === 'abandoned') {
+            return redirect()->route('products.index')->with('info', 'This payment attempt was abandoned. Your new payment attempt will be processed separately.');
         }
 
         $secretKey = config('esewa.secret_key');
@@ -533,6 +555,10 @@ class PaymentController extends Controller
 
         if ($payment->status === 'complete') {
             return $this->alreadyProcessedRedirect($payment);
+        }
+
+        if ($payment->status === 'abandoned') {
+            return redirect()->route('products.index')->with('info', 'This payment attempt was abandoned. Your new payment attempt will be processed separately.');
         }
 
         $callbackPayload = $request->all();
@@ -605,8 +631,12 @@ class PaymentController extends Controller
         }
 
         $existingPayment = $this->findExistingSourcePayment('rental', 'rental_request_id', $rentalRequest->id);
-        if ($existingPayment && in_array($existingPayment->status, ['pending', 'complete'], true)) {
-            return redirect()->route('products.index')->with('info', 'A payment already exists for this rental request.');
+        if ($existingPayment) {
+            if ($existingPayment->status === 'complete') {
+                return redirect()->route('products.index')->with('info', 'This rental has already been paid.');
+            }
+            // Abandon stale pending/failed attempt so the user can retry with a different gateway
+            $existingPayment->update(['status' => 'abandoned']);
         }
 
         $validated = $this->validateCheckoutBuyerDetails($request);
@@ -680,8 +710,12 @@ class PaymentController extends Controller
         }
 
         $existingPayment = $this->findExistingSourcePayment('swap', 'swap_request_id', $swapRequest->id);
-        if ($existingPayment && in_array($existingPayment->status, ['pending', 'complete'], true)) {
-            return redirect()->route('dashboard')->with('info', 'A payment already exists for this swap request.');
+        if ($existingPayment) {
+            if ($existingPayment->status === 'complete') {
+                return redirect()->route('dashboard')->with('info', 'This swap has already been paid.');
+            }
+            // Abandon stale pending/failed attempt so the user can retry with a different gateway
+            $existingPayment->update(['status' => 'abandoned']);
         }
 
         $validated = $this->validateCheckoutBuyerDetails($request);
@@ -1274,6 +1308,14 @@ class PaymentController extends Controller
                     $order->save();
 
                     $sellerId = (int) ($order->seller_id ?: ($product?->user_id ?? 0));
+
+                    // Notify seller — same as the orderItems path above
+                    $seller = $product?->owner ?? $product?->user;
+                    if ($seller) {
+                        $seller->notify(new \App\Notifications\User\OrderNotification($order));
+                        Mail::to($seller->email)->send(new \App\Mail\OrderCreated($order));
+                    }
+
                     if ($sellerId > 0) {
                         $walletLedgerService->creditSaleIfMissing(
                             $sellerId,
@@ -1309,7 +1351,12 @@ class PaymentController extends Controller
             );
 
             if ($source === 'cart') {
-                $productIds = collect($orderItems)->pluck('product_id')->filter()->all();
+                // New cart flow uses legacyOrders (Orders created upfront as reservations).
+                // Old cart flow stored order_items in payload. Handle both.
+                $productIds = !empty($orderItems)
+                    ? collect($orderItems)->pluck('product_id')->filter()->all()
+                    : $legacyOrders->pluck('product_id')->filter()->all();
+
                 if (!empty($productIds)) {
                     CartItem::where('user_id', $payment->user_id)
                         ->whereIn('product_id', $productIds)
@@ -1367,7 +1414,7 @@ class PaymentController extends Controller
     private function findExistingSourcePayment(string $source, string $key, int $value): ?Payment
     {
         return Payment::query()
-            ->whereIn('status', ['pending', 'complete'])
+            ->whereIn('status', ['pending', 'complete', 'failed', 'abandoned'])
             ->where('request_payload->source', $source)
             ->where('request_payload->' . $key, $value)
             ->latest('id')
