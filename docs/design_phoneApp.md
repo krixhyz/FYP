@@ -659,4 +659,554 @@ Marketplace product grid paginates — "load more" trigger at bottom of list (au
 
 ---
 
+## 11. Role System Overview
+
+RELOOP has three user roles, each with a distinct app experience:
+
+| Role | Badge Colour | App Experience |
+|---|---|---|
+| **User** | — | Full marketplace access (Sections 4.1–4.12) |
+| **Admin** | `ADMIN` (dark green pill) | Separate admin panel app / admin mode |
+| **Super Admin** | `SUPER ADMIN` (deep purple pill) | Full admin panel + exclusive super-admin screens |
+
+> [!IMPORTANT]
+> The Admin and Super Admin experiences are designed as a **dedicated Admin App** (separate from the consumer marketplace app), or as a **role-gated Admin Mode** accessible after login when the user's role is detected. Regular users never see admin navigation.
+
+---
+
+## 12. Admin Panel — Mobile App Design
+
+The Admin Panel is a standalone mobile view (or gated mode) with a **dark sidebar drawer** navigation pattern, replacing the consumer app's bottom tab bar.
+
+### 12.1 Admin Navigation Pattern
+
+Instead of a bottom tab bar, admin roles use a **slide-in left drawer** accessed via a hamburger icon (top-left) on all admin screens.
+
+**Admin Drawer Header:**
+```
+┌────────────────────────────────────┐
+│  [Avatar]  Prabesh GRG             │
+│            grgprabesh88@gmail.com  │
+│            [ADMIN] badge           │
+└────────────────────────────────────┘
+```
+
+**Drawer design:**
+- Background: `#111827` (dark charcoal)
+- Text: white / `#D1D5DB`
+- Active item: left green accent bar + `#1A6B3C` tint background
+- Section headers in uppercase caption (`#6B7280`)
+
+---
+
+### 12.2 Admin Role — Navigation & Screens
+
+**Drawer Sections:**
+
+```
+── MAIN ────────────────────────────
+  🏠  Overview (Dashboard)
+  👥  User Management
+  🏷️  Categories
+  🛡️  Content Moderation
+
+── OPERATIONS ──────────────────────
+  💳  Transactions
+  💰  Wallet Payouts
+  ⚖️  Disputes
+  📊  Reports
+
+── OTHER ───────────────────────────
+  ⚙️  Profile Settings
+  🚪  Logout
+```
+
+---
+
+### 12.3 Screen: Admin Dashboard (Overview)
+
+**Purpose:** Operational queue workload view — shows pending tasks requiring admin action.
+
+**Header bar:**
+- Hamburger menu (top-left)
+- Title: "Admin Dashboard"
+- Bell icon (top-right, notification count)
+- `[ADMIN]` role badge visible next to username in top bar
+
+**Body — Scrollable:**
+
+**Block A — Queue Stats Row (horizontal scroll, 4 cards):**
+```
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ ⏳ N         │ │ 🚩 N         │ │ ⚖️ N          │ │ 📋 N         │
+│ Pending      │ │ Flagged      │ │ Active       │ │ Reports      │
+│ Verifications│ │ Listings     │ │ Disputes     │ │ to Review    │
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+```
+- Cards use amber/warning tones when counts are > 0 to signal urgency
+- Tap card → navigates directly to that section
+
+**Block B — Queue Breakdown Chart:**
+- Horizontal bar chart showing workload split across categories
+- Labels: "Verifications", "Moderation", "Disputes", "Reports"
+- Bar colour: green filled proportion vs grey total
+
+**Block C — Pending Verifications List (inline preview, up to 3):**
+- Each row: avatar + username + email + location + "Verify" (green) / "Suspend" (red) buttons
+- "View All →" link at bottom → navigates to User Management with verification filter
+
+**Block D — Priority Disputes Widget:**
+- Up to 2 active dispute rows
+- Each row: dispute ID + short description + "Open" chip + "View →" link
+- "View All Disputes →" link at bottom
+
+---
+
+### 12.4 Screen: Admin User Management
+
+**Header:** "User Management" title + search bar
+
+**Access restriction banner** (shown only for Admin role):
+```
+┌─────────────────────────────────────────────────┐
+│ ℹ️  Limited Access                              │
+│  You can manage regular users only.             │
+│  Cannot manage Admins or Super Admins.          │
+│  Cannot access sensitive payment details.       │
+└─────────────────────────────────────────────────┘
+```
+- Banner: light amber bg, left amber border, info icon
+
+**Filter chips (horizontal scroll):**
+```
+[ All ] [ Active ] [ Suspended ] [ Banned ] [ Pending Verification ]
+```
+
+**User list (card per user):**
+```
+┌─────────────────────────────────────────────┐
+│ [Avatar]  John Doe                          │
+│           john@example.com                  │
+│           Active • Joined 3 months ago      │
+│           [USER] badge                      │
+│  [View]  [Suspend]  [Delete]  [Reset Pass]  │
+└─────────────────────────────────────────────┘
+```
+- Role badge: static `[USER]` — cannot be changed by Admin
+- Actions: View (→ user detail), Suspend, Delete, Reset Password
+- Status change: tap status chip → shows options (Active / Suspended / Banned) in bottom sheet
+
+**Create User button (FAB, bottom-right):**
+- Opens bottom sheet form:
+  - Name, Email, Password fields
+  - Role: locked to `User` only (Admin cannot create Admins)
+  - "Create Account" CTA
+
+---
+
+### 12.5 Screen: Admin User Detail
+
+**Header:** Back arrow + "User Profile"
+
+**Top card:**
+- Large avatar (80dp) + name + email + location
+- Status badge + role badge
+- Member since date
+- Verified seller badge (if applicable)
+
+**Stats row:** Active Listings | Completed Deals | Total Orders | Eco Score
+
+**Action buttons row:**
+```
+[Verify Seller]  [Suspend]  [Ban]  [Reset Password]  [Delete Account]
+```
+- Each action shows a confirmation bottom sheet before executing
+- "Verify Seller" only shown if user is unverified and has submitted a request
+
+**Listing section:** scrollable grid of user's active listings
+
+---
+
+### 12.6 Screen: Admin Categories
+
+**Header:** "Categories" + "New Category" button (top-right, green)
+
+**Category tree list:**
+Each parent category row (expandable):
+```
+┌────────────────────────────────────────┐
+│ ▶  Electronics            [Edit] [Del] │
+│    └─ Smartphones          [Edit] [Del] │
+│    └─ Drones               [Edit] [Del] │
+│    └─ Controllers          [Edit] [Del] │
+└────────────────────────────────────────┘
+```
+- Tap `▶` to expand/collapse subcategories
+- "Edit" → inline edit mode (name field appears in-place)
+- "Del" → confirmation bottom sheet → delete
+- "Add Subcategory" link under each parent
+
+**New Category bottom sheet:**
+- Name input
+- Parent category picker (optional — if none, creates parent category)
+- "Save" primary CTA
+
+---
+
+### 12.7 Screen: Admin Content Moderation
+
+**Header:** "Content Moderation"
+
+**Filter tabs:**
+```
+[ Pending ] [ Flagged ] [ Approved ] [ Rejected ]
+```
+
+**Listing moderation card:**
+```
+┌─────────────────────────────────────────────┐
+│ [Img]  DJI Drone Pro                        │
+│        by sachet silwal                     │
+│        Category: Cameras • Rs. 45,000       │
+│        [PENDING] • Submitted 2 days ago     │
+│  [View Listing]  [Approve]  [Reject]        │
+└─────────────────────────────────────────────┘
+```
+- "View Listing" → pushes full product detail screen (read-only admin view)
+- "Approve" → green confirmation toast
+- "Reject" → bottom sheet asking for rejection reason (free text) → "Confirm Rejection"
+
+---
+
+### 12.8 Screen: Admin Transactions
+
+**Header:** "Transactions"
+
+> [!NOTE]
+> For the Admin role, **financial summary cards are hidden**. Only the transaction log table is visible to protect sensitive data.
+
+**Filter row:** Date range picker | Type dropdown (All / Buy / Rent / Swap) | Status dropdown
+
+**Transaction list:**
+```
+┌───────────────────────────────────────────────────┐
+│ TXN-0042  •  Buy                                  │
+│ Drone ← sachet silwal → krish                     │
+│ Rs. 14,000  •  COMPLETED  •  May 21, 2026         │
+│                                       [View →]    │
+└───────────────────────────────────────────────────┘
+```
+
+---
+
+### 12.9 Screen: Admin Wallet Payouts
+
+**Header:** "Wallet Payouts"
+
+**Filter tabs:**
+```
+[ Pending ] [ Approved ] [ Rejected ] [ All ]
+```
+
+**Payout request card:**
+```
+┌────────────────────────────────────────────────┐
+│ [Avatar]  krish                                │
+│           Rs. 2,000.00 requested               │
+│           Note: "Monthly withdrawal"           │
+│           Requested 2 days ago • PENDING       │
+│  [Approve Payout]        [Reject]              │
+└────────────────────────────────────────────────┘
+```
+- "Approve Payout" → green confirmation bottom sheet → updates status
+- "Reject" → bottom sheet with reason field
+
+---
+
+### 12.10 Screen: Admin Disputes (User Reports)
+
+**Header:** "User Reports & Disputes"
+
+**Stats row:** Open | In Review | Resolved
+
+**Filter tabs:**
+```
+[ Open ] [ In Review ] [ Resolved ]
+```
+
+**Dispute card:**
+```
+┌────────────────────────────────────────────────┐
+│ RPT-0017  •  Order Dispute                     │
+│ Reporter: krish  •  Against: sachet silwal     │
+│ "Item not as described — drone missing parts"  │
+│ Submitted May 20, 2026  •  [OPEN]              │
+│  [Mark In Review]  [Resolve]  [Dismiss]        │
+└────────────────────────────────────────────────┘
+```
+- "Mark In Review" changes status, notifies both parties
+- "Resolve" → bottom sheet with resolution note + "Close Dispute" CTA
+- "Dismiss" → confirmation bottom sheet
+
+---
+
+### 12.11 Screen: Admin Reports Overview
+
+**Header:** "Reports Overview"
+
+**Metric cards row:**
+```
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│ Open        │ │ In Review   │ │ Resolved    │
+│   N         │ │   N         │ │   N         │
+└─────────────┘ └─────────────┘ └─────────────┘
+```
+
+**Report list:** Chronological list of dispute/report activity with filters by date and status. Each row links to the individual dispute detail.
+
+---
+
+## 13. Super Admin Panel — Mobile App Design
+
+The Super Admin has all Admin capabilities **plus** exclusive screens for platform-wide analytics, financial overview, and system configuration.
+
+### 13.1 Super Admin Navigation
+
+Same drawer pattern as Admin, but with additional items and **no access restriction banner**.
+
+**Drawer Sections:**
+
+```
+── MAIN ────────────────────────────
+  🏠  Overview (Dashboard)
+  👥  User Management  ← FULL access (incl. Admins)
+  🏷️  Categories
+  🛡️  Content Moderation
+
+── OPERATIONS ──────────────────────
+  💳  Transactions  ← WITH financial summary
+  💰  Wallet Payouts
+  📈  Analytics     ← EXCLUSIVE to Super Admin
+  ⚙️  System Config  ← EXCLUSIVE to Super Admin
+
+── OTHER ───────────────────────────
+  👤  Profile Settings
+  🚪  Logout
+```
+
+> [!WARNING]
+> Direct navigation to `/admin/analytics` or `/admin/system-config` by an Admin role returns a **403 Access Denied** screen — enforce this on mobile too.
+
+---
+
+### 13.2 Screen: Super Admin Dashboard (Overview)
+
+**Purpose:** High-level platform performance view — analytics-focused, not queue-focused.
+
+**Header bar:**
+- Hamburger menu (top-left)
+- Title: "Platform Overview"
+- `[SUPER ADMIN]` badge in deep purple
+
+**Block A — KPI Cards Row (horizontal scroll, 4 cards):**
+```
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ 👥 Total     │ │ 🏷 Total     │ │ 💰 Monthly   │ │ ⚖️ Open      │
+│   Users      │ │   Listings   │ │   Revenue    │ │   Disputes   │
+│   N          │ │   N          │ │   Rs. X      │ │   N          │
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+```
+- Revenue card uses gold/amber accent to stand out
+- Disputes card turns red if count > 0
+
+**Block B — Platform Revenue Trend Chart:**
+- Line chart: last 6 months of revenue
+- X-axis: month labels; Y-axis: Rs. amounts
+- Interactive: tap a point to see exact value tooltip
+
+**Block C — Transaction Mix Chart:**
+- Pie / Donut chart with 3 segments:
+  - Purchase (green)
+  - Rental (blue)
+  - Swap (purple)
+- Legend below with percentages
+
+**Block D — User Growth Chart:**
+- Bar chart: new user registrations per month (last 6 months)
+- Green bars
+
+**Block E — Pending Moderation & Recent Disputes Widgets:**
+- Quick-glance cards (same as Admin overview but not the primary focus)
+
+---
+
+### 13.3 Screen: Super Admin User Management
+
+**Same as Admin User Management PLUS:**
+
+**No access restriction banner** — full directory visible including Admin and Super Admin accounts.
+
+**User card differences:**
+```
+┌─────────────────────────────────────────────────┐
+│ [Avatar]  Prabesh GRG                           │
+│           grgprabesh88@gmail.com                │
+│           Active • Joined 1 year ago            │
+│           [ADMIN] ← editable dropdown           │
+│  [View]  [Change Role ▾]  [Suspend]  [Delete]   │
+└─────────────────────────────────────────────────┘
+```
+
+**"Change Role" dropdown (bottom sheet):**
+```
+○  User
+○  Admin
+●  Super Admin    ← current selection
+```
+
+**Create User / Admin form (expanded at top of page):**
+- Name, Email, Password inputs
+- Role selector: `User` | `Admin` | `Super Admin` ← all three options available
+- "Create Account" primary CTA
+
+---
+
+### 13.4 Screen: Super Admin Transactions
+
+**Same as Admin Transactions PLUS financial summary cards at top:**
+
+**Financial KPI Row:**
+```
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ 💳 Payments     │ │ ✅ Successful   │ │ 🛒 Completed    │
+│    Total        │ │    Revenue      │ │    Buy Orders   │
+│   Rs. X         │ │   Rs. X         │ │   N             │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+```
+These cards are hidden for the Admin role; only visible to Super Admin.
+
+---
+
+### 13.5 Screen: Super Admin Analytics (EXCLUSIVE)
+
+**Header:** "Platform Analytics" + "Export CSV" button (top-right)
+
+**Date range selector:**
+```
+[ Last 7 Days ] [ Last Month ] [ Last 6 Months ] [ All Time ]
+```
+
+**Charts (vertically stacked, scrollable):**
+
+1. **Revenue Over Time** — multi-line chart (Buy / Rent / Swap revenue as separate lines)
+2. **Transaction Volume** — bar chart (daily/weekly count of transactions)
+3. **User Growth** — area chart (cumulative users over time)
+4. **Top Listed Categories** — horizontal bar chart (Electronics, Cameras, etc.)
+5. **Eco Score Distribution** — histogram (user eco score ranges)
+
+**"Export CSV" button:**
+- Tap → bottom sheet: "Select Export Range" + "Confirm Export"
+- On confirm: downloads CSV report to device
+
+> [!NOTE]
+> This entire screen is **403 Access Denied** for the Admin role.
+
+---
+
+### 13.6 Screen: Super Admin System Config (EXCLUSIVE)
+
+**Header:** "System Configuration"
+
+**Sections (vertically stacked, collapsible accordion cards):**
+
+**Section 1 — Security Policies:**
+- Password strength requirements (toggle: enforce special chars, min length stepper)
+- Session timeout (number input in minutes)
+- Max failed login attempts (number input)
+- "Save Security Settings" CTA (bottom of section)
+
+**Section 2 — Notification Settings:**
+- Email notifications toggle (platform-wide)
+- Push notification toggle
+- Notification frequency selector (Instant / Batched Hourly / Batched Daily)
+
+**Section 3 — Payment Gateways:**
+- Platform fee % (number input with % suffix)
+- Escrow release delay (number input in days)
+- Security deposit policy (toggle: refundable / non-refundable)
+- Minimum payout threshold (Rs. input)
+- "Save Payment Settings" CTA
+
+**Section 4 — Sustainability Guidelines:**
+- Eco Score multipliers per transaction type (Buy / Rent / Swap weights)
+- Eco Score cap limit (max score number)
+- "Save Eco Settings" CTA
+
+> [!NOTE]
+> This entire screen is **403 Access Denied** for the Admin role.
+
+---
+
+## 14. Role Comparison Matrix
+
+| Feature / Screen | User | Admin | Super Admin |
+|---|:---:|:---:|:---:|
+| Marketplace Browse | ✅ | — | — |
+| Create Listing | ✅ | — | — |
+| Buy / Rent / Swap | ✅ | — | — |
+| Wallet & Payouts | ✅ | — | — |
+| Wishlist | ✅ | — | — |
+| Admin Dashboard (Queue View) | — | ✅ | — |
+| Super Admin Dashboard (Analytics View) | — | — | ✅ |
+| User Management (Regular Users only) | — | ✅ | ✅ |
+| User Management (Admins + Super Admins) | — | ❌ | ✅ |
+| Change User Roles | — | ❌ | ✅ |
+| Create Admin Accounts | — | ❌ | ✅ |
+| Categories Management | — | ✅ | ✅ |
+| Content Moderation | — | ✅ | ✅ |
+| Transactions (List only) | — | ✅ | ✅ |
+| Transactions (Financial Summary) | — | ❌ | ✅ |
+| Wallet Payouts (Approve/Reject) | — | ✅ | ✅ |
+| Disputes / Reports | — | ✅ | ✅ |
+| **Analytics Page** | — | ❌ (403) | ✅ |
+| **System Config** | — | ❌ (403) | ✅ |
+
+---
+
+## 15. Updated Screen Summary (All Roles)
+
+| # | Screen | Role | Route |
+|---|---|---|---|
+| 1 | Splash / Onboarding | User | `/splash` |
+| 2 | Login | All | `/login` |
+| 3 | Register | User | `/register` |
+| 4 | Dashboard Overview | User | `/home` |
+| 5 | Marketplace Browse | User | `/marketplace` |
+| 6 | Product Detail | User | `/product/:id` |
+| 7 | Create Listing (3 steps) | User | `/list/*` |
+| 8 | My Orders | User | `/activity/orders` |
+| 9 | Rentals | User | `/activity/rentals` |
+| 10 | Swaps | User | `/activity/swaps` |
+| 11 | Profile & Wallet | User | `/profile` |
+| 12 | Wishlist | User | `/profile/wishlist` |
+| 13 | Notifications | User | `/profile/notifications` |
+| 14 | Profile Settings | User | `/profile/settings` |
+| 15 | Public Seller Profile | User | `/user/:id` |
+| 16 | Admin Dashboard | Admin | `/admin/dashboard` |
+| 17 | Admin User Management | Admin | `/admin/users` |
+| 18 | Admin User Detail | Admin | `/admin/users/:id` |
+| 19 | Admin Categories | Admin | `/admin/categories` |
+| 20 | Admin Content Moderation | Admin | `/admin/moderation` |
+| 21 | Admin Transactions | Admin | `/admin/transactions` |
+| 22 | Admin Wallet Payouts | Admin | `/admin/payouts` |
+| 23 | Admin Disputes | Admin | `/admin/disputes` |
+| 24 | Admin Reports | Admin | `/admin/reports` |
+| 25 | Super Admin Dashboard | Super Admin | `/admin/dashboard` |
+| 26 | Super Admin Full User Mgmt | Super Admin | `/admin/users` |
+| 27 | Super Admin Transactions + Financials | Super Admin | `/admin/transactions` |
+| 28 | **Analytics** | Super Admin only | `/admin/analytics` |
+| 29 | **System Config** | Super Admin only | `/admin/system-config` |
+
+---
+
 *End of RELOOP Mobile App UI Design Plan*
